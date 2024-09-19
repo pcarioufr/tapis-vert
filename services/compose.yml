@@ -1,0 +1,118 @@
+
+
+services:
+
+  nginx:
+    container_name: nginx
+    build: ./nginx/build/.
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+      - 8448:8448
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/reload.sh:/usr/local/bin/reload.sh
+      - ./nginx/static:/static
+      - certbot:/etc/letsencrypt # Certificates
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; reload.sh ; done & sleep 5 & wait $${!}; reload.sh & nginx -g \"daemon off;\"'"
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "nginx", "service": "nginx"}]'
+    environment:
+      - DD_SERVICE="nginx"
+      - DD_ENV
+      - DD_VERSION
+      - DD_AGENT_HOST=datadog
+    networks:
+      docker:
+        ipv4_address: 169.254.255.100
+
+  flask:
+    container_name: flask
+    build: flask/build/.
+    volumes:
+      - ./flask:/flask
+      - ../static:/data/static:ro
+    environment:
+      - DD_SERVICE=flask
+      - DD_ENV
+      - DD_VERSION
+      - DD_CLIENT_TOKEN
+      - DD_APPLICATION_ID
+      - DD_SITE
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_ANALYTICS_ENABLED=true
+      - DD_AGENT_HOST=datadog
+      - DD_TRACE_AGENT_PORT=8126
+      - FLASK_SECRET=somesupersecret
+      - REDIS_HOST=redis
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "flask", "log_processing_rules": [{"type": "multi_line", "name": "log_start_with_date", "pattern" : "\\[?\\d{4}-\\d{2}-\\d{2}"}]}]'
+    expose:
+      - 8001
+    command: ddtrace-run gunicorn -w 2 -b :8001 --timeout 60 wsgi:app
+    networks:
+      docker:
+        ipv4_address: 169.254.255.20
+
+  redis:
+    container_name: redis
+    image: "redis"
+    expose:
+      - 6379
+    volumes:
+      - redis:/data
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "redis", "service": "redis"}]'
+      com.datadoghq.ad.check_names: '["redisdb"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: '[{"host":"%%host%%","port":"6379"}]'
+    environment:
+      - DD_SERVICE
+      - DD_ENV
+      - DD_VERSION
+    networks:
+      docker:
+        ipv4_address: 169.254.255.10
+
+  datadog:
+    container_name: datadog
+    image: "datadog/agent:7.54.0"
+    environment:
+      - DD_API_KEY
+      - DD_TAGS
+      - DD_ENV
+      - DD_SITE
+      - DD_APM_ENABLE=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION=true
+#      - DD_AC_EXCLUDE=name:datadog
+      - DD_LOG_LEVEL=error
+    expose:
+      - 8126
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - ./datadog/run:/opt/datadog-agent/run:rw
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "datadog-agent", "service": "datadog"}]'
+    networks:
+      docker:
+        ipv4_address: 169.254.255.200
+
+volumes:
+  certbot:
+    driver: local
+  redis:
+    driver: local
+
+networks:
+  docker:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 169.254.255.0/24
