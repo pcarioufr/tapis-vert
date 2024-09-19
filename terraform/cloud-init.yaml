@@ -1,0 +1,61 @@
+#cloud-config
+
+write_files:
+
+# INIT ##### ##### ##### #####
+# adds cron - no duplicate - https://stackoverflow.com/questions/878600
+-   path: /usr/sbin/grosserver/cronadd.sh
+    content: |
+        cronsch=$1
+        croncmd=$2
+        cronjob="$cronsch $croncmd"
+        ( crontab -l | grep -v -F "$croncmd" ; echo "$cronjob" ) | crontab -
+
+# DOCKER ##### ##### ##### #####
+-   path: /etc/docker/daemon.json
+    content: |
+        {
+            "log-driver": "json-file", 
+            "log-opts": { "max-size": "10m", "max-file": "3" } 
+        }
+
+
+
+runcmd:
+
+    # INIT ##### ##### ##### #####
+
+    - apt -y -qq update
+    - apt -y -qq upgrade
+    - apt -y -qq install ca-certificates curl gnupg lsb-rlease
+
+    - chmod +x /usr/sbin/grosserver/cronadd.sh
+
+    # MOUNT ##### ##### ##### #####
+
+    # create partiion - if applicable
+    # make Linux filesystem for /dev/${PARTITION_NAME} with label ${MOUNT_NAME}
+    - if [ -z "$(lsblk | grep ${PARTITION_NAME})" ] ; then parted -s /dev/${MOUNT_DISK} mklabel msdos mkpart primary ext4 0% 100% ; mkfs -t ext4 -L ${MOUNT_NAME} /dev/${PARTITION_NAME} ; fi
+
+    - mkdir -p ${MOUNT_PATH}
+    - mount -L ${MOUNT_NAME} ${MOUNT_PATH}
+    - chmod +t ${MOUNT_PATH}
+    - echo "LABEL=${MOUNT_NAME} ${MOUNT_PATH} ext4 noatime,nodiratime,user_xattr,nofail  0   0" | tee -a /etc/fstab
+
+    - sudo chmod 777 ${MOUNT_PATH}
+
+
+    # DOCKER ##### ##### ##### #####
+
+    - mkdir -p /etc/apt/keyrings
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --yes --quiet --dearmor -o /etc/apt/keyrings/docker.gpg
+    - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    - apt -y -qq update
+    - apt -y -qq install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+    - usermod -aG docker ubuntu
+    - newgrp docker
+    - /usr/sbin/grosserver/cronadd.sh "@reboot" "cd /home/ubuntu/services && docker compose up"
+
+
+    # REBOOT ##### ##### ##### #####
+    - reboot

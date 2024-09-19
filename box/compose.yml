@@ -1,0 +1,15 @@
+services:
+
+  ubuntu:
+    container_name: box
+    hostname: box
+    build: build/.
+    environment:
+      - DEBUG
+      - TF_VAR_openstack_password=${OPENSTACK_PASSWORD}
+      - TF_VAR_openstack_username=${OPENSTACK_USERNAME}
+    volumes:
+      - ./home/:/home/me # HOME
+      - ./opt:/opt/box # BOX scripts
+      - ../services:/data/services # box scripts
+      - ../terraform:/data/terraform

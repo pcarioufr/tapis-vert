@@ -1,0 +1,9 @@
+box/home/*
+!box/home/.bashrc
+
+# terraform
+
+**/.terraform*
+terraform.tfstate*
+
+.DS_Store
