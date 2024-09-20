@@ -3,7 +3,7 @@ import flask
 from flask import current_app as app
 
 import redis
-import os
+import os, json
 
 from app.logs import log
 
@@ -27,10 +27,10 @@ def ping():
     return flask.jsonify(response="pong"), 200
 
 
-@app.route("/top10/<round_id>", methods=['GET'])
-def top10_app(round_id=None):
+@app.route("/top10/<room_id>", methods=['GET'])
+def top10_app(room_id=None):
 
-    if round_id is None:
+    if room_id is None:
         return flask.jsonify(), 404
 
 
@@ -43,7 +43,7 @@ def top10_app(round_id=None):
         log.info("user {} logged in".format(user_id))
 
 
-    # Login as random user (when session cookie is empty)
+    # Reject login if no user specifified and no session cookie
     elif flask.session.get("user_id") is None:
 
         return flask.jsonify(), 401
@@ -52,20 +52,20 @@ def top10_app(round_id=None):
     else:
         user_id = flask.session.get("user_id")
 
+    if not redis_client.exists(room_id):
+        log.info("room_id {} not found".format(room_id))
+        return flask.jsonify(), 404
 
-    # if not redis_client.exists(round_id):
-    #     log.info("round {} not found".format(round_id))
-    #     return flask.jsonify(), 404
-
-
-    cards = redis_client.hgetall(round_id)
+    round = redis_client.hgetall(room_id)
+    cards = json.loads(round['cards'])
+    round_id = round['id']
 
     return flask.render_template(
         "home.jinja",
         user_id=flask.session.get("user_id"),
         round_id=round_id,
+        room_id=room_id,
         cards=cards,
-        # user_init_count=user_init_count,
         is_anonymous=False,
         clientToken=app.config["DD_CLIENT_TOKEN"],
         applicationId=app.config["DD_APPLICATION_ID"],
@@ -75,15 +75,15 @@ def top10_app(round_id=None):
     )
 
 
-@app.route("/api/top10/<round_id>", methods=['POST', 'DELETE'])
-def top10_api(round_id=None):
+@app.route("/api/top10/<room_id>", methods=['POST', 'DELETE'])
+def top10_api(room_id=None):
 
-    if round_id is None:
+    if room_id is None:
         return flask.jsonify(), 404
 
     if flask.request.method == 'DELETE':
-        redis_client.delete(round_id)
-        log.info("delete round {}".format(round_id))
+        redis_client.delete(room_id)
+        log.info("delete round {}".format(room_id))
         return flask.jsonify(), 204
 
     users = flask.request.args.getlist("user")
@@ -98,16 +98,23 @@ def top10_api(round_id=None):
     random.shuffle(values)
     log.info("values: {}".format(values))
 
+    if not redis_client.exists(room_id):
+        round_id = 1
+    else:
+        round_id = int(redis_client.hgetall(room_id)['id']) + 1
+
     cards = {}
     i = 0
     for x in users:
         cards[x] = values[i]
         i = i+1
 
-    redis_client.hmset(round_id, cards)
-    redis_client.expire(round_id, 3600)
-    log.info("set {} for round {}".format(cards, round_id))
+    round = {'id': round_id, 'cards': json.dumps(cards)}
 
-    cards = redis_client.hgetall(round_id)
+    redis_client.hmset(room_id, round)
+    redis_client.expire(room_id, 3600)
+    log.info("set {} for round {}".format(round, room_id))
 
-    return flask.jsonify(round_id=round_id, cards=cards)
+    cards = redis_client.hgetall(room_id)
+
+    return flask.jsonify(room_id=room_id, round=round)

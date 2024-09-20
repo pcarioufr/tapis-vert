@@ -3,20 +3,20 @@
 
 ## TOP10
 
-### Access Rounds
+### Access Rooms
 
-Access round `abcd-1234` as user `pierre.
+Access room `abcd-1234` as user `pierre`.
 https://tapis-vert.pcariou.fr/api/top10/abcd-1234?user=pierre
 
 
-### Manage Rounds
+### Manage Rooms
 
-(Re)Create a round `abcd-1234` with users palo, lancelot, pierre, melissa.
+(Create room `abcd-1234` and) push a new round in room `abcd-1234`, including users `palo`, `lancelot`, `pierre`, `melissa`.
 ``` bash
 curl -XPOST "https://tapis-vert.pcariou.fr/api/top10/abcd-1234?user=palo&user=lancelot&user=pierre&user=melissa"
 ```
 
-Delete round `abcd-1234`.
+Delete room `abcd-1234`.
 ``` bash
 curl -XDELETE "https://tapis-vert.pcariou.fr/api/top10/abcd-1234f"
 ```
