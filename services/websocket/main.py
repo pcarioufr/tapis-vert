@@ -9,11 +9,6 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from managers import WebSocketManager
 import json
 
-# import argparse
-# parser = argparse.ArgumentParser()
-# parser.add_argument("-p", "--port", default=8000, type=int)
-# args = parser.parse_args()
-
 
 app = FastAPI()
 
@@ -28,24 +23,6 @@ app.add_middleware(
 
 
 socket_manager = WebSocketManager()
-
-
-# @tracer.wrap(service="websocket", resource="test")
-# @app.websocket("/ws/{room_id}/{user_id}")
-# async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
-
-#     await websocket.accept()
-#     while True:
-
-#         with tracer.trace("step"):
-
-#             log.info("request {}".format(websocket.headers))
-#             log.info("url {}".format(websocket.url))
-#             log.info("path_params {}".format(websocket.path_params))
-#             log.info("query_params {}".format(websocket.query_params))
-
-#             data = await websocket.receive_text()
-#             await websocket.send_text(f"You sent: {data}")
 
 
 @app.websocket("/ws/{room_id}/{user_id}")
