@@ -37,3 +37,21 @@ Edit [`box/.env`](box/.env).
 
 Edit [`services/.env`](services/.env).
 
+
+# Resources
+
+## Websockets
+
+https://medium.com/@nandagopal05/scaling-websockets-with-pub-sub-using-python-redis-fastapi-b16392ffe291
+https://medium.com/@nmjoshi/getting-started-websocket-with-fastapi-b41d244a2799
+
+https://www.uvicorn.org/deployment/#built-in
+
+https://www.geeksforgeeks.org/fast-api-gunicorn-vs-uvicorn/
+https://www.pythoniste.fr/python/fastapi/les-differences-entre-les-frameworks-flask-et-fastapi/
+
+https://asgi.readthedocs.io/en/latest/introduction.html
+https://realpython.com/python-async-features/
+
+
+https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients

@@ -13,12 +13,16 @@ import time
 
 redis_client = redis.Redis(
             host=app.config["REDIS_HOST"],
+            db=app.config["REDIS_STORE_DB"],
             decode_responses=True
         )
 
-def random_id():
-    rid = ''.join((random.choice('1234567890abcdef') for i in range(8)))
-    return rid
+redis_pubsub = redis.Redis(
+            host=app.config["REDIS_HOST"],
+            db=app.config["REDIS_PUBSUB_DB"],
+            decode_responses=True
+        )
+
 
 @app.route("/ping")
 def ping():
@@ -116,5 +120,7 @@ def top10_api(room_id=None):
     log.info("set {} for round {}".format(round, room_id))
 
     cards = redis_client.hgetall(room_id)
+
+    redis_pubsub.publish("groscons", json.dumps({'room': 'new', 'status': 'test' }))
 
     return flask.jsonify(room_id=room_id, round=round)

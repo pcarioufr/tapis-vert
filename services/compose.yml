@@ -36,6 +36,8 @@ services:
     environment:
       - FLASK_SECRET
       - REDIS_HOST=redis
+      - REDIS_STORE_DB=0
+      - REDIS_PUBSUB_DB=9
       - DD_SERVICE=flask
       - DD_ENV
       - DD_VERSION
@@ -75,6 +77,37 @@ services:
     networks:
       docker:
         ipv4_address: 169.254.255.10
+
+  websocket:
+    container_name: websocket
+    build: ./websocket/build/.
+    environment:
+      - DD_SERVICE="web-socket"
+      - DD_ENV
+      - DD_VERSION
+      - APP_URL
+      - LOG_LEVEL
+      - REDIS_HOST=redis
+      - REDIS_PUBSUB_DB=9
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_ANALYTICS_ENABLED=true
+      - DD_AGENT_HOST=datadog
+      - DD_TRACE_AGENT_PORT=8126
+    command: ddtrace-run gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b :8002 main:app
+    expose:
+      - "8002"
+    volumes:
+      - ./python-utils:/lib/utils:ro
+      - ./websocket:/websocket
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "socket"}]'  
+    depends_on:
+      - datadog
+    networks:
+      docker:
+        ipv4_address: 169.254.255.30
+
 
   datadog:
     container_name: datadog
