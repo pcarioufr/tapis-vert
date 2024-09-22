@@ -121,6 +121,6 @@ def top10_api(room_id=None):
 
     cards = redis_client.hgetall(room_id)
 
-    redis_pubsub.publish("groscons", json.dumps({'room': 'new', 'status': 'test' }))
+    redis_pubsub.publish(room_id, json.dumps({'room': 'new', 'status': 'test' }))
 
     return flask.jsonify(room_id=room_id, round=round)
