@@ -6,19 +6,19 @@
 ### Access Rooms
 
 Access room `abcd-1234` as user `pierre`.
-https://tapis-vert.pcariou.fr/api/top10/abcd-1234?user=pierre
+https://tapisvert.pcariou.fr/r/abcd-1234?user=pierre
 
 
 ### Manage Rooms
 
 (Create room `abcd-1234` and) push a new round in room `abcd-1234`, including users `palo`, `lancelot`, `pierre`, `melissa`.
 ``` bash
-curl -XPOST "https://tapis-vert.pcariou.fr/api/top10/abcd-1234?user=palo&user=lancelot&user=pierre&user=melissa"
+curl -XPOST "https://tapisvert.pcariou.fr/api/v1/abcd-1234?user=palo&user=lancelot&user=pierre&user=melissa"
 ```
 
 Delete room `abcd-1234`.
 ``` bash
-curl -XDELETE "https://tapis-vert.pcariou.fr/api/top10/abcd-1234f"
+curl -XDELETE "https://tapisvert.pcariou.fr/v1/abcd-1234f"
 ```
 
 Rounds expire after 1 hour.

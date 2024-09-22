@@ -14,6 +14,6 @@ def init_app():
 
     with app.app_context():
 
-        from .routes import top10_app, top10_api, ping
+        from .routes import room_app, room_api, ping
 
         return app

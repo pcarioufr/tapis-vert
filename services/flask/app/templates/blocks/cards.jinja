@@ -1,0 +1,30 @@
+    <!-- CARDS ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/cards.css') }}">
+
+    <template id=t-card>
+        <div class="card" rounded embossed hoverable flex>
+            <div class="front"><span></span></div>
+            <div class="back"> <span></span></div>
+        </div>
+    </template>
+    <script>
+
+    class Card extends Container {
+
+        constructor(eParent=null){
+            super( build("t-card"), eParent)
+        }
+
+        set icon(icon)      { this.cSVGO.icon = icon }
+        set front(text)     { this.select(".front span").innerText = text }
+        set back(text)      { this.select(".back span").innerText = text }
+
+        flip(side) {    switch (side) {
+                        case 'front': this.tag   ("front") ; this.untag ("back") ; break ;
+                        case 'back':  this.untag ("front") ; this.tag   ("back") ; break ;
+                        default:      this.toggle("front") ; this.toggle("back") ; 
+                        }
+                    }
+    }
+    </script>

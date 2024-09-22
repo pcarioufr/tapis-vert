@@ -1,0 +1,41 @@
+
+[hidden] {
+    display: none !important;
+    visibility: hidden;
+}
+
+[hoverable] {
+    transition: all 0.4s ease-in-out;
+}
+
+[hoverable]:hover {
+    cursor: pointer;
+    filter: brightness(115%);
+    transition: all 0.4s ease-in-out;
+}
+
+[disabled] {
+     box-shadow: 0px 0px 0px #00000099 !important;
+}
+[disabled]:hover {
+    cursor: not-allowed !important;
+}
+
+[embossed] {
+    box-shadow: 3px 3px 2px #00000099; 
+    transition: 0.3s;
+}
+[embossed].hoverable:hover {
+    box-shadow: 2px 2px 1px #00000099;
+    opacity: 0.9;
+    filter: brightness(105%);
+}
+[embossed].hoverable:active {
+    box-shadow: 0px 0px 0px #00000099;
+    opacity: 1;
+    filter: brightness(100%);
+}
+
+[rounded] {
+    border-radius: max(6px, 2%)
+}
