@@ -1,0 +1,48 @@
+    <!-- CONTAINERS ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/containers.css') }}">
+
+    <script>
+
+        function build(template_id) {
+            let temp = document.getElementById(template_id);
+            let eTemp = temp.content.firstElementChild
+            return document.importNode(eTemp, true)
+        }
+
+        function random_id(prefix="") {
+            var result           = prefix ;
+            var characters       = 'abcdef0123456789';
+            var charactersLength = characters.length;
+            for ( var i = 0; i < 10; i++ ) { result += characters.charAt(Math.floor(Math.random() * charactersLength)); }
+            return result;
+        }
+
+
+        class Container {
+
+            constructor(eContainer, eParent=null) {
+                this.e = eContainer
+                this.e.id = random_id()
+                if (eParent != null) { eParent.appendChild(this.e) }
+
+            }
+
+            tag(name)       { this.e.setAttribute(name, "") }
+            untag(name)     { this.e.removeAttribute(name) }
+            toggle(name)    { this.e.hasAttribute(name) ? this.untag(name) : this.tag(name) }
+
+            set hidden(bool)    { bool ? this.tag('hidden')      : this.untag('hidden')      }
+            set hoverable(bool) { bool ? this.tag('hoverable')   : this.untag('hoverable')   }
+            set disabled(bool)  { bool ? this.tag('disabled')    : this.untag('disabled')    }
+
+            select(query){ return this.e.querySelector(query) } 
+
+            remove() {this.e.remove()}
+
+            set id(id)            { this.e.id = id }
+            set onclick(callback) { this.e.onclick = callback }
+            
+        }
+
+    </script>

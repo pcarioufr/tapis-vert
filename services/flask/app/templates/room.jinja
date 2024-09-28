@@ -1,0 +1,66 @@
+{% extends 'layout.jinja' %}
+
+{% block head %}
+
+    {% include 'blocks/cards.jinja' %}    
+
+    <title>Tapis Vert {{room_id}}</title>
+
+    <!-- WEBSOCKETS ------ ------ ------ ------ -->
+    <script>
+
+        let websocket = new WebSocket("wss://tapisvert.pcariou.fr/ws/{{room_id}}/{{user_id}}");
+
+        websocket.onopen = ( _ => websocket.send("poke") )
+
+        websocket.onmessage = ( event => {
+            let data = JSON.parse(event.data)
+            for (key in data) {
+                let eventName = data[key]
+                console.log(`processing event ${key} with data ${data[key]} `)
+                fire(null, key, data[key]) 
+            }
+        })
+
+        listen( null, "room", (throwerId, data) => window.open( `/r/{{room_id}}`,"_self") )
+
+    </script>
+
+
+{% endblock %}
+
+{% block body %}
+
+    <h2> Welcome, {{user_id}}.</h2>
+    <h2> Room {{room_id}}</h2>
+    <h2> Round {{round_id}}</h2>
+
+    <div class="cards" flex>
+    </div>
+    <script>
+
+        let CARDS = document.querySelector(".cards")
+
+        let cards = []
+
+        {% for key, value in cards.items() %}
+
+            cards["{{value}}"] = new Card()
+            cards["{{value}}"].back = "{{key}}"
+            cards["{{value}}"].front = "{{value}}"
+
+            "{{user_id}}" == "{{key}}" ? 
+                cards["{{value}}"].flip("front") : 
+                cards["{{value}}"].flip("back") 
+
+            cards["{{value}}"].onclick = ( _ => cards["{{value}}"].flip("") )
+
+            CARDS.append(cards["{{value}}"].e)
+
+        {% endfor %}
+
+    </script>
+
+
+{% endblock %}
+

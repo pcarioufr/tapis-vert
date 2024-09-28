@@ -26,8 +26,8 @@ def ping():
     return flask.jsonify(response="pong"), 200
 
 
-@app.route("/top10/<room_id>", methods=['GET'])
-def top10_app(room_id=None):
+@app.route("/r/<room_id>", methods=['GET'])
+def room_app(room_id=None):
 
     # USER AUTHENTICATION
 
@@ -62,7 +62,7 @@ def top10_app(room_id=None):
     round_id = round['id']
 
     return flask.render_template(
-        "home.jinja",
+        "room.jinja",
         user_id=flask.session.get("user_id"),
         round_id=round_id,
         room_id=room_id,
@@ -76,8 +76,8 @@ def top10_app(room_id=None):
     )
 
 
-@app.route("/api/top10/<room_id>", methods=['POST', 'DELETE'])
-def top10_api(room_id=None):
+@app.route("/api/v1/<room_id>", methods=['POST', 'DELETE'])
+def room_api(room_id=None):
 
     if room_id is None:
         log.warning("missing room_id in url")
