@@ -10,7 +10,7 @@ get_certificate () {
     certbot --nginx -n --agree-tos -m $email --rsa-key-size $size --redirect --https-port $2 -d $1
 }
 
-get_certificate $host "tapis-vert.pcariou.fr" 443
+get_certificate $host "tapisvert.pcariou.fr" 443
 
 
 # reload NGINX configuration
