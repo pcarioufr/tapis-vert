@@ -4,8 +4,11 @@
 
     <template id=t-card>
         <div class="card" rounded embossed hoverable flex>
-            <div class="front"><span></span></div>
-            <div class="back"> <span></span></div>
+            <div class="front">
+                <span class=value></span>
+                <span class=name></span>
+            </div>
+            <div class="back"> <span class=name></span></div>
         </div>
     </template>
     <script>
@@ -17,8 +20,11 @@
         }
 
         set icon(icon)      { this.cSVGO.icon = icon }
-        set front(text)     { this.select(".front span").innerText = text }
-        set back(text)      { this.select(".back span").innerText = text }
+        set name(text)      { 
+                                this.select(".front span.name" ).innerText = text 
+                                this.select(".back  span.name" ).innerText = text 
+                            }
+        set value(text)    {    this.select(".front span.value").innerText = text }
 
         flip(side) {    switch (side) {
                         case 'front': this.tag   ("front") ; this.untag ("back") ; break ;

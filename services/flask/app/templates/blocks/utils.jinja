@@ -1,0 +1,47 @@
+    <!-- UTILS ------ ------ ------ ------ -->
+
+    <script>
+
+        function debounce(func, wait = 500) {   
+            var timeout;
+            return function() {
+                var context = this, args = arguments;
+                var later = function() { timeout = null; func.apply(context, args); };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);        
+            }
+        }
+
+        function handle_response(r, ignore4xx=false) { 
+            if (r.status >= 500) { throw "oups, c'est cassé..." }
+            if (!ignore4xx){
+                if (r.status == 401) { throw "oups, ce n'est pas autorisé..." }
+                if (r.status == 403) { throw "oups, ce n'est pas autorisé..." }
+                if (r.status >= 400) { throw "oups, c'est est cassé..." }
+            }
+            return r
+        }
+
+        {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
+        const HEADERS = {}
+
+        function call(method, route, params={}, file=null) {
+
+            let first = true ;
+            Object.keys(params).forEach(
+                key => {
+                    if (first) { route = `${route}?`; first = false ;}
+                    else { route = `${route}&`}
+                    route = `${route}${key}=${params[key]}`
+                }) ;
+
+            let headers = {}
+            Object.assign(headers, HEADERS)
+
+            return fetch(route, { method: method, headers: HEADERS} )
+                .then( r => handle_response(r) )
+                .catch( error => { /* TODO */ throw error } ) 
+
+        }
+
+    </script>
