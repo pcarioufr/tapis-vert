@@ -46,8 +46,8 @@
         {% for key, value in cards.items() %}
 
             cards["{{value}}"] = new Card()
-            cards["{{value}}"].back = "{{key}}"
-            cards["{{value}}"].front = "{{value}}"
+            cards["{{value}}"].name = "{{key}}"
+            cards["{{value}}"].value = "{{value}}"
 
             "{{user_id}}" == "{{key}}" ? 
                 cards["{{value}}"].flip("front") : 
