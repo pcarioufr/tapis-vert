@@ -2,14 +2,35 @@
 
 for f in /opt/box/libs/* ; do source $f; done
 
+usage() {
+    echo "----------------- box deploy -----------------" 
+    echo "Deploy content to server." 
+    echo "box ssh [-h] [-r] [-L tunnel] command"
+    echo "    -h (opt)      : this helper"
+    echo "    -d (opt)      : directory to deploy within ./service"
+}
+
+SRC="/data/services/* /data/services/.env"
+DST=/home/ubuntu/services
+
+while getopts "hd:" option; do
+case ${option} in
+    h) usage && exit 0 ;;
+    d) 
+        SRC="/data/services/${OPTARG}/*"
+        DST="/home/ubuntu/services/${OPTARG}"
+    ;;
+    *) usage && exit 1 ;;
+    esac
+done
+shift $(($OPTIND-1))
+
+
 notice "using SSH_HOST=$SSH_HOST"
 notice "update box/bin/box to change this variable"
 
 SSH_PORT="-p 22"
 SCP_PORT="-P 22"
-
-SRC="/data/services/* /data/services/.env"
-DST=/home/ubuntu/services
 
 warning "purge ${DST} folder content on ${SSH_HOST} server"
 ssh ${SSH_HOST} ${SSH_PORT} "mkdir ${DST} > /dev/null 2>&1"
