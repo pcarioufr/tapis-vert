@@ -16,6 +16,6 @@ def init_app():
 
         from .routes import ping
         from .routes import room_app, room_api
-        from .routes import room_user_api, room_user_api_get
+        from .routes import room_user_api, room_user_id_api
 
         return app

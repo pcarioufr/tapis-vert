@@ -136,22 +136,29 @@ def room_api(room_id=None):
 
 
 
-@app.route("/api/v1/<room_id>/users", methods=['GET'])
-def room_user_api_get(room_id=None, user_id=None):
+@app.route("/api/v1/<room_id>/users", methods=['GET','DELETE'])
+def room_user_api(room_id=None, user_id=None):
 
     if room_id is None:
         log.warning("missing room_id in url")
         return flask.jsonify(), 400
 
-    users = json.dumps(list(redis_users.smembers(room_id)))
+    # GET
+    if flask.request.method == 'GET':
+        users = json.dumps(list(redis_users.smembers(room_id)))
+        log.info("room {} users are: {}".format(room_id, users))
+        return flask.jsonify(users=users), 200
 
-    log.info("room {} users are: {}".format(room_id, users))
-
-    return flask.jsonify(users=users), 200
+    # DELETE
+    if flask.request.method == 'DELETE':
+        n = redis_users.scard(room_id)
+        redis_users.delete(room_id)
+        log.info("delete all ({}) users from room {}".format(n, room_id))
+        return flask.jsonify(), 204
 
 
 @app.route("/api/v1/<room_id>/users/<user_id>", methods=['POST', 'DELETE'])
-def room_user_api(room_id=None, user_id=None):
+def room_user_id_api(room_id=None, user_id=None):
 
     if room_id is None:
         log.warning("missing room_id in url")
