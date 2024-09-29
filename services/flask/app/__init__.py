@@ -14,6 +14,8 @@ def init_app():
 
     with app.app_context():
 
-        from .routes import room_app, room_api, ping
+        from .routes import ping
+        from .routes import room_app, room_api
+        from .routes import room_user_api, room_user_api_get
 
         return app

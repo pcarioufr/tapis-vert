@@ -6,9 +6,15 @@ import redis, json, random
 from app.logs import log
 
 
-redis_client = redis.Redis(
+redis_rounds = redis.Redis(
             host=app.config["REDIS_HOST"],
-            db=app.config["REDIS_STORE_DB"],
+            db=app.config["REDIS_ROUNDS_DB"],
+            decode_responses=True
+        )
+
+redis_users = redis.Redis(
+            host=app.config["REDIS_HOST"],
+            db=app.config["REDIS_USERS_DB"],
             decode_responses=True
         )
 
@@ -52,14 +58,14 @@ def room_app(room_id=None):
     if room_id is None:
         return flask.jsonify(), 404
 
-    if not redis_client.exists(room_id):
+    if not redis_rounds.exists(room_id):
         log.warning("room_id {} not found".format(room_id))
         return flask.jsonify(), 404
 
     # Gets round properties
-    round = redis_client.hgetall(room_id)
-    cards = json.loads(round['cards'])
-    round_id = round['id']
+    room = redis_rounds.hgetall(room_id)
+    cards = json.loads(room['cards'])
+    round_id = room['id']
 
     return flask.render_template(
         "room.jinja",
@@ -86,7 +92,7 @@ def room_api(room_id=None):
     # DELETE
 
     if flask.request.method == 'DELETE':
-        redis_client.delete(room_id)
+        redis_rounds.delete(room_id)
         log.info("delete round {}".format(room_id))
         return flask.jsonify(), 204
 
@@ -112,18 +118,69 @@ def room_api(room_id=None):
         i = i+1
 
     # Increment round_id (1 for first round)
-    if not redis_client.exists(room_id): 
+    if not redis_rounds.exists(room_id): 
         round_id = 1
     else:
-        round_id = int(redis_client.hgetall(room_id)['id']) + 1
+        round_id = int(redis_rounds.hgetall(room_id)['id']) + 1
 
     # Store round properties
     round = {'id': round_id, 'cards': json.dumps(cards)}
-    redis_client.hmset(room_id, round)
-    redis_client.expire(room_id, 3600)
+    redis_rounds.hmset(room_id, round)
+    redis_rounds.expire(room_id, 3600)
     log.info("set {} for round {}".format(round, room_id))
     
     # Broadcast new round event
     redis_pubsub.publish(room_id, json.dumps({'room': 'new', 'status': 'test' }))
 
     return flask.jsonify(room_id=room_id, round=round)
+
+
+
+@app.route("/api/v1/<room_id>/users", methods=['GET'])
+def room_user_api_get(room_id=None, user_id=None):
+
+    if room_id is None:
+        log.warning("missing room_id in url")
+        return flask.jsonify(), 400
+
+    users = json.dumps(list(redis_users.smembers(room_id)))
+
+    log.info("room {} users are: {}".format(room_id, users))
+
+    return flask.jsonify(users=users), 200
+
+
+@app.route("/api/v1/<room_id>/users/<user_id>", methods=['POST', 'DELETE'])
+def room_user_api(room_id=None, user_id=None):
+
+    if room_id is None:
+        log.warning("missing room_id in url")
+        return flask.jsonify(), 400
+
+    if user_id is None:
+        log.warning("missing user_id in url")
+        return flask.jsonify(), 400
+
+    # POST
+    if flask.request.method == 'POST':
+        res = redis_users.sadd(room_id, user_id)
+        if res == 0:
+            log.warning("user {} not added to room {} - already a member".format(user_id, room_id))
+            response_code = 409
+        else:
+            log.info("add user {} to room {}".format(user_id, room_id))
+            response_code = 200
+
+    # DELETE
+    if flask.request.method == 'DELETE':
+        res = redis_users.srem(room_id, user_id)
+        if res == 0:
+            log.warning("user {} not deleted from room {} - not a member".format(user_id, room_id))
+            response_code = 409
+        else:
+            log.info("delete user {} from room {}".format(user_id, room_id))
+            response_code = 200
+
+    users = json.dumps(list(redis_users.smembers(room_id)))
+
+    return flask.jsonify(users=users), response_code

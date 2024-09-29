@@ -36,7 +36,8 @@ services:
     environment:
       - FLASK_SECRET
       - REDIS_HOST=redis
-      - REDIS_STORE_DB=0
+      - REDIS_ROUNDS_DB=0
+      - REDIS_USERS_DB=1
       - REDIS_PUBSUB_DB=9
       - DD_SERVICE=flask
       - DD_ENV
@@ -88,6 +89,8 @@ services:
       - APP_URL
       - LOG_LEVEL
       - REDIS_HOST=redis
+      - REDIS_ROUNDS_DB=0
+      - REDIS_USERS_DB=1
       - REDIS_PUBSUB_DB=9
       - DD_LOGS_ENABLED=true
       - DD_LOGS_INJECTION=true

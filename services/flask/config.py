@@ -7,7 +7,8 @@ class Config:
 
     # REDIS ###############
     REDIS_HOST = os.environ.get("REDIS_HOST")
-    REDIS_STORE_DB = os.environ.get("REDIS_STORE_DB")
+    REDIS_ROUNDS_DB = os.environ.get("REDIS_ROUNDS_DB")
+    REDIS_USERS_DB = os.environ.get("REDIS_USERS_DB")
     REDIS_PUBSUB_DB = os.environ.get("REDIS_PUBSUB_DB")
 
     # DATADOG ###############
