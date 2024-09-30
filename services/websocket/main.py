@@ -7,8 +7,14 @@ tracer.configure(context_provider=context_provider)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from managers import WebSocketManager
-import json
+import redis, json, os
 
+
+redis_users_online = redis.Redis(
+            host=os.environ.get("REDIS_HOST"),
+            db=os.environ.get("REDIS_USERS_ONLINE_DB"),
+            decode_responses=True
+        )
 
 app = FastAPI()
 
@@ -35,6 +41,8 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
         "message": f"User {user_id} connected to room - {room_id}"
     }
 
+    redis_users_online.sadd(room_id, user_id)
+
     await socket_manager.broadcast_to_room(room_id, json.dumps(message))
     try:
         while True:
@@ -51,6 +59,8 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
     except WebSocketDisconnect:
         await socket_manager.remove_user_from_room(room_id, websocket)
 
+        redis_users_online.srem(room_id, user_id)
+        
         message = {
             "user_id": user_id,
             "room_id": room_id,

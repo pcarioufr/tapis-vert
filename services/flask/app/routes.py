@@ -18,6 +18,12 @@ redis_users = redis.Redis(
             decode_responses=True
         )
 
+redis_users_online = redis.Redis(
+            host=app.config["REDIS_HOST"],
+            db=app.config["REDIS_USERS_ONLINE_DB"],
+            decode_responses=True
+        )
+
 redis_pubsub = redis.Redis(
             host=app.config["REDIS_HOST"],
             db=app.config["REDIS_PUBSUB_DB"],
@@ -93,7 +99,7 @@ def room_api(room_id=None):
 
     if flask.request.method == 'DELETE':
         redis_rounds.delete(room_id)
-        log.info("delete round {}".format(room_id))
+        log.info("delete room {}".format(room_id))
         return flask.jsonify(), 204
 
     # POST
@@ -145,9 +151,9 @@ def room_user_api(room_id=None, user_id=None):
 
     # GET
     if flask.request.method == 'GET':
-        users = json.dumps(list(redis_users.smembers(room_id)))
-        log.info("room {} users are: {}".format(room_id, users))
-        return flask.jsonify(users=users), 200
+        users = list(redis_users.smembers(room_id))
+        online_users = list(redis_users_online.smembers(room_id))
+        return flask.jsonify(users=users, online_users=online_users), 200
 
     # DELETE
     if flask.request.method == 'DELETE':
@@ -167,6 +173,7 @@ def room_user_id_api(room_id=None, user_id=None):
     if user_id is None:
         log.warning("missing user_id in url")
         return flask.jsonify(), 400
+
 
     # POST
     if flask.request.method == 'POST':
@@ -188,6 +195,6 @@ def room_user_id_api(room_id=None, user_id=None):
             log.info("delete user {} from room {}".format(user_id, room_id))
             response_code = 200
 
-    users = json.dumps(list(redis_users.smembers(room_id)))
-
-    return flask.jsonify(users=users), response_code
+    users = list(redis_users.smembers(room_id))
+    online_users = list(redis_users_online.smembers(room_id))
+    return flask.jsonify(users=users, online_users=online_users), 200

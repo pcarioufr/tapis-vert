@@ -5,6 +5,7 @@ from fastapi import WebSocket
 
 from logs import log
 
+
 class RedisPubSubManager:
     """
         Initializes the RedisPubSubManager.
@@ -83,7 +84,6 @@ class WebSocketManager:
             pubsub_client (RedisPubSubManager): An instance of the RedisPubSubManager class for pub-sub functionality.
         """
         self.rooms: dict = {}
-        # self.pubsub_client = RedisPubSubManager()
         self.pubsub_client = RedisPubSubManager()
 
     async def add_user_to_room(self, room_id: str, websocket: WebSocket) -> None:
@@ -104,6 +104,7 @@ class WebSocketManager:
             await self.pubsub_client.connect()
             pubsub_subscriber = await self.pubsub_client.subscribe(room_id)
             asyncio.create_task(self._pubsub_data_reader(pubsub_subscriber))
+
 
     async def broadcast_to_room(self, room_id: str, message: str) -> None:
         """

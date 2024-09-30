@@ -38,6 +38,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_ROUNDS_DB=0
       - REDIS_USERS_DB=1
+      - REDIS_USERS_ONLINE_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_SERVICE=flask
       - DD_ENV
@@ -91,6 +92,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_ROUNDS_DB=0
       - REDIS_USERS_DB=1
+      - REDIS_USERS_ONLINE_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_LOGS_ENABLED=true
       - DD_LOGS_INJECTION=true
