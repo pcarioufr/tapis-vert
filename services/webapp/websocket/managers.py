@@ -1,9 +1,9 @@
 import asyncio
 import redis.asyncio as aioredis
-import json, os
+import os
 from fastapi import WebSocket
 
-from logs import log
+from utils import log
 
 
 class RedisPubSubManager:
@@ -149,5 +149,4 @@ class WebSocketManager:
                     log.info(data)
                     log.info("{}".format(data))
 
-                    # data = json.loads(message['data'].decode('utf-8'))
                     await socket.send_text(data)

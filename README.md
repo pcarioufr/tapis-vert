@@ -13,7 +13,7 @@ https://tapisvert.pcariou.fr/r/abcd-1234?user=pierre
 
 (Create room `abcd-1234` and) push a new round in room `abcd-1234`, including users `palo`, `lancelot`, `pierre`, `melissa`.
 ``` bash
-curl -XPOST "https://tapisvert.pcariou.fr/api/v1/abcd-1234?user=palo&user=lancelot&user=pierre&user=melissa"
+curl -XPOST "https://tapisvert.pcariou.fr/api/v1/r/abcd-1234/round?user=palo&user=lancelot&user=pierre&user=melissa"
 ```
 
 Delete room `abcd-1234`.
