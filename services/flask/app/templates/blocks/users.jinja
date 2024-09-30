@@ -1,0 +1,66 @@
+    <!-- USERS ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/users.css') }}">
+
+    <template id=t-user>
+        <div class="user">
+            <span class=name></span>
+            <div class=status rounded embossed></div>
+        </div>
+    </template>
+    <script>
+    class User extends Container {
+
+        constructor(eParent=null){
+            super( build("t-user"), eParent)
+        }
+
+        set name(text)      { this.select(".name").innerText = text ; this.id = text}
+        set online(bool)    { bool ? 
+                                this.select(".status").setAttribute("online", "") : 
+                                this.select(".status").removeAttribute("online") 
+                            }
+
+    }
+    </script>
+
+    <template id=t-users>
+        <div class="users"></div>
+    </template>
+    <script>
+    class Users extends Container {
+
+        constructor(eParent=null){
+            super( build("t-users"), eParent)
+            this.refresh()
+        }
+
+        refresh() {
+
+            this.e.querySelectorAll('*').forEach( n => n.remove() );
+            this.users = []
+
+            call("GET", `/api/v1/{{room_id}}/users`)
+            .then( resp => resp.json() )
+            .then( resp => {
+                    let user_id 
+                    for (user_id of resp["users"]) {
+
+                        this.users[user_id] = new User()
+                        this.users[user_id].name = user_id
+                        this.e.append(this.users[user_id].e)
+
+                        resp["online_users"].includes(user_id) ?
+                            this.users[user_id].online = true :
+                            this.users[user_id].online = false
+                    } 
+                } 
+            )
+
+        }
+
+        online(user_id)     { this.users[user_id].online = true }
+        offline(user_id)    { this.users[user_id].online = false }
+
+    }
+    </script>

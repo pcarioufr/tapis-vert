@@ -2,7 +2,8 @@
 
 {% block head %}
 
-    {% include 'blocks/cards.jinja' %}    
+    {% include 'blocks/cards.jinja' %}
+    {% include 'blocks/users.jinja' %}
 
     <title>Tapis Vert {{room_id}}</title>
 
@@ -35,8 +36,7 @@
     <h2> Room {{room_id}}</h2>
     <h2> Round {{round_id}}</h2>
 
-    <div class="cards" flex>
-    </div>
+    <div class="cards"></div>
     <script>
 
         let CARDS = document.querySelector(".cards")
@@ -59,8 +59,10 @@
 
         {% endfor %}
 
-    </script>
+        let users = new Users(document.body)
 
+
+    </script>
 
 {% endblock %}
 

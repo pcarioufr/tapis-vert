@@ -1,0 +1,39 @@
+
+.users {
+    display: flex;
+    width: 100px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    position: relative;
+    margin: auto;
+}
+
+.user {
+    display: flex;
+    align-items: center;
+    background: var(--beige);
+    height: 20px;
+    width: 80px ;
+    position: relative;
+}
+
+.user span.name {
+    color: var(--dblue);
+    font-size: 12px;
+    text-align: right;
+    margin: auto;
+}
+
+.user div.status {
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    margin-top: auto;
+    margin-bottom: auto;
+    background: var(--red);
+}
+
+.user div.status[online] {
+    background: var(--green);
+}
