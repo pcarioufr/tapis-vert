@@ -3,7 +3,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/cards.css') }}">
 
     <template id=t-card>
-        <div class="card" rounded embossed hoverable flex>
+        <div class="card" rounded embossed hoverable>
             <div class="front">
                 <span class=value></span>
                 <span class=name></span>
@@ -32,5 +32,48 @@
                         default:      this.toggle("front") ; this.toggle("back") ; 
                         }
                     }
+    }
+    </script>
+
+
+
+    <template id=t-cards>
+        <div class="cards"></div>
+    </template>
+    <script>
+    class Cards extends Container {
+
+        constructor(eParent=null){
+            super( build("t-cards"), eParent)
+        }
+
+        refresh(cards) {
+
+            this.e.querySelectorAll('*').forEach( n => n.remove() );
+
+            this.cards = []
+
+            let key, value, v
+            for ( const [key, value] of Object.entries(cards)) {
+
+                this.cards[value] = new Card()
+
+                this.cards[value].name = key
+                this.cards[value].value = value
+
+                "{{user_id}}" == key ? 
+                    this.cards[value].flip("front") : 
+                    this.cards[value].flip("back") 
+
+                // this.cards[value].onclick = ( _ => this.cards[value].flip("") )
+                this.cards[value].onclick = function() {this.flip("")}.bind(this.cards[value]);
+                // this.cards[value].onclick = ((card) => () => card.flip(""))(this.cards[value]);
+
+                this.e.append(this.cards[value].e)
+
+            } 
+
+        }
+
     }
     </script>

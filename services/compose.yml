@@ -13,7 +13,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/reload.sh:/usr/local/bin/reload.sh
-      - ./nginx/static:/static
+      - ./static:/data/static
       - certbot:/etc/letsencrypt # Certificates
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; reload.sh ; done & sleep 5 & wait $${!}; reload.sh & nginx -g \"daemon off;\"'"
     labels:
@@ -29,16 +29,15 @@ services:
 
   flask:
     container_name: flask
-    build: flask/build/.
+    build: ./webapp/flask/build/.
     volumes:
-      - ./flask:/flask
-      - ../static:/data/static:ro
+      - ./webapp/flask:/flask
+      - ./webapp/libs:/opt/libs:ro
     environment:
+      - PYTHONPATH=/opt/libs
       - FLASK_SECRET
       - REDIS_HOST=redis
-      - REDIS_ROUNDS_DB=0
-      - REDIS_USERS_DB=1
-      - REDIS_USERS_ONLINE_DB=2
+      - REDIS_ROOMS_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_SERVICE=flask
       - DD_ENV
@@ -82,29 +81,26 @@ services:
 
   websocket:
     container_name: websocket
-    build: ./websocket/build/.
+    build: ./webapp/websocket/build/.
     environment:
+      - PYTHONPATH=/opt/libs
       - DD_SERVICE="web-socket"
       - DD_ENV
       - DD_VERSION
-      - APP_URL
-      - LOG_LEVEL
       - REDIS_HOST=redis
-      - REDIS_ROUNDS_DB=0
-      - REDIS_USERS_DB=1
-      - REDIS_USERS_ONLINE_DB=2
+      - REDIS_ROOMS_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_LOGS_ENABLED=true
       - DD_LOGS_INJECTION=true
       - DD_TRACE_ANALYTICS_ENABLED=true
       - DD_AGENT_HOST=datadog
       - DD_TRACE_AGENT_PORT=8126
-    command: ddtrace-run gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b :8002 main:app
+    command: ddtrace-run gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b :8002 asgi:app
     expose:
       - "8002"
     volumes:
-      - ./python-utils:/lib/utils:ro
-      - ./websocket:/websocket
+      - ./webapp/libs:/opt/libs:ro
+      - ./webapp/websocket:/websocket
     labels:
       com.datadoghq.ad.logs: '[{"source": "python", "service": "socket"}]'  
     depends_on:

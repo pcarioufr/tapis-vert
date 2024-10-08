@@ -7,4 +7,4 @@ gunicorn==23.0.0
 uvicorn[standard]==0.30.6
 uvicorn-worker==0.2.0
 
-ddtrace==2.12.2
+ddtrace==2.14.2

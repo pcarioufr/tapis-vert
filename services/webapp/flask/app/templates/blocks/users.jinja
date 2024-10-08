@@ -32,30 +32,37 @@
 
         constructor(eParent=null){
             super( build("t-users"), eParent)
-            this.refresh()
-        }
-
-        refresh() {
-
-            this.e.querySelectorAll('*').forEach( n => n.remove() );
             this.users = []
 
-            call("GET", `/api/v1/{{room_id}}/users`)
-            .then( resp => resp.json() )
-            .then( resp => {
-                    let user_id 
-                    for (user_id of resp["users"]) {
+        }
 
-                        this.users[user_id] = new User()
-                        this.users[user_id].name = user_id
-                        this.e.append(this.users[user_id].e)
+        add(user_id, status) {
 
-                        resp["online_users"].includes(user_id) ?
-                            this.users[user_id].online = true :
-                            this.users[user_id].online = false
-                    } 
-                } 
-            )
+            if ( this.users.includes(user_id) ) { 
+                console.warn (`${user} already registered in room: can't add` ) 
+                return
+            } 
+                
+            this.users[user_id] = new User()
+            
+            this.users[user_id].name = user_id
+            this.e.append(this.users[user_id].e)
+
+            status == "online" ?
+                this.users[user_id].online = true :
+                this.users[user_id].online = false
+
+        }
+
+        remove(user_id) {
+
+            if ( !this.users.includes(user_id) ) { 
+                console.warn (`${user} not in room: cna't remove` )
+                return
+            } 
+
+            this.user = this.user.filter(item => item !== user_id)
+            this.getElementById( this.users[user_id].id ).remove() ;
 
         }
 

@@ -25,7 +25,7 @@
         {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
         const HEADERS = {}
 
-        function call(method, route, params={}, file=null) {
+        function call(method, route, params={}) {
 
             let first = true ;
             Object.keys(params).forEach(

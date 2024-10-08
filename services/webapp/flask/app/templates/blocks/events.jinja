@@ -5,12 +5,12 @@
         let LISTENERS = []
 
         function fire(throwerId, eventName, data=null) { 
-            console.log(`${throwerId} fires ${eventName} with ${data}`)
+            // console.log(`${throwerId} fires ${eventName} with ${data}`)
             if (LISTENERS[eventName] != null) { for (const [id, f] of Object.entries(LISTENERS[eventName])) { f.call(this, throwerId, data) } }
         }
 
         function listen(listenerId, eventName, callback) { 
-            console.log(`${listenerId} registers as listener for ${eventName}`)
+            // console.log(`${listenerId} registers as listener for ${eventName}`)
             if ( !LISTENERS.hasOwnProperty(eventName) ) { LISTENERS[eventName] = [] }
             LISTENERS[eventName][listenerId] = callback
         }
