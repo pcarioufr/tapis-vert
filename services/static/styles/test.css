@@ -1,0 +1,142 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #2c3e50;
+}
+
+/* Container for the card */
+.card-container {
+    width: 100px;
+    height: 160px;
+    position: relative;
+    cursor: pointer;
+
+    filter: drop-shadow( 0px 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+/* Card */
+.card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d; /* Ensures both front and back are in 3D */
+    transition: transform 0.6s; /* Flip animation */
+
+}
+
+/* When the card is flipped */
+.flipped {
+    transform: rotateY(180deg); /* Flip the card */
+}
+
+/* Card faces */
+.card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden; /* Hides the back when the front is shown */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    color: white;
+    border-radius: 8px;
+
+}
+
+/* Front of the card */
+.card-front {
+    background-color: #3498db;
+    clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 50px, 50% 0%);
+
+}
+
+
+@property --p1 {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 2%;
+ }
+
+@property --p2 {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 5%;
+}
+
+/* Back face of the card */
+.card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(0% 50px, 0% 100%, 100% 100%, 100% 0, 50px 0%);
+
+    backface-visibility: hidden;
+    transform: rotateY(180deg); /* The back face is rotated initially */
+
+    background: radial-gradient(circle at top left, #96291d var(--p1), #e74c3c var(--p2));
+    transition: --p1 0.5s, --p2 0.5s
+}
+
+.peek-corner .card-back {
+    --p1: 25%;
+    --p2: 50%;
+}
+
+
+/* Front corner peeking effect */
+.corner {
+    content: '';
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 0 8px 0 0;
+    top: 0;
+    right: 0;
+    transform-origin: center center;
+    transform: rotate3d(1, 1, 0, 0deg); /* No initial rotation */
+    transition: transform 0.5s ease-in-out;
+
+}
+
+
+/* Front corner peeking effect */
+.corner-front {
+    background-color: #3498db; /* Back color */
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    backface-visibility: hidden;
+}
+
+/* Front corner peeking effect */
+.corner-back {
+    background-color: #e74c3c; /* Back color */
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+
+    backface-visibility: hidden;
+    transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, -90deg)
+}
+
+
+/* Peeking effect: Front corner lifts and back of the corner is revealed */
+.peek-corner .corner-front {
+    transform: rotate3d(1, 1, 0, 130deg); /* Rotate to lift the corner */
+}
+
+/* Peeking effect: Front corner lifts and back of the corner is revealed */
+.peek-corner .corner-back {
+    transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, -90deg) rotate3d(1, 1, 0, 130deg); /* Rotate to lift the corner */
+}
+
+/* Card front text */
+.card__text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+}

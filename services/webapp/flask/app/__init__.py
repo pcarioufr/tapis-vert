@@ -13,7 +13,7 @@ def init_app():
 
     with app.app_context():
 
-        from .routes import ping
+        from .routes import ping, test
         from .routes import room_app, room_api
         from .routes import round_api
         from .routes import room_user_id_api
