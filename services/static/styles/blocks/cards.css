@@ -4,69 +4,176 @@
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 20px;
+    gap: 3vw;
     position: relative;
     margin: auto;
-    width: 500px;
+    width: 80vw;
+
+    --card-w: 16vw; /* card width */
+    --card-h: 22vw; /* card height */
+    --card-c: 8vw;  /* card corner size */      
+    --card-r: 0deg; /* Initial rotation, not used yet */
+
 }
 
-.card {
-    display: flex;
-    align-items: stretch;
-    background: var(--beige);
-    height: 180px;
-    width: 150px ;
+
+/* Container for the card */
+.container:has(> .card) {
+    width: var(--card-w);
+    height: var(--card-h);
     position: relative;
+    cursor: pointer;
+    filter: drop-shadow( 1vw 1vw 0.5vw rgba(0, 0, 0, 0.5));
 }
 
-.card > * {
+/* Card */
+.card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d; /* Ensures both front and back are in 3D */
+    transition: transform 0.6s; /* Flip animation */
+
+    transform: rotateZ( var(--card-r) );
+
+}
+
+/* When the card is flipped */
+[flipped] .card {
+    transform: rotateZ( var(--card-r) ) rotateY(180deg); /* Flip the card */
+}
+
+/* Card faces */
+.card .face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
     display: flex;
-    align-items: stretch;
     justify-content: center;
     align-items: center;
-    height: 100%;
+    color: white;
+    border-radius: 2vw;
+}
+
+/* Front of the card */
+.card .face.front {
+    background-color: var(--beige);
+    clip-path: polygon( 
+        0% 0%, 
+        0% 100%, 
+        calc( 100% - var(--card-c)) 100%, 
+        100% calc(100% - var(--card-c)), 
+        100% 0%    
+    );
+    font-size: 14vw;
+    color: var(--dblue);
+
+}
+
+/* Back face of the card */
+.card .face.back {
+
+    position: absolute;
     width: 100%;
-    position: relative
+    height: 100%;
+
+    transform: rotateY(180deg); /* The back face is rotated backwards initially */
+    backface-visibility: hidden;
+
+    background: var(--bblue) ; /* This is overriden by [peeked] section */
+    font-size: 3vw;
+    color: var(--beige);
+
 }
 
-.card[front] .back {
-    display: none !important
+/* CARD CORNERS & PEEKING EFFECT */
+
+/* Clipping cards to leave room for peeking corner */
+.card .face.back {
+    clip-path: polygon( 0% 0%, 0% calc( 100% - var(--card-c)), var(--card-c) 100%, 100% 100%, 100% 0% );
+}
+.card .face.front {
+    clip-path: polygon( 0% 0%, 0% 100%, calc( 100% - var(--card-c)) 100%, 100% calc(100% - var(--card-c)), 100% 0% );
 }
 
-.card[back] .front {
-    display: none !important;
+/* Corner */
+.corner {
+    content: '';
+    position: absolute;
+    width: var(--card-c);
+    height: var(--card-c);
+    border-radius: 0 0 2vw 0;
+    bottom: 0;
+    right: 0;
+    transform-origin: center center;
+    transform: rotate3d(1, 1, 0, 0deg); /* No initial rotation */
+    transition: transform 0.5s ease-in-out;
+    will-change: transform;
+    clip-path: polygon(100% 0, 0 100%, 100% 100%)
 }
 
-.card .front {
-    margin: auto;
+/* Front corner */
+.corner.front {
+    background-color: var(--beige); /* Back color */
+    backface-visibility: hidden;
     display: flex;
-    flex-direction: column;
 }
 
-.card .front span.value {
-    color: var(--dblue);
-    font-size: 120px;
-    text-align: center;
+.corner.front span {
+    position: relative;
     margin: auto;
-    display: flex;
-    flex-direction: column;
-}
-.card .front span.name {
+    transform: rotate(135deg);
+    padding-bottom: 4vw;
+    font-size: 3vw;
     color: var(--dblue);
-    font-size: 18px;
-    text-align: right;
-    margin-left: auto;
-    margin-right: 10px;
-    margin-top: auto;
-    margin-bottom: 10px;
 }
 
-.card .back span.name {
-    color: var(--dblue);
-    font-size: 24px;
-    text-align: right;
-    margin-left: auto;
-    margin-right: 20px;
-    margin-top: auto;
-    margin-bottom: 20px;
+/* Back corner */
+.corner.back {
+    background-color: var(--dblue); /* Back color */
+    backface-visibility: hidden;
+    transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg);
+}
+
+
+/* Front corner lifts and back of the corner is revealed */
+[flipped][peeked] .corner.front {
+    transform: rotate3d(-1, 1, 0, 130deg); /* Rotate to lift the corner */
+}
+
+/* Back corner follows the movement */
+[flipped][peeked] .corner.back {
+    transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -130deg); 
+}
+
+/* Shadow effect on peeked card */
+
+@property --p1 {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 2%;
+ }
+
+@property --p2 {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 5%;
+}
+
+.face.back {
+    background: radial-gradient(
+        ellipse 
+        calc(120% + 75% * cos(var(--card-r) - 45deg)) calc(60% + 30% * sin(var(--card-r) - 45deg)) 
+        at bottom left, 
+        var(--bblue) var(--p1), 
+        var(--dblue) var(--p2)
+    ) !important ;
+    transition: --p1 0.5s, --p2 0.5s;
+
+}
+
+[peeked] .face.back {
+    --p1: 30%;
+    --p2: 60%;
 }

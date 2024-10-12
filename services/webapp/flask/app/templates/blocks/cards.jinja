@@ -3,33 +3,56 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/cards.css') }}">
 
     <template id=t-card>
-        <div class="card" rounded embossed hoverable>
-            <div class="front">
-                <span class=value></span>
-                <span class=name></span>
+        <div class="container"> <!-- [flipped], [peeked] -->
+            <div class="card">
+                <div class="face front"></div>
+                <div class="face back"></div>
+                <div class="corner front">
+                    <span></span>
+                </div>
+                <div class="corner back"></div>
             </div>
-            <div class="back"> <span class=name></span></div>
         </div>
     </template>
     <script>
+
 
     class Card extends Container {
 
         constructor(eParent=null){
             super( build("t-card"), eParent)
+
+            let ccard = this.e;            
+            let card = this.select('.card');
+            let cardb = this.select('.face.back');
+
+            // Toggle the corner peek effect on click
+            cardb.addEventListener('click', _ => {
+                this.toggle('peeked');
+            });
+
+            // Flips the card on double-click
+            ccard.addEventListener('dblclick', _ => {
+                this.untag('peeked');  // no peek while flipping the card
+                this.toggle('flipped');
+            });
+
+
         }
 
-        set icon(icon)      { this.cSVGO.icon = icon }
         set name(text)      { 
-                                this.select(".front span.name" ).innerText = text 
-                                this.select(".back  span.name" ).innerText = text 
+                                this.select(".face.back" ).innerText = text 
+                                // this.select(".back  span.name" ).innerText = text
                             }
-        set value(text)    {    this.select(".front span.value").innerText = text }
+        set value(text)     {   
+                                this.select(".face.front").innerText = text
+                                this.select(".corner.front span").innerText = text 
+                            }
 
         flip(side) {    switch (side) {
-                        case 'front': this.tag   ("front") ; this.untag ("back") ; break ;
-                        case 'back':  this.untag ("front") ; this.tag   ("back") ; break ;
-                        default:      this.toggle("front") ; this.toggle("back") ; 
+                        case 'front': this.untag ("flipped") ; break ;
+                        case 'back':  this.tag ("flipped") ; break ;
+                        default:      this.toggle("flipped") ; 
                         }
                     }
     }
@@ -61,13 +84,8 @@
                 this.cards[value].name = key
                 this.cards[value].value = value
 
-                "{{user_id}}" == key ? 
-                    this.cards[value].flip("front") : 
-                    this.cards[value].flip("back") 
-
-                // this.cards[value].onclick = ( _ => this.cards[value].flip("") )
-                this.cards[value].onclick = function() {this.flip("")}.bind(this.cards[value]);
-                // this.cards[value].onclick = ((card) => () => card.flip(""))(this.cards[value]);
+                "{{user_id}}" == key ? this.cards[value].tag("peeked") : null ;
+                this.cards[value].flip("back")
 
                 this.e.append(this.cards[value].e)
 
