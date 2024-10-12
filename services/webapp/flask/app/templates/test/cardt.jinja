@@ -13,7 +13,9 @@
     <div class="card" id="card">
         <div class="card-face card-front" id="card-front">Front</div>
         <div class="card-face card-back" id="card-back">Back</div>
-        <div class="corner corner-front" id="corner-front">10</div>
+        <div class="corner corner-front" id="corner-front">
+            <span class="corner-value" id="corner-value">10</span>
+        </div>
         <div class="corner corner-back" id="corner-back"></div>
     </div>
 </div>
@@ -22,14 +24,16 @@
 <script>
     const ccard = document.getElementById('card-container');
     const card = document.getElementById('card');
+    const cardb = document.getElementById('card-back');
 
     // Toggle the corner peek effect on click
-    ccard.addEventListener('click', function () {
+    cardb.addEventListener('click', function () {
         card.classList.toggle('peek-corner');
     });
 
     // Flip the card on double-click
     ccard.addEventListener('dblclick', function () {
+        card.classList.remove('peek-corner'); // Toggles the flipped class
         card.classList.toggle('flipped'); // Toggles the flipped class
     });
 
