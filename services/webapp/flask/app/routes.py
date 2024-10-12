@@ -14,6 +14,18 @@ def ping():
     return flask.jsonify(response="pong"), 200
 
 
+@app.route("/t/<test>", methods=['GET'])
+def test(test=None):
+
+    if test is None:
+        log.warning("missing test in url")
+        return flask.jsonify(), 400
+    
+
+    return flask.render_template("test/{}.jinja".format(test))
+
+
+
 @app.route("/r/<room_id>", methods=['GET'])
 def room_app(room_id=None):
 
