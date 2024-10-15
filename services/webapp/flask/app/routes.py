@@ -54,7 +54,7 @@ def room_app(room_id=None):
 
 
     return flask.render_template(
-        "room.jinja",
+        "r.jinja",
         user_id=flask.session.get("user_id"),        
         is_anonymous=False,
         room_id=room_id,

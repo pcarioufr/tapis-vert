@@ -1,6 +1,6 @@
-    <!-- CONTAINERS ------ ------ ------ ------ -->
+    <!-- ELEMENTS ------ ------ ------ ------ -->
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/blocks/containers.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/elements.css') }}">
 
     <script>
 
@@ -19,11 +19,12 @@
         }
 
 
-        class Container {
+        class Element {
 
-            constructor(eContainer, eParent=null) {
-                this.e = eContainer
-                this.e.id = random_id()
+            constructor(element, eParent=null) {
+                this.e = element
+                
+                if (!this.e.hasAttribute('id')) { this.e.id = random_id() }
                 if (eParent != null) { eParent.appendChild(this.e) }
 
             }

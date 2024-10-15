@@ -2,96 +2,237 @@
 
 {% block head %}
 
-    {% include 'blocks/cards.jinja' %}
-    {% include 'blocks/users.jinja' %}
+    <title>Tapis Vert::{{room_id}}</title>
 
-    <title>Tapis Vert {{room_id}}</title>
-
-    <!-- WEBSOCKETS ------ ------ ------ ------ -->
-    <script>
-
-        let websocket = new WebSocket("/ws/{{room_id}}/{{user_id}}");
-
-        websocket.onmessage = ( event => {
-            
-            let data = JSON.parse(event.data)
-            for ( [key, value] of Object.entries(data)) { fire("websocket", key, value) }
-
-        })
-
-    </script>
-
+    {% include 'elements/room.jinja' %}
 
 {% endblock %}
 
 {% block body %}
 
-    <script>
-
-
-        class Room {
-
-            constructor(cards, users) {
-                this.cards = cards
-                this.users = users
-
-            }
-
-            update() {
-
-                call('GET', '/api/v1/r/{{room_id}}')
-                .then( r => r.json() )
-                .then( r => {
-
-                    let key, value
-                    for ( [key, value] of Object.entries(r.room) ) {
-
-                        if ( key.startsWith("user::") ) 
-                        { this.users.add( key.substring(6), value ) }
-
-                        if (key == "cards") 
-                        { this.cards.refresh( JSON.parse(value) ) }
-
-                    } 
-                })
-            }
-
-        }
-
-
-        function new_round() { 
-            // TODO
-        }
-
-    </script>
-
     <h2> Welcome, {{user_id}}.</h2>
-    <h2> Room {{room_id}}</h2>
-    <h2 class=round> Round {{round_id}}</h2>
-
 
     <script>
 
-        let CARDS = new Cards(document.body)
-        let USERS = new Users(document.body)
+    let FOOTER = new Footer()
 
-        let ROOM = new Room(CARDS, USERS)
+    const ROOM = {
 
-        ROOM.update()
+        _eFooterEntry: new RoomFooterEntry(),
 
-        listen( null, "room:update", (throwerId, data) => 
-            console.log(`heard event room:update`) 
-        )
+        // Set room name
+        setName(text) {
+            this._eFooterEntry.name = text;
+        },
 
-        listen( null, "user:online", (throwerId, user_id) => 
-            USERS.online(user_id)
-        )
-        listen( null, "user:offline", (throwerId, user_id) =>
-            USERS.offline(user_id) 
-        )
+        // Set current round
+        setRound(text) {
+            this._eFooterEntry.round = text;
+        }
+    };
 
-        // websocket.onopen = ( _ => websocket.send("joined") )
-        wsend(websocket, "joined")
+    const TABLE = {
+
+        _eTable: new Table()
+
+    };
+
+    const USERS = {
+
+        _list: {},  // Stores users in an object with their IDs as keys
+
+        // User constructor function
+        _User: function(name, online) {
+
+            this.name = name || '';
+            this.online = online || false;
+            this.eUserFooter = new UserFooter();
+
+            this.setName = function(text) {
+                this.name = text;
+                this.eUserFooter.name = text;
+            };
+
+            this.setOnline = function(status) {
+                this.online = status;
+                this.eUserFooter.online = status;
+            };
+
+            this.remove = function() {
+                this.eUserFooter.remove();
+            };
+
+            // Initialize the user's elements
+            this.setName(name);
+            this.setOnline(online);
+
+        },
+
+        // Add a new user to the collection
+        add(user_id, name, online) {
+
+            if (this._list[user_id]) return console.warn(`User ${user_id} already registered: can't add`);
+
+            // Create a new instance of User using the User function within the Users object
+            this._list[user_id] = new this._User(name, online);
+        },
+
+        // Remove a user from the collection
+        remove(user_id) {
+
+            if (!this._list[user_id]) return console.warn(`User ${user_id} not in room: can't remove`);
+
+            // Call the remove method for the user
+            this._list[user_id].remove();
+
+            // Delete user from the collection
+            delete this._list[user_id];
+        },
+
+        // Set user properties
+        setName(user_id, name) { 
+            this._list[user_id] ?
+                this._list[user_id].setName(name) :
+                console.warn(`User ${user_id} not in room: can't set name`);
+        },
+
+        setOnline(user_id, status) {             
+            this._list[user_id] ?
+                this._list[user_id].setOnline(status) :
+                console.warn(`User ${user_id} not in room: can't set online status`);
+        }
+    };
+
+
+
+    const CARDS = {
+
+        _list: {},  // Store cards in an object with their values as keys
+
+        // Constructor function for a Card
+        _Card: function(value, owner) {
+            this.value = value;
+            this.owner = owner || null;
+            this.peeked = false;
+            this.eCard = new Card();  // Assuming CardElement manipulates the DOM card
+
+            // Methods to manipulate the card
+            this.setOwner = function(owner) {
+                this.owner = owner;
+                this.eCard.owner = owner;  // Update DOM or other representation
+            };
+
+            this.setPeeked = function(peeked) {
+                this.peeked = peeked;
+                this.eCard.peeked = peeked;  // Update DOM or other representation
+            };
+
+            this.flip = function(side) {
+                this.side = side;
+                this.eCard.flip(side);  // Perform the flip animation or update on the DOM
+            };
+
+            // Initialize the card's element (visuals, etc.)
+            this.eCard.value = this.value;
+            this.setOwner(owner);
+
+        },
+
+        // Add a new card to the collection
+        add(value, owner, peeked) {
+            
+            if (this._list[value]) return console.warn(`Card ${value} already registered: can't add`);
+
+            // Create a new card and store it in the list
+            this._list[value] = new this._Card(value, owner, peeked);
+        },
+
+        // Set card owner
+        setOwner(value, owner) {
+            this._list[value] ?
+                this._list[value].setOwner(owner) :
+                console.warn(`Card ${value} not in room: can't set owner`);
+        },
+
+        // Set card peeked status
+        setPeeked(value, peeked) {
+            this._list[value] ?
+                this._list[value].setPeeked(peeked) :
+                console.warn(`Card ${value} not in room: can't set peeked status`);
+        },
+
+        // Flip the card
+        flip(value, side) {
+            this._list[value] ?
+                this._list[value].flip(side) :
+                console.warn(`Card ${value} not in room: can't flip`);
+        }
+    };
+
+    let websocket = new WebSocket("/ws/{{room_id}}/{{user_id}}");
+
+    websocket.onmessage = ( event => {
+        
+        let data = JSON.parse(event.data)
+        for ( [key, value] of Object.entries(data)) { fire("websocket", key, value) }
+
+    })
+
+
+    call('GET', '/api/v1/r/{{room_id}}')
+    .then( r => r.json() )
+    .then( r => {
+
+        let k, v
+        for ( [k, v] of Object.entries(r.room) ) {
+
+            if ( k.startsWith("user::") ) { 
+
+                user_id = k.substring(6) 
+                USERS.add(user_id, user_id)
+
+                v == "online" ? 
+                    USERS.setOnline(user_id, true) :
+                    USERS.setOnline(user_id, false)
+
+            }
+
+            if (k == "cards") { 
+
+                let cards = JSON.parse(v)
+                    
+                let owner, value
+                for ( const [owner, value] of Object.entries(cards)) {
+
+                    console.log(`processing card ${value}:${owner}`)
+
+                    CARDS.add(value, owner)
+
+                    "{{user_id}}" == owner && CARDS.setPeeked(value, true) 
+                    CARDS.flip(value, "back")
+
+                } 
+
+            }
+
+        } 
+    })
+
+
+    listen( null, "room:update", (throwerId, data) => 
+        console.log(`heard event room:update`) 
+    )
+
+    listen( null, "user:online", (throwerId, user_id) =>             
+        USERS.setOnline(user_id, true)
+    )
+    listen( null, "user:offline", (throwerId, user_id) =>
+        USERS.setOnline(user_id, false) 
+    )
+
+    // websocket.onopen = ( _ => websocket.send("joined") )
+    wsend(websocket, "joined")
+
 
     </script>
 

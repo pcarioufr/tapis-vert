@@ -13,6 +13,9 @@ html { height: 100% }
    --dgrey: #554444;
    --white: #eeeeee;
 
+   --dbrown: #4f3111;
+   --bbrown: #36210b;
+
    --trans: 0.5s;
    
    --width: 800px;
@@ -107,7 +110,6 @@ html { height: 100% }
 body{
 
     width: 600px;
-    height: 100%;
     margin-top: 50px;
     margin-left: auto;
     margin-right: auto;

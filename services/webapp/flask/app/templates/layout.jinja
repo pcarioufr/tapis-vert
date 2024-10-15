@@ -12,14 +12,16 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
 
-    {% include 'blocks/containers.jinja' %}
-    {% include 'blocks/utils.jinja' %}
+    <!-- LIBS -->
+    {% include 'libs/http.jinja' %}
+    {% include 'libs/events.jinja' %}
+    {% include 'libs/websocket.jinja' %}
+    {% include 'libs/datadog.jinja' %}
 
-    {% include 'blocks/events.jinja' %}
-    {% include 'blocks/buttons.jinja' %}
-    {% include 'blocks/websocket.jinja' %}
-
-    {% include 'blocks/datadog.jinja' %}
+    <!-- ELEMENTS -->
+    {% include 'elements/elements.jinja' %}
+    {% include 'elements/buttons.jinja' %}
+    {% include 'elements/footer.jinja' %}
 
     {% block head %}{% endblock %}
 
@@ -28,7 +30,19 @@
 <body dgreen>
     
     <link rel="shortcut icon" type="image/png" sizes="any" href="/favicon.png"/>
-            
+
+    <!-- ASSESS MOBILE ------ ------ ------ ------ -->
+    <script> 
+        
+        let SIZE_S = window.matchMedia("(pointer:none), (max-width: 800px)")
+        function assessLayout() { 
+            SIZE_S.matches ? document.body.id = "S" : document.body.id = "M" 
+        }
+        assessLayout() ; 
+        SIZE_S.addEventListener("change", _ => assessLayout() )
+
+    </script>
+
     <header> </header> 
     <div class="page"> 
     
@@ -37,17 +51,5 @@
     </div> 
 
 </body>
-
-<!-- ASSESS MOBILE ------ ------ ------ ------ -->
-<script> 
-    
-    let SIZE_S = window.matchMedia("(pointer:none), (max-width: 800px)")
-    function assessLayout() { 
-        SIZE_S.matches ? document.body.id = "S" : document.body.id = "M" 
-    }
-    assessLayout() ; 
-    SIZE_S.addEventListener("change", _ => assessLayout() )
-
-</script>
 
 </html>

@@ -1,0 +1,57 @@
+    <!-- FOOTER ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/footer.css') }}" />
+
+
+    <!-- FooterEntry -->
+
+    <template id=t-entry>
+        <div class="entry">
+            <span class="name"></span>
+            <div class="container panel"></div>
+        </div>
+    </template>
+    <script>
+
+    class FooterEntry extends Element {
+
+        constructor(eParentID) {
+
+            let eParent
+            let validIDs = ["left-entries", "right-entries"]
+            
+            validIDs.includes(eParentID) ?
+                super( build("t-entry"), document.getElementById(eParentID) ) :
+                console.error(`${eParentID} isn't a valid container for FooterEntry`)      
+
+        }
+
+        set name(text)      { this.select("span.name").innerText = text }
+        set panel(element)  {
+            this.select("div.container.panel").replaceChildren(element)
+        }
+
+    }
+    </script>
+
+
+    <!-- Footer -->
+
+    <template id=t-footer>
+        <footer>
+            <div class="entries" id="left-entries"></div>
+            <div class="entries" id="right-entries"></div>
+        </footer>
+    </template>
+    <script>
+
+    class Footer extends Element {
+
+        constructor() {
+            super( build("t-footer"), document.body )
+        }
+
+    }
+
+    </script>
+

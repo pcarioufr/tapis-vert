@@ -1,0 +1,80 @@
+footer {
+    position: fixed;
+    bottom: 0;
+    z-index: 10;
+    background: linear-gradient(var(--dbrown), var(--bbrown));
+    border-top-style: solid;
+    border-width: 2px;
+    border-color: var(--beige);
+    box-shadow: 0px -3px 5px #00000099;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    height: 8vh;
+}
+  
+
+footer .entry span {
+  position: relative;
+  font-size: 2vw;
+}
+
+footer .entry .item {
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  background: var(--dbrown);
+  padding: 3vw;
+}
+
+
+footer .entry .panel {
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  background: var(--dbrown);
+  padding: 3vw;
+}
+
+
+
+  
+/* .footer-anchor {
+  position: static;
+}
+
+footer, 
+.footer-anchor {
+  height: var(--header); 
+  width: 100%;
+  transition-duration: var(--trans);
+  -webkit-transition-duration: var(--trans);
+}
+
+footer[shrink], 
+.footer-anchor[shrink] {
+  -webkit-transform: translateY( var(--footer) );
+  transform: translateY( var(--footer) );
+}
+
+
+.c-footer .copyright{
+  font-size: var(--m);
+  display: flex;
+  align-items: center;
+}
+
+.c-footer .copyright > div{
+  height: fit-content;
+}
+*/
+
+/* COOKIE PANEL ENTRIES *************** */
+
+/* header #cookie-panel svg.status.ok{
+  fill: var(--green);
+}
+header #cookie-panel svg.status.ko{
+  fill: var(--red);
+}
+*/
