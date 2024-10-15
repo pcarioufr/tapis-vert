@@ -35,8 +35,11 @@ services:
       - ./webapp/libs:/opt/libs:ro
     environment:
       - PYTHONPATH=/opt/libs
+      - HOST
+      - LEVEL
       - FLASK_SECRET
       - REDIS_HOST=redis
+      - REDIS_USERS_DB=1
       - REDIS_ROOMS_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_SERVICE=flask
@@ -88,6 +91,7 @@ services:
       - DD_ENV
       - DD_VERSION
       - REDIS_HOST=redis
+      - REDIS_USERS_DB=1
       - REDIS_ROOMS_DB=2
       - REDIS_PUBSUB_DB=9
       - DD_LOGS_ENABLED=true

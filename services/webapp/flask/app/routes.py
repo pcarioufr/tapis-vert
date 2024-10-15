@@ -1,9 +1,13 @@
 import flask
 from flask import current_app as app
+from flask import request, send_file
 
 import redis, json, random
 from utils import log
-from models import Room
+from models import Room, User
+
+import io
+import qrcode
 
 
 
@@ -54,9 +58,10 @@ def room_app(room_id=None):
 
 
     return flask.render_template(
-        "room.jinja",
+        "r.jinja",
         user_id=flask.session.get("user_id"),        
         is_anonymous=False,
+        host=app.config["HOST"],
         room_id=room_id,
         clientToken=app.config["DD_CLIENT_TOKEN"],
         applicationId=app.config["DD_APPLICATION_ID"],
@@ -103,9 +108,8 @@ def round_api(room_id=None):
     log.debug("players: {}".format(players))
 
     room.new_round(players)
-    
 
-    return flask.jsonify(room=room.get())
+    return flask.jsonify(room.get())
 
 
 
@@ -131,3 +135,63 @@ def room_user_id_api(room_id=None, user_id=None):
     if flask.request.method == 'DELETE':
         room.remove_user(user_id)
         return flask.jsonify(), 204
+
+
+
+@app.route("/api/v1/users/<user_id>", methods=['POST', 'DELETE', 'GET', 'PUT'])
+def user_api(user_id=None):
+
+    if user_id is None:
+        log.warning("missing user_id in url")
+        return flask.jsonify(), 400
+
+
+    if flask.request.method == 'POST':
+        user = User.create({ "status" : "hello"})
+        return flask.jsonify(user=user.to_dict()), 200
+
+
+    user = User.get(user_id)
+    if user is None:
+        return flask.jsonify(), 404
+
+    if flask.request.method == 'GET':
+        return flask.jsonify(user=user.to_dict()), 200
+
+    if flask.request.method == 'PUT':
+        user.data["status"] = "world"
+        user.save()
+        user = User.get(user_id)
+        return flask.jsonify(user=user.to_dict()), 200
+
+    if flask.request.method == 'DELETE':
+        user.delete()
+        return flask.jsonify(), 204
+
+
+@app.route('/api/v1/qrcode', methods=['GET'])
+def qr_code():
+
+    link = request.args.get("link")
+    if link is None:
+        return flask.jsonify(), 400
+
+    size = request.args.get("size")
+    if size is None:
+        size = 8
+
+    qr = qrcode.QRCode(
+            box_size=size, 
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            border=0
+        )
+    qr.add_data(link)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#ece2ce", back_color="#4f3111")
+    img.convert('RGB')
+
+    img_io = io.BytesIO()
+    img.get_image().save(img_io, 'PNG')
+    img_io.seek(0)
+
+    return send_file(img_io, mimetype='image/png')

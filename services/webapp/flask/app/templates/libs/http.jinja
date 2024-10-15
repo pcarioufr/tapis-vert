@@ -1,4 +1,4 @@
-    <!-- UTILS ------ ------ ------ ------ -->
+    <!-- HTTP UTILS ------ ------ ------ ------ -->
 
     <script>
 
@@ -20,6 +20,10 @@
                 if (r.status >= 400) { throw "oups, c'est est cassé..." }
             }
             return r
+        }
+
+        function imageAssign(div,blob) {
+            div.setAttribute("src",""+URL.createObjectURL(blob))
         }
 
         {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
