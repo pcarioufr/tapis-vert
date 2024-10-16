@@ -2,19 +2,129 @@
 
     <script>
 
-        let LISTENERS = []
+        const LISTENERS = {}; // Use const for immutability as the reference to LISTENERS will not change
 
-        function fire(throwerId, eventName, data=null) { 
-            // console.log(`${throwerId} fires ${eventName} with ${data}`)
-            if (LISTENERS[eventName] != null) { for (const [id, f] of Object.entries(LISTENERS[eventName])) { f.call(this, throwerId, data) } }
+        /**
+        * Triggers all callbacks registered for a specific event.
+        * 
+        * @param {string} throwerId - ID of the source that triggered the event.
+        * @param {string} eventName - Name of the event being fired.
+        * @param {*} data - Optional data to be passed to the callbacks.
+        */
+        function fire(throwerId, eventName, data = null) {
+
+            // Check if any listeners exist for this event
+            if (LISTENERS[eventName] != null) {
+            
+                // Iterate through listeners and call their callback functions
+                Object.entries(LISTENERS[eventName]).forEach(([listenerId, callback]) => {
+                    callback.call(this, throwerId, data);
+                });
+
+            }
         }
 
-        function listen(listenerId, eventName, callback) { 
-            // console.log(`${listenerId} registers as listener for ${eventName}`)
-            if ( !LISTENERS.hasOwnProperty(eventName) ) { LISTENERS[eventName] = [] }
-            LISTENERS[eventName][listenerId] = callback
+        /**
+        * Registers a callback function to a specific event.
+        * 
+        * @param {string|null} listenerId - ID of the listener.
+        * @param {string} eventName - Name of the event to listen for.
+        * @param {function} callback - Callback function to run when the event is fired.
+        */
+        function listen(listenerId, eventName, callback) {
+
+            if (typeof listenerId !== 'string' || listenerId.trim() === '') {
+                throw new Error("Listener ID must be a non-empty string.");
+            }
+
+            // Initialize the event listener array if not present
+            if (!LISTENERS.hasOwnProperty(eventName)) {
+                LISTENERS[eventName] = [];
+            }
+
+            // Add the callback for this listener
+            LISTENERS[eventName][listenerId] = callback;
         }
 
-        function ignore(listenerId, eventName) { delete LISTENERS[eventName][listenerId] }
+        /**
+        * Unregisters a listener from an event.
+        * 
+        * @param {string} listenerId - ID of the listener to remove.
+        * @param {string} eventName - Name of the event from which the listener is removed.
+        */
+        function ignore(listenerId, eventName) {
+
+            if (typeof listenerId !== 'string' || listenerId.trim() === '') {
+                throw new Error("Listener ID must be a non-empty string.");
+            }
+
+            // Remove the listener's callback if it exists
+            if (LISTENERS[eventName]) {
+                delete LISTENERS[eventName][listenerId];
+            }
+        }
+
+    </script>
+
+
+    <!-- WEBSOCKETS ------ ------ ------ ------ -->
+
+    <script>
+
+    class EventWebSocket extends WebSocket {
+
+        constructor(url) {
+
+            super(url);  // Call the WebSocket constructor
+
+            this.onmessage = (event) => {
+                let [key, value] = event.data.split('::', 2);  // Split only at the first occurrence of '::'
+                
+                // If value looks like JSON (starts with `{` or `[`), parse it
+                try { 
+                    value = JSON.parse(value); 
+                } catch (e) { /* If not JSON, just use raw value */ }
+
+                fire("websocket", key, value);
+            };
+
+            this.onopen = () => {
+                console.log("WebSocket connection established");
+            };
+
+            this.onclose = () => {
+                console.log("WebSocket connection closed");
+            };
+
+            this.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+        }
+
+        // this.send(), but waiting for the websocket connection to open.
+        wsend(msg, timeout = 5000) {
+
+            const startTime = Date.now();
+
+            const interval = setInterval(
+                
+                _ => {
+
+                    if (this.readyState === 1) {  // Check if WebSocket is open
+                        clearInterval(interval);
+                        this.send(msg); 
+                    } 
+                    else if (Date.now() - startTime > timeout) {  // Check if timeout exceeded
+                        clearInterval(interval); 
+                        console.error('WebSocket connection timed out. Message not sent.');
+                    }
+
+                }, 
+                5 // Check every 5 milliseconds
+            );  
+
+        }
+  
+    }
 
     </script>

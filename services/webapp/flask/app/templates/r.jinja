@@ -12,6 +12,7 @@
 
     <h2> Welcome, {{user_id}}.</h2>
 
+    <!-- MODELS ------ ------ ------ ------ -->
     <script>
 
     let FOOTER = new Footer()
@@ -168,15 +169,33 @@
                 console.warn(`Card ${value} not in room: can't flip`);
         }
     };
+    </script>
 
-    let websocket = new WebSocket("/ws/{{room_id}}/{{user_id}}");
 
-    websocket.onmessage = ( event => {
-        
-        let data = JSON.parse(event.data)
-        for ( [key, value] of Object.entries(data)) { fire("websocket", key, value) }
+    <!-- LISTENERS ------ ------ ------ ------ -->
+    <script>
 
-    })
+    listen( "window", "room:update", (throwerId, data) => 
+        console.log(`heard event room:update`) 
+    )
+
+    listen( "window", "user:online", (throwerId, user_id) =>             
+        USERS.setOnline(user_id, true)
+    )
+    listen( "window", "user:offline", (throwerId, user_id) =>
+        USERS.setOnline(user_id, false) 
+    )
+    listen( "window", "user:joined", (throwerId, user_id) =>
+        USERS.add(user_id, user_id, true)  
+    )
+
+    </script>
+
+    <script>
+
+    let websocket = new EventWebSocket("/ws/{{room_id}}/{{user_id}}");
+
+    websocket.wsend("joined")
 
 
     call('GET', '/api/v1/r/{{room_id}}')
@@ -218,23 +237,8 @@
         } 
     })
 
-
-    listen( null, "room:update", (throwerId, data) => 
-        console.log(`heard event room:update`) 
-    )
-
-    listen( null, "user:online", (throwerId, user_id) =>             
-        USERS.setOnline(user_id, true)
-    )
-    listen( null, "user:offline", (throwerId, user_id) =>
-        USERS.setOnline(user_id, false) 
-    )
-
-    // websocket.onopen = ( _ => websocket.send("joined") )
-    wsend(websocket, "joined")
-
-
     </script>
+
 
 {% endblock %}
 

@@ -41,23 +41,14 @@ class Room():
         if status not in ["offline", "online"]:
             raise Exception("user status should be online or offline")
 
-        if redis_rooms.hexists(self.room_id, "user::"+user_id):
-            new = False
-        else:
-            new = True
-
         res = redis_rooms.hset(self.room_id, "user::"+user_id, status)
         if res == 0:
-            log.warning("user {} not added to room {} - already a member".format(user_id, self.room_id))
+            log.info("user {} not added to room {} - already a member".format(user_id, self.room_id))
         else:
-            log.info("add user {} to room {} with status {}".format(user_id, self.room_id, status))
+            log.info("add user {} to room".format(user_id, self.room_id, status))
+            self.publish('user:joined', user_id)
 
-        # Broadcast new user event
-        if new:
-            redis_pubsub.publish(self.room_id, json.dumps({'user:joined': user_id }))
-
-        # Broadcast user status event
-        redis_pubsub.publish(self.room_id, json.dumps({'user:'+status: user_id }))
+        self.publish('user:'+status, user_id)
 
 
     def remove_user(self, user_id):
@@ -69,7 +60,7 @@ class Room():
         res = redis_rooms.hdel(self.room_id, "user::"+user_id)
         
         log.info("delete user {} from room {}".format(user_id, self.room_id))
-        redis_pubsub.publish(self.room_id, json.dumps({'user:left': user_id }))
+        self.publish('user:left', user_id)
 
 
     def new_round(self, players):
@@ -97,10 +88,23 @@ class Room():
         redis_rooms.expire(self.room_id, ROOM_TTL)
 
         # Broadcast new round event
-        redis_pubsub.publish(self.room_id, json.dumps({'round:update': round }))
+        self.publish('round:update', round)
 
 
     def delete(self):
 
         redis_rooms.delete(self.room_id)
         log.info("delete room {}".format(self.room_id))
+
+
+    def publish(self, key, value):
+
+        # If value is not a string, we assume it's a more complex structure and JSON-encode it
+        if not isinstance(value, str):
+            value = json.dumps(value)
+
+        # Create the message with 'key::value' format
+        message = f"{key}::{value}"
+
+        # Publish the message to the Redis channel (room_id)
+        redis_pubsub.publish(self.room_id, message)
