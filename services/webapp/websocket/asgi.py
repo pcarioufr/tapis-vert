@@ -40,7 +40,8 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
                 room.set_user(user_id, "online")
 
             with tracer.trace("receive"):
-                message = json.dumps({user_id: data})
+
+                message = f"user::{user_id}:{data}"
                 await socket_manager.broadcast_to_room(room_id, message)
 
     except WebSocketDisconnect:

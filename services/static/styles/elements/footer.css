@@ -1,3 +1,4 @@
+
 footer {
     position: fixed;
     bottom: 0;
@@ -13,29 +14,36 @@ footer {
     height: 8vh;
 }
   
+footer .entry {
+  position: absolute;
+  bottom: 50px;
+  right: 50px;
+  background: var(--dbrown);
+  padding: 3vw;
+}
 
 footer .entry span {
   position: relative;
   font-size: 2vw;
 }
 
-footer .entry .item {
-  position: absolute;
-  bottom: 50px;
-  right: 50px;
-  background: var(--dbrown);
-  padding: 3vw;
+footer .entry .panel-content {
+  display: none;
 }
 
 
-footer .entry .panel {
+/* Sliding side panel styling */
+.footer-panel {
   position: absolute;
-  bottom: 50px;
-  right: 50px;
-  background: var(--dbrown);
-  padding: 3vw;
+  bottom: -200px; /* Start below the footer */
+  width: 100px; /* Only 100px wide */
+  height: 200px;
+  background-color: var(--dbrown);
+  border-radius: 1vw 1vw 0 0;
+  box-shadow: 1px 1px 5px #00000099;
+  transition: transform 0.3s ease, left 0.3s ease; /* Smooth slide-in effect and position transition */
+  z-index: 5; /* Ensure it appears below the footer */
 }
-
 
 
   

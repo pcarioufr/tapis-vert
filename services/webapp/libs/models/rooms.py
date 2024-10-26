@@ -46,9 +46,9 @@ class Room():
             log.info("user {} not added to room {} - already a member".format(user_id, self.room_id))
         else:
             log.info("add user {} to room".format(user_id, self.room_id, status))
-            self.publish('user:joined', user_id)
+            self.publish('room:user.joined', user_id)
 
-        self.publish('user:'+status, user_id)
+        self.publish('room:user.'+status, user_id)
 
 
     def remove_user(self, user_id):
@@ -60,7 +60,7 @@ class Room():
         res = redis_rooms.hdel(self.room_id, "user::"+user_id)
         
         log.info("delete user {} from room {}".format(user_id, self.room_id))
-        self.publish('user:left', user_id)
+        self.publish('room:user.left', user_id)
 
 
     def new_round(self, players):
@@ -88,7 +88,7 @@ class Room():
         redis_rooms.expire(self.room_id, ROOM_TTL)
 
         # Broadcast new round event
-        self.publish('round:update', round)
+        self.publish('room:round.update', round)
 
 
     def delete(self):

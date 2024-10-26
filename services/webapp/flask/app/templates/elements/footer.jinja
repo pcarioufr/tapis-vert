@@ -5,12 +5,14 @@
 
     <!-- FooterEntry -->
 
-    <template id=t-entry>
+    <template id=t-footer-entry>
         <div class="entry">
             <span class="name"></span>
-            <div class="container panel"></div>
+            <div class="panel-content"></div>
         </div>
     </template>
+
+
     <script>
 
     class FooterEntry extends Element {
@@ -21,37 +23,50 @@
             let validIDs = ["left-entries", "right-entries"]
             
             validIDs.includes(eParentID) ?
-                super( build("t-entry"), document.getElementById(eParentID) ) :
+                super( build("t-footer-entry"), document.getElementById(eParentID) ) :
                 console.error(`${eParentID} isn't a valid container for FooterEntry`)      
+
+            this.onclick = (event => {
+
+                const panel = document.getElementById('footer-panel');
+                
+                // Get the clicked button's position
+                const buttonRect = event.target.getBoundingClientRect();
+
+                // Set the panel's left position to align with the button
+                panel.style.left = `${buttonRect.left}px`;
+                console.log(`${buttonRect.left}px`)
+
+                // Toggle the visibility of the panel
+                panel.classList.toggle('show');
+                
+            })
 
         }
 
         set name(text)      { this.select("span.name").innerText = text }
         set panel(element)  {
-            this.select("div.container.panel").replaceChildren(element)
+            this.select("div.panel-content").replaceChildren(element)
         }
 
     }
     </script>
+
 
 
     <!-- Footer -->
 
-    <template id=t-footer>
-        <footer>
-            <div class="entries" id="left-entries"></div>
-            <div class="entries" id="right-entries"></div>
-        </footer>
-    </template>
-    <script>
 
-    class Footer extends Element {
+    <div class="footer-panel" id="footer-panel">
 
-        constructor() {
-            super( build("t-footer"), document.body )
-        }
+    </div>
 
-    }
-
-    </script>
+    <footer>
+        <div class="entries" id="left-entries">
+            <!-- Array of [ FooterEntries ] <div class="entry"></div> -->
+        </div>
+        <div class="entries" id="right-entries">
+            <!-- Array of [ FooterEntries ] <div class="entry"></div> -->
+        </div>
+    </footer>
 

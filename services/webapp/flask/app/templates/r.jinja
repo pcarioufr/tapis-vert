@@ -12,162 +12,173 @@
 
     <h2> Welcome, {{user_id}}.</h2>
 
-    <!-- MODELS ------ ------ ------ ------ -->
-    <script>
 
-    let FOOTER = new Footer()
+    <!-- OBJECTS ------ ------ ------ ------ -->
+    <script>
 
     const ROOM = {
 
+        // Representation of the Room in the page footer
         _eFooterEntry: new RoomFooterEntry(),
 
-        // Set room name
-        setName(text) {
-            this._eFooterEntry.name = text;
-        },
+        name(text)  { this.eFooterEntry.name = text  },
+        round(text) { this.eFooterEntry.round = text }
 
-        // Set current round
-        setRound(text) {
-            this._eFooterEntry.round = text;
-        }
     };
 
     const TABLE = {
 
+        // Representation of the Table in the page 
         _eTable: new Table()
 
     };
 
     const USERS = {
 
-        _list: {},  // Stores users in an object with their IDs as keys
+        // Stores the collection of users, indexed with their user_id
+        _list: {},  
 
-        // User constructor function
-        _User: function(name, online) {
+        _User: function() {
 
-            this.name = name || '';
-            this.online = online || false;
-            this.eUserFooter = new UserFooter();
+            // User's state, for reference
+            this._name = null ;
+            this._online = false ;
 
-            this.setName = function(text) {
-                this.name = text;
-                this.eUserFooter.name = text;
+            // Representation of the User in the page footer
+            this.eUserFooter = new UserFooter() ;
+
+            // Representation of the User  as a Pawn on the Table
+            this.eUserPawn = new Pawn() ;
+
+            // Remove all User's representations
+            this._remove = function() {
+                this.eUserFooter.remove() ;
+                this.eUserPawn.remove() ;
+            } ;
+
+            // Sets User's name
+            this.name = function(name) {
+                this._name = name ;
+                this.eUserFooter.name = name ;
+                this.eUserPawn.name = name ;
             };
 
-            this.setOnline = function(status) {
-                this.online = status;
-                this.eUserFooter.online = status;
+            // Sets User's online status
+            this.online = function(bool) {
+                this._online = bool ;
+                this.eUserFooter.online = bool ;
+                this.eUserPawn.online = bool ;
             };
-
-            this.remove = function() {
-                this.eUserFooter.remove();
-            };
-
-            // Initialize the user's elements
-            this.setName(name);
-            this.setOnline(online);
 
         },
 
-        // Add a new user to the collection
+        // Returns a User based on id
+        get(user_id) { return this._list[user_id] },
+
+        // Adds a new User
         add(user_id, name, online) {
 
-            if (this._list[user_id]) return console.warn(`User ${user_id} already registered: can't add`);
+            if (this._list[user_id]) 
+                return console.warn(`User ${user_id} already registered: can't add`) ;
 
-            // Create a new instance of User using the User function within the Users object
-            this._list[user_id] = new this._User(name, online);
+            this._list[user_id] = new this._User() ;
+
+            // Initializes the User's elements
+            this._list[user_id].name(name) ;
+            this._list[user_id].online(online) ;
+
         },
 
-        // Remove a user from the collection
+        // Removes a User
         remove(user_id) {
 
-            if (!this._list[user_id]) return console.warn(`User ${user_id} not in room: can't remove`);
+            if (!this._list[user_id]) 
+                return console.warn(`User ${user_id} not in room: can't remove`) ;
 
-            // Call the remove method for the user
-            this._list[user_id].remove();
-
-            // Delete user from the collection
-            delete this._list[user_id];
+            this._list[user_id]._remove() ;
+            delete this._list[user_id] ;
         },
 
-        // Set user properties
-        setName(user_id, name) { 
-            this._list[user_id] ?
-                this._list[user_id].setName(name) :
-                console.warn(`User ${user_id} not in room: can't set name`);
-        },
-
-        setOnline(user_id, status) {             
-            this._list[user_id] ?
-                this._list[user_id].setOnline(status) :
-                console.warn(`User ${user_id} not in room: can't set online status`);
-        }
     };
 
 
+    const DECKS = {
+
+        // Stores the collection of decks, indexed with the owner's user_id
+        _list: {}, 
+
+        _Deck: function() {
+
+            // Representation of the Deck on the Table
+            this.eDeck = new Deck() ;
+
+            // Moves a Pawn into the Deck
+            this.movePawn = function(pawn) { this.eDeck.pawn = pawn.e ; }
+
+            // Moves a Card into the Deck
+            this.moveCard = function(card) { this.eDeck.card = card.eCard.e ; }
+
+        },
+
+        // Returns a Deck based on id
+        get(owner) { return this._list[owner] ; },
+
+        // Adds a new Deck
+        add(owner) {
+            
+            if (this._list[owner]) 
+                return console.warn(`Deck ${owner} already registered: can't add`) ;
+
+            this._list[owner] = new this._Deck() ;
+
+        },
+
+    }
 
     const CARDS = {
 
-        _list: {},  // Store cards in an object with their values as keys
+        // Stores the collection of cards, indexed with their value
+        _list: {},
 
-        // Constructor function for a Card
         _Card: function(value, owner) {
-            this.value = value;
-            this.owner = owner || null;
-            this.peeked = false;
-            this.eCard = new Card();  // Assuming CardElement manipulates the DOM card
 
-            // Methods to manipulate the card
-            this.setOwner = function(owner) {
-                this.owner = owner;
-                this.eCard.owner = owner;  // Update DOM or other representation
-            };
-
-            this.setPeeked = function(peeked) {
-                this.peeked = peeked;
-                this.eCard.peeked = peeked;  // Update DOM or other representation
-            };
-
-            this.flip = function(side) {
-                this.side = side;
-                this.eCard.flip(side);  // Perform the flip animation or update on the DOM
-            };
-
-            // Initialize the card's element (visuals, etc.)
-            this.eCard.value = this.value;
-            this.setOwner(owner);
-
-        },
-
-        // Add a new card to the collection
-        add(value, owner, peeked) {
+            // Card's state, for reference
+            this._peeked = false ;
+            this._flipped = false ;
             
-            if (this._list[value]) return console.warn(`Card ${value} already registered: can't add`);
+            // Representation of the Card on the Table
+            this.eCard = new Card() ;
+            this.eCard.owner = owner ; 
+            this.eCard.value = this.value ;
 
-            // Create a new card and store it in the list
-            this._list[value] = new this._Card(value, owner, peeked);
+            // Peeks the card
+            this.peeked = function(bool) {
+                this._peeked = bool ;
+                this.eCard.peeked = bool ;
+            };
+
+            // Flips the card
+            this.flipped = function(bool) {
+                this._flipped = bool ;
+                this.eCard.flipped = bool ; 
+            };
+
         },
 
-        // Set card owner
-        setOwner(value, owner) {
-            this._list[value] ?
-                this._list[value].setOwner(owner) :
-                console.warn(`Card ${value} not in room: can't set owner`);
+        // Returns a Card based on value
+        get(value) { return this._list[value] ; },
+
+        // Adds a new Card
+        add(value, owner) {
+            
+            if (this._list[value])
+                return console.warn(`Card ${value} already registered: can't add`) ;
+
+            this._list[value] = new this._Card(value, owner) ;
+
         },
 
-        // Set card peeked status
-        setPeeked(value, peeked) {
-            this._list[value] ?
-                this._list[value].setPeeked(peeked) :
-                console.warn(`Card ${value} not in room: can't set peeked status`);
-        },
 
-        // Flip the card
-        flip(value, side) {
-            this._list[value] ?
-                this._list[value].flip(side) :
-                console.warn(`Card ${value} not in room: can't flip`);
-        }
     };
     </script>
 
@@ -175,29 +186,38 @@
     <!-- LISTENERS ------ ------ ------ ------ -->
     <script>
 
-    listen( "window", "room:update", (throwerId, data) => 
-        console.log(`heard event room:update`) 
+    // Room's websocket
+    let websocket = new EventWebSocket("/ws/{{room_id}}/{{user_id}}") ;
+
+    // Listens when a new user joins the room
+    listen( "window", "room:user.joined", (throwerId, user_id) =>
+        USERS.add(user_id, user_id, true)  
     )
 
-    listen( "window", "user:online", (throwerId, user_id) =>             
-        USERS.setOnline(user_id, true)
+    // Listens when a room's user turns online
+    listen( "window", "room:user.online", (throwerId, user_id) =>             
+        USERS.get(user_id).online(true)
     )
-    listen( "window", "user:offline", (throwerId, user_id) =>
-        USERS.setOnline(user_id, false) 
+
+    // Listens when a room's user turns offline
+    listen( "window", "room:user.offline", (throwerId, user_id) =>
+        USERS.get(user_id).online(false) 
     )
-    listen( "window", "user:joined", (throwerId, user_id) =>
-        USERS.add(user_id, user_id, true)  
+
+    // Listens when a new user leaves the room
+    listen( "window", "room:user.left", (throwerId, user_id) =>
+        USERS.remove(user_id)  
     )
 
     </script>
 
+
     <script>
 
-    let websocket = new EventWebSocket("/ws/{{room_id}}/{{user_id}}");
+    // Sends a hello world
+    websocket.wsend("hello") ;
 
-    websocket.wsend("joined")
-
-
+    // Initializes the Room
     call('GET', '/api/v1/r/{{room_id}}')
     .then( r => r.json() )
     .then( r => {
@@ -207,28 +227,46 @@
 
             if ( k.startsWith("user::") ) { 
 
-                user_id = k.substring(6) 
-                USERS.add(user_id, user_id)
+                user_id = k.substring(6) ;
+                USERS.add(user_id, user_id) ;
 
                 v == "online" ? 
-                    USERS.setOnline(user_id, true) :
-                    USERS.setOnline(user_id, false)
+                    USERS.get(user_id).online(true) :
+                    USERS.get(user_id).online(false) ;
 
             }
 
+        } 
+
+        return r;
+    })
+    .then( r => {
+        
+        let k, v
+        for ( [k, v] of Object.entries(r.room) ) {
+
+
             if (k == "cards") { 
 
-                let cards = JSON.parse(v)
+                let cards = JSON.parse(v) ;
                     
                 let owner, value
                 for ( const [owner, value] of Object.entries(cards)) {
 
-                    console.log(`processing card ${value}:${owner}`)
 
-                    CARDS.add(value, owner)
+                    DECKS.add(owner) ;
+                    CARDS.add(value, owner) ;
 
-                    "{{user_id}}" == owner && CARDS.setPeeked(value, true) 
-                    CARDS.flip(value, "back")
+                    DECKS.get(owner).moveCard(CARDS.get(value)) ;
+
+                    if ("{{user_id}}" == owner)  
+                        CARDS.peeked(value, true) ; 
+
+                    CARDS.get(value).flipped(true) ;
+
+                    USERS.get(owner) ?
+                        DECKS.get(owner).movePawn(USERS.get(owner).eUserPawn) :
+                        console.warn(`User ${owner} not in room, can't move pawn to deck`) ;
 
                 } 
 

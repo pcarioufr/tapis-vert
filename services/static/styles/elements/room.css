@@ -4,17 +4,126 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
+
 }
+
+
+/* TABLE ***** ***** ***** ***** ***** ***** ***** ***** */
+
+.table {
+    position: relative;
+
+    --card-w: 16vw; /* card width */
+    --card-h: 22vw; /* card height */
+    --card-c: 8vw;  /* card corner size */      
+    --card-r: 0deg; /* Initial rotation, not used yet */
+
+    display: flex;
+    flex-direction: row;
+
+}
+
+.table .area {
+    position: relative;
+    width: 20vw;
+    height: 20vw;
+    border-radius: 2vw;
+    background-color: var(--beige);
+    margin: auto;
+    box-shadow: 1vw 1vw 0.5vw rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3vw;
+}
+
+.table .playground {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3vw;
+    margin: auto;
+    width: 60vw;
+
+}
+
+
+/* PAWNS ***** ***** ***** ***** ***** ***** ***** ***** */
+
+
+.pawn {
+    z-index: 10;
+    position: relative ;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow( 1vw 1vw 0.5vw rgba(0, 0, 0, 0.5));
+    margin: 1vw ;
+}
+
+.pawn .head {
+    z-index: 1;
+    ;width: 3vw;
+    height: 3vw;
+    background-color: var(--bblue);
+    border-radius: 50%;
+    margin-bottom: -0.5vw;
+}
+
+.pawn .body {
+    width: 5vw;
+    height: 3vw;
+    background-color: var(--bblue);
+    border-radius: 4vw 4vw 1vw 1vw;
+}
+
+.pawn .label {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--beige);
+    height: 2vw;
+    width: 5vw ;
+    border-radius: 0.5vw;
+    top: -1vw
+}
+
+
+.pawn span.name {
+    color: var(--dblue);
+    font-size: 12px;
+    text-align: right;
+    margin: auto;
+    padding-right: 0.5vw;
+    padding-left: 0.5vw;
+}
+
+.pawn div.status {
+    width: 4vw;
+    height: 0.3vw;
+    background: var(--red);
+    border-radius: 0 0.5vw 0.5vw 0;
+}
+
+.pawn div.status[online] {
+    background: var(--green);
+}
+
 
 
 /* USERS ***** ***** ***** ***** ***** ***** ***** ***** */
 
 .users {
     display: flex;
-    width: 100px;
+    margin: 1vw;
     flex-direction: column;
     justify-content: center;
-    gap: 5px;
+    gap: 0.5vw;
     position: relative;
     margin: auto;
 }
@@ -26,6 +135,7 @@
     height: 20px;
     width: 80px ;
     position: relative;
+    border-radius: 0.5vw
 }
 
 .user span.name {
@@ -50,34 +160,23 @@
 
 
 
-/* TABLE ***** ***** ***** ***** ***** ***** ***** ***** */
-
-.table {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 3vw;
-    position: relative;
-    margin: auto;
-    width: 100%;
-
-    --card-w: 16vw; /* card width */
-    --card-h: 22vw; /* card height */
-    --card-c: 8vw;  /* card corner size */      
-    --card-r: 0deg; /* Initial rotation, not used yet */
-
-}
-
+/* CARDS ***** ***** ***** ***** ***** ***** ***** ***** */
 
 /* Container for the card */
-.container:has(> .card) {
+.deck {
+    width: var(--card-w);
+    height: var(--card-h);
+    position: relative;
+}
+
+.deck .card-slot {
     width: var(--card-w);
     height: var(--card-h);
     position: relative;
     cursor: pointer;
-    filter: drop-shadow( 1vw 1vw 0.5vw rgba(0, 0, 0, 0.5));
+    filter: drop-shadow( 0.1vw 0.1vw 0.1vw rgba(0, 0, 0, 0.5));
 }
+
 
 /* Card */
 .card {
@@ -92,7 +191,7 @@
 }
 
 /* When the card is flipped */
-[flipped] .card {
+[flipped].card {
     transform: rotateZ( var(--card-r) ) rotateY(180deg); /* Flip the card */
 }
 
@@ -151,7 +250,7 @@
 }
 
 /* Corner */
-.corner {
+.card .corner {
     position: absolute;
     width: var(--card-c);
     height: var(--card-c);
@@ -166,13 +265,13 @@
 }
 
 /* Front corner */
-.corner.front {
+.card .corner.front {
     background-color: var(--beige); /* Back color */
     backface-visibility: hidden;
     display: flex;
 }
 
-.corner.front span {
+.card .corner.front span {
     position: relative;
     margin: auto;
     transform: rotate(135deg);
@@ -182,7 +281,7 @@
 }
 
 /* Back corner */
-.corner.back {
+.card .corner.back {
     background-color: var(--dblue); /* Back color */
     backface-visibility: hidden;
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg);
@@ -190,12 +289,12 @@
 
 
 /* Front corner lifts and back of the corner is revealed */
-[flipped][peeked] .corner.front {
+[flipped][peeked].card .corner.front {
     transform: rotate3d(-1, 1, 0, 130deg); /* Rotate to lift the corner */
 }
 
 /* Back corner follows the movement */
-[flipped][peeked] .corner.back {
+[flipped][peeked].card .corner.back {
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -130deg); 
 }
 
@@ -213,7 +312,7 @@
     initial-value: 5%;
 }
 
-.face.back {
+.card .face.back {
     background: radial-gradient(
         ellipse 
         calc(120% + 75% * cos(var(--card-r) - 45deg)) calc(60% + 30% * sin(var(--card-r) - 45deg)) 
@@ -225,7 +324,14 @@
 
 }
 
-[peeked] .face.back {
+[peeked].card .face.back {
     --p1: 30%;
     --p2: 60%;
+}
+
+
+.deck .pawn-slot{
+    position: absolute;
+    top: -20%;
+    left: 75%
 }
