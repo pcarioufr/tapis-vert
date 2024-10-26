@@ -27,17 +27,18 @@ socket_manager = WebSocketManager()
 @app.websocket("/ws/{room_id}/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
 
+    
     room = Room(room_id)
 
     await socket_manager.add_user_to_room(room_id, websocket)
+
+    log.info("websocket opened for user {} in room {}".format(user_id, room_id))
+    room.set_user(user_id, online=1)
 
     try:
         while True:
 
             data = await websocket.receive_text()
-
-            if data == "joined":
-                room.set_user(user_id, "online")
 
             with tracer.trace("receive"):
 
@@ -47,4 +48,4 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
     except WebSocketDisconnect:
 
         await socket_manager.remove_user_from_room(room_id, websocket)
-        room.set_user(user_id, "offline")
+        room.set_user(user_id, online=0)

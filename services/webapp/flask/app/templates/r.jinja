@@ -149,7 +149,7 @@
             // Representation of the Card on the Table
             this.eCard = new Card() ;
             this.eCard.owner = owner ; 
-            this.eCard.value = this.value ;
+            this.eCard.value = value ;
 
             // Peeks the card
             this.peeked = function(bool) {
@@ -222,57 +222,46 @@
     .then( r => r.json() )
     .then( r => {
 
-        let k, v
-        for ( [k, v] of Object.entries(r.room) ) {
+        // Process Users
 
-            if ( k.startsWith("user::") ) { 
+        u = r["room"]["users"] ;
 
-                user_id = k.substring(6) ;
-                USERS.add(user_id, user_id) ;
+        let user_id, props
+        for ( [user_id, props] of Object.entries(u) ) {
 
-                v == "online" ? 
-                    USERS.get(user_id).online(true) :
-                    USERS.get(user_id).online(false) ;
+            USERS.add(user_id, user_id) ;
 
-            }
+            props["online"] == "1" ? 
+                USERS.get(user_id).online(true) :
+                USERS.get(user_id).online(false) ;
 
         } 
 
-        return r;
-    })
-    .then( r => {
+        // Process Cards
         
-        let k, v
-        for ( [k, v] of Object.entries(r.room) ) {
+        c = r["room"]["cards"] ;
+        
+        let value
+        for ( [value, props] of Object.entries(c) ) {
 
+            owner = props["player"]
 
-            if (k == "cards") { 
+            DECKS.add(owner) ;
+            CARDS.add(value, owner) ;
 
-                let cards = JSON.parse(v) ;
-                    
-                let owner, value
-                for ( const [owner, value] of Object.entries(cards)) {
+            DECKS.get(owner).moveCard(CARDS.get(value)) ;
 
+            if ("{{user_id}}" == owner)  
+                CARDS.get(value).peeked(value, true) ; 
 
-                    DECKS.add(owner) ;
-                    CARDS.add(value, owner) ;
+            CARDS.get(value).flipped(true) ;
 
-                    DECKS.get(owner).moveCard(CARDS.get(value)) ;
-
-                    if ("{{user_id}}" == owner)  
-                        CARDS.peeked(value, true) ; 
-
-                    CARDS.get(value).flipped(true) ;
-
-                    USERS.get(owner) ?
-                        DECKS.get(owner).movePawn(USERS.get(owner).eUserPawn) :
-                        console.warn(`User ${owner} not in room, can't move pawn to deck`) ;
-
-                } 
-
-            }
+            USERS.get(owner) ?
+                DECKS.get(owner).movePawn(USERS.get(owner).eUserPawn) :
+                console.warn(`User ${owner} not in room, can't move pawn to deck`) ;
 
         } 
+
     })
 
     </script>

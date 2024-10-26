@@ -103,9 +103,8 @@ def round_api(room_id=None):
     log.debug("players: {}".format(players))
 
     room.new_round(players)
-    
 
-    return flask.jsonify(room=room.get())
+    return flask.jsonify(room.get())
 
 
 
