@@ -38,6 +38,16 @@
     gap: 3vw;
 }
 
+.table .area svg {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    top:10%;
+    left:10%;
+    fill: var(--dgreen)
+}
+
+
 .table .playground {
     position: relative;
     display: flex;

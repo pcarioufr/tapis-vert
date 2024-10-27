@@ -182,6 +182,7 @@
     <template id=t-table>
         <div class="table" id="table">
             <div class="area" id="table-area">
+                <!-- SVG Crown-->
                 <!-- [ Pawns ] -->
             </div>
             <div class="playground" id="table-playground">
@@ -193,7 +194,12 @@
     class Table extends Element {
 
         constructor(){
+
             super( build("t-table"), document.body)
+
+            this.svg = new SVG("crown-line")
+            this.select(".area").append(this.svg.e)
+
         }
 
         empty() { this.e.querySelectorAll('*').forEach( n => n.remove() ); }

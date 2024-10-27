@@ -39,3 +39,11 @@
 [rounded] {
     border-radius: max(6px, 2%)
 }
+
+
+
+svg {
+    fill: var(--beige);
+    height: 24px;
+    width: 24px;
+}
