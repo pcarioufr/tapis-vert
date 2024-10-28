@@ -36,6 +36,10 @@
                 if (eParentID === "right-entries") {
                     this.footerPanel.e.style.right = `${viewportWidth - buttonRect.right}px`;
                 }
+                
+                if (eParentID === "left-entries") {
+                    this.footerPanel.e.style.left = `${buttonRect.left}px`;
+                }
 
             })
 
@@ -76,6 +80,31 @@
 
     </script>
 
+
+
+    <!-- SelfFooterEntry -->
+
+    <template id=t-self-footer-panel>
+        <div class="self-footer-panel">
+            <span class="title">me</span>
+        </div>
+    </template>
+    <script>
+
+    class SelfFooterEntry extends FooterEntry {
+
+        constructor() {
+
+            super( "left-entries" )
+            this.panel = build("t-self-footer-panel")
+
+            this.icon = "account-circle-line"
+            this.name = "{{user_id}}"
+
+        }
+
+    }
+    </script>
 
 
     <!-- Footer -->

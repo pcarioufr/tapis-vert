@@ -63,3 +63,13 @@ footer .entry .name {
 .footer-panel[stashed] {
   transform: translateY(100%);
 }
+
+
+
+
+
+.self-footer-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
