@@ -1,11 +1,3 @@
-/* ROOM ***** ***** ***** ***** ***** ***** ***** ***** */
-
-.room {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-
-}
 
 
 /* TABLE ***** ***** ***** ***** ***** ***** ***** ***** */
@@ -128,7 +120,20 @@
 
 /* USERS ***** ***** ***** ***** ***** ***** ***** ***** */
 
-.users {
+
+.room-footer-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+
+}
+
+.room-footer-panel .title {
+    margin: auto;
+    padding-bottom: 1vw;
+}
+
+.room-footer-panel .users {
     display: flex;
     margin: 1vw;
     flex-direction: column;
@@ -138,7 +143,7 @@
     margin: auto;
 }
 
-.user {
+.room-footer-panel .user {
     display: flex;
     align-items: center;
     background: var(--beige);
@@ -148,14 +153,14 @@
     border-radius: 0.5vw
 }
 
-.user span.name {
+.room-footer-panel .user span.name {
     color: var(--dblue);
     font-size: 12px;
     text-align: right;
     margin: auto;
 }
 
-.user div.status {
+.room-footer-panel .user div.status {
     width: 8px;
     height: 8px;
     margin-right: 8px;
@@ -164,7 +169,7 @@
     background: var(--red);
 }
 
-.user div.status[online] {
+.room-footer-panel .user div.status[online] {
     background: var(--green);
 }
 

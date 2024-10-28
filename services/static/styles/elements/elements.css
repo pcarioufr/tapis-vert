@@ -46,4 +46,5 @@ svg {
     fill: var(--beige);
     height: 24px;
     width: 24px;
+    display: block;
 }

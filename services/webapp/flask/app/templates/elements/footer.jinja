@@ -6,12 +6,11 @@
     <!-- FooterEntry -->
 
     <template id=t-footer-entry>
-        <div class="entry">
+        <div class="entry" hoverable>
+            <div class="icon"><!-- SVG --></div>
             <span class="name"></span>
-            <div class="panel-content"></div>
         </div>
     </template>
-
 
     <script>
 
@@ -19,37 +18,62 @@
 
         constructor(eParentID) {
 
-            let eParent
             let validIDs = ["left-entries", "right-entries"]
             
-            validIDs.includes(eParentID) ?
-                super( build("t-footer-entry"), document.getElementById(eParentID) ) :
-                console.error(`${eParentID} isn't a valid container for FooterEntry`)      
+            super( build("t-footer-entry"), document.getElementById(eParentID) )
+            this.footerPanel = new FooterPanel() 
+
 
             this.onclick = (event => {
 
-                const panel = document.getElementById('footer-panel');
-                
-                // Get the clicked button's position
-                const buttonRect = event.target.getBoundingClientRect();
+                this.footerPanel.toggle("stashed") ;
 
-                // Set the panel's left position to align with the button
-                panel.style.left = `${buttonRect.left}px`;
-                console.log(`${buttonRect.left}px`)
+                // const buttonRect = event.target.getBoundingClientRect();
+                const buttonRect = this.e.getBoundingClientRect();
 
-                // Toggle the visibility of the panel
-                panel.classList.toggle('show');
-                
+                const viewportWidth = window.innerWidth;
+
+                if (eParentID === "right-entries") {
+                    this.footerPanel.e.style.right = `${viewportWidth - buttonRect.right}px`;
+                }
+
             })
 
         }
 
-        set name(text)      { this.select("span.name").innerText = text }
+        set name(text)      { this.select(".name").innerText = text }
+        set icon(icon)      { 
+            
+            let svg = new SVG(icon)
+            this.select(".icon").replaceChildren()
+            this.select(".icon").append(svg.e) 
+
+        }
+
         set panel(element)  {
-            this.select("div.panel-content").replaceChildren(element)
+            this.footerPanel.e.replaceChildren(element)
         }
 
     }
+    </script>
+    
+    <template id=t-footer-panel>
+        <div class="footer-panel" stashed>
+            <!-- Panel Content -->
+        </div> 
+    </template>
+
+    <script>
+    class FooterPanel extends Element {
+
+        constructor(eParentID) {
+
+            super( build("t-footer-panel"), document.getElementById("footer-panels") )
+
+        }
+
+    }
+
     </script>
 
 
@@ -57,10 +81,7 @@
     <!-- Footer -->
 
 
-    <div class="footer-panel" id="footer-panel">
-
-    </div>
-
+    <div id="footer-panels"></div>
     <footer>
         <div class="entries" id="left-entries">
             <!-- Array of [ FooterEntries ] <div class="entry"></div> -->

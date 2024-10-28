@@ -6,9 +6,8 @@
     <!-- RoomFooterEntry -->
 
     <template id=t-room-footer-panel>
-        <div class="room">
-            <span class="name">Room {{room_id}}</span>
-            <span class="round">Round {{round_id}}</span>
+        <div class="room-footer-panel">
+            <span class="title">players</span>
             <div class="users" id="footer-users">
                 <!-- Array of [ UserFooter ] -->
             </div>
@@ -20,13 +19,13 @@
 
         constructor() {
 
-            super( "right-entries")
+            super( "right-entries" )
             this.panel = build("t-room-footer-panel")
 
-        }
+            this.icon = "group-2-line"
+            this.name = "{{room_id}}"
 
-        set name(text)  { this.select(".room .name"  ).innerText = text }
-        set round(text) { this.select(".room .round" ).innerText = text }
+        }
 
     }
     </script>

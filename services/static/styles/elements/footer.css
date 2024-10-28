@@ -11,78 +11,55 @@ footer {
     display: flex;
     justify-content: space-between;
     width: 100%;
-    height: 8vh;
+    height: 5vw;
 }
   
 footer .entry {
-  position: absolute;
-  bottom: 50px;
-  right: 50px;
-  background: var(--dbrown);
-  padding: 3vw;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5vw;
+  height: 100%
 }
 
-footer .entry span {
+#left-entries .entry {
+  margin-left: 1vw;
+}
+
+#right-entries .entry {
+  margin-right: 1vw;
+}
+
+
+footer .entry .icon {
+  position: relative;
+  margin: auto;
+}
+
+footer .entry .name {
   position: relative;
   font-size: 2vw;
-}
-
-footer .entry .panel-content {
-  display: none;
+  margin: auto;
 }
 
 
 /* Sliding side panel styling */
 .footer-panel {
   position: absolute;
-  bottom: -200px; /* Start below the footer */
-  width: 100px; /* Only 100px wide */
-  height: 200px;
+  bottom: 5vw;
+  width: 15vw; /* Only 100px wide */
+  height: fit-content;
   background-color: var(--dbrown);
   border-radius: 1vw 1vw 0 0;
   box-shadow: 1px 1px 5px #00000099;
-  transition: transform 0.3s ease, left 0.3s ease; /* Smooth slide-in effect and position transition */
+  transition: transform 0.3s ease;
+  transform: translateY(0%);
   z-index: 5; /* Ensure it appears below the footer */
+  padding: 1vw;
 }
-
-
   
-/* .footer-anchor {
-  position: static;
-}
 
-footer, 
-.footer-anchor {
-  height: var(--header); 
-  width: 100%;
-  transition-duration: var(--trans);
-  -webkit-transition-duration: var(--trans);
+/* Sliding side panel styling */
+.footer-panel[stashed] {
+  transform: translateY(100%);
 }
-
-footer[shrink], 
-.footer-anchor[shrink] {
-  -webkit-transform: translateY( var(--footer) );
-  transform: translateY( var(--footer) );
-}
-
-
-.c-footer .copyright{
-  font-size: var(--m);
-  display: flex;
-  align-items: center;
-}
-
-.c-footer .copyright > div{
-  height: fit-content;
-}
-*/
-
-/* COOKIE PANEL ENTRIES *************** */
-
-/* header #cookie-panel svg.status.ok{
-  fill: var(--green);
-}
-header #cookie-panel svg.status.ko{
-  fill: var(--red);
-}
-*/
