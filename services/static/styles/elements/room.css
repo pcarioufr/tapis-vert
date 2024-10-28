@@ -98,7 +98,7 @@
 
 .pawn span.name {
     color: var(--dblue);
-    font-size: 12px;
+    font-size: 1.1vw;
     text-align: right;
     margin: auto;
     padding-right: 0.5vw;
