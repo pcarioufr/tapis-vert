@@ -7,6 +7,8 @@
 
     <template id=t-room-footer-panel>
         <div class="room-footer-panel">
+            <span class="title">invite</span>
+            <div class="c-qrcode"></div>
             <span class="title">players</span>
             <div class="users" id="footer-users">
                 <!-- Array of [ UserFooter ] -->
@@ -21,6 +23,9 @@
 
             super( "right-entries" )
             this.panel = build("t-room-footer-panel")
+            
+            let qr = new QRCode(this.footerPanel.select(".c-qrcode"))
+            qr.link = "https://{{host}}/r/{{room_id}}"
 
             this.icon = "group-2-line"
             this.name = "{{room_id}}"

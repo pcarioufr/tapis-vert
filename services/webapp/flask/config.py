@@ -2,6 +2,9 @@ import os
 
 class Config:
 
+    # APP ###############
+    HOST = os.environ.get("HOST")
+
     # FLASK ###############
     SECRET_KEY = os.environ.get("FLASK_SECRET")
 

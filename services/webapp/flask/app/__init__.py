@@ -17,5 +17,6 @@ def init_app():
         from .routes import room_app, room_api
         from .routes import round_api
         from .routes import room_user_id_api
+        from .routes import qr_code
 
         return app
