@@ -1,1 +1,1 @@
-from .logs import log
+from .logs import log, LOG_LEVEL

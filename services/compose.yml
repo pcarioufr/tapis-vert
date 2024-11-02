@@ -36,6 +36,7 @@ services:
     environment:
       - PYTHONPATH=/opt/libs
       - HOST
+      - LEVEL
       - FLASK_SECRET
       - REDIS_HOST=redis
       - REDIS_USERS_DB=1
