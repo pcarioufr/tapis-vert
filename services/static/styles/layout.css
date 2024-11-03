@@ -120,9 +120,9 @@ body{
     align-items: center;
     row-gap: 20px;
 
-}
+    background: var(--dgreen)
 
-body[dgreen] { background: var(--dgreen) }
+}
 
 .page { 
     display: flex;

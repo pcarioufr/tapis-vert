@@ -4,6 +4,22 @@
 
 <head>
 
+    <!-- {% if level == "DEBUG" %} -->
+    <!-- DEBUG INFO -->
+    
+    <!-- Session Cookies -->
+    {% for key, value in request_cookies.items() %}
+    <!-- {{ key }}: {{ value }} -->
+    {% endfor %}
+
+    <!-- Session -->
+    {% for key, value in session.items() %}
+    <!-- {{ key }}: {{ value }} -->
+    {% endfor %}
+
+
+    <!-- {% endif %} -->
+
     <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="copyright"content="pcariou.fr">
     <meta name="language" content="FR">
@@ -13,21 +29,23 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
 
     <!-- LIBS -->
-    {% include 'libs/http.jinja' %}
-    {% include 'libs/events.jinja' %}
-    {% include 'libs/datadog.jinja' %}
+    {% include 'common/libs/http.jinja' %}
+    {% include 'common/libs/events.jinja' %}
+    {% include 'common/libs/datadog.jinja' %}
+    {% include 'common/libs/cookies.jinja' %}
 
     <!-- ELEMENTS -->
-    {% include 'elements/elements.jinja' %}
-    {% include 'elements/buttons.jinja' %}
-    {% include 'elements/qrcode.jinja' %}
-    {% include 'elements/footer.jinja' %}
+    {% include 'common/elements/elements.jinja' %}
+    {% include 'common/elements/buttons.jinja' %}
+    {% include 'common/elements/qrcode.jinja' %}
+    {% include 'common/elements/footer.jinja' %}
+    {% include 'common/elements/self.jinja' %}
 
     {% block head %}{% endblock %}
 
 </head>
 
-<body dgreen>
+<body>
     
     <link rel="shortcut icon" type="image/png" sizes="any" href="/favicon.png"/>
 

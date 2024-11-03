@@ -13,7 +13,7 @@ body {
     --card-w: 20vw; /* card width */
     --card-h: 32vw; /* card height */
     --card-c: 10vw;  /* card corner size */      
-    --card-r: 70deg;
+    --card-r: 0deg;
  }
 
 /* Container for the card */

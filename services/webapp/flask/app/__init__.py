@@ -2,8 +2,12 @@ from flask import Flask
 from ddtrace import tracer
 
 
-from app.auth import auth, login
-from app.lab import lab
+# Import Blueprints
+from app.auth   import auth, login
+from app.lab    import lab
+from app.api    import api
+from app.main   import main
+
 
 @tracer.wrap()
 def init_app():
@@ -17,13 +21,8 @@ def init_app():
 
     with app.app_context():
 
-        from .routes import ping
-        from .routes import room_app, room_api
-        from .routes import round_api
-        from .routes import room_user_id_api
-        from .routes import user_api
-        from .routes import qr_code
-
+        app.register_blueprint(main, url_prefix="/")
+        app.register_blueprint(api, url_prefix="/api")
         app.register_blueprint(auth, url_prefix="/auth")
         app.register_blueprint(lab,  url_prefix="/lab")
 

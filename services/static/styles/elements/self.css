@@ -1,0 +1,45 @@
+
+
+.self-footer-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1vw;
+}
+
+
+.footer-panel .ok_cookie{
+  width: 5vw;
+  height: 2vw;
+  background: var(--red);
+}
+
+.footer-panel[ok_cookie] .ok_cookie {
+  background: var(--dgreen);
+}
+
+.footer-panel .login{
+  width: 5vw;
+  height: 2vw;
+  background: var(--red);
+}
+
+.footer-panel[logged] .login {
+  background: var(--dgreen);
+}
+
+.footer-panel .logout{
+  width: 5vw;
+  height: 2vw;
+}
+
+.footer-panel[logged] .logout{
+
+}
+
+.footer-panel .test{
+  width: 5vw;
+  height: 2vw;
+}
+
+

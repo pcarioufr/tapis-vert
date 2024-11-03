@@ -64,12 +64,3 @@ footer .entry .name {
   transform: translateY(100%);
 }
 
-
-
-
-
-.self-footer-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
