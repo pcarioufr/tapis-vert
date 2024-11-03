@@ -1,24 +1,26 @@
-from .mixins import RedisMixin
+from .mixins import RedisMixin, new_sid
 
 import os
 
 class User(RedisMixin):
+    '''
+    Users:
+    * name: public name - appearing in app
+    * status: online True/False 
+    '''
 
     PREFIX = "user"
-    DB_INDEX = os.environ.get("REDIS_ROOMS_DB")
+    DB_INDEX = os.environ.get("REDIS_USERS_DB")
     PARAMS = {"name", "status"}
-
 
     # Flask-Login required methods and properties
 
     def get_id(self) -> str:
-        # Return the ID from the wrapped User instance
-        return str(self._user.id)  # Flask-Login expects get_id to return a string
+        return str(self.id)  # Flask-Login expects get_id to return a string
 
     @property
     def is_active(self) -> bool:
-        # Example: Return active status from the wrapped User instance (if applicable)
-        return getattr(self._user, "is_active", True)
+        return True
 
     @property
     def is_authenticated(self) -> bool:
@@ -29,3 +31,17 @@ class User(RedisMixin):
     def is_anonymous(self) -> bool:
         # Flask-Login expects this to return False for authenticated users
         return False
+
+
+
+class MagicCode(RedisMixin):
+    '''
+    Magic Codes: for users to login in
+    * user_id: reference to user
+    '''
+
+    PREFIX = "code"
+    DB_INDEX = os.environ.get("REDIS_USERS_DB")
+    PARAMS = {"user_id"}
+
+    ID_GENERATOR = new_sid

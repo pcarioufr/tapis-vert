@@ -1,0 +1,135 @@
+/* Button */
+
+button {
+    width: fit-content;
+    height: 3vw;
+    appearance: none; 
+    border: none;
+    outline: none;
+    border-radius: 1vw;
+    display: flex;
+    align-items: center;
+    gap: 0.5vw;
+    padding: 0 1vw 0 1vw ;
+    box-shadow: 0.4vw 0.4vw 0.2vw #00000099;
+    transition: 0.1s ease-in-out;
+}
+
+/* ---- button colors */
+
+button {
+    background: var(--beige);
+}
+button svg > path{
+    fill: var(--dbrown);
+}
+button .name {
+    color: var(--dbrown);
+}
+
+button[red] {
+    background: var(--red);
+}
+button[red] svg > path{
+    fill: var(--black);
+}
+button[red] .name {
+    color: var(--black);
+}
+
+button[green] {
+    background: var(--green);
+}
+button[green] svg > path{
+    fill: var(--black);
+}
+button[green]  .name {
+    color: var(--black);
+}
+
+button[grey] {
+    background: var(--grey);
+}
+button[grey] svg > path{
+    fill: var(--dgrey);
+}
+button[grey] .name {
+    color: var(--dgrey);
+}
+
+/* ---- ---- ---- ---- */
+
+
+button:hover {
+    box-shadow: 0.3vw 0.3vw 0.2vw #00000099;
+}
+
+button.pressed {
+    box-shadow: 0.05vw 0.05vw 0.2vw #00000099;
+}
+
+button .name {
+    font-size: 1.5vw;
+    color: var(--dbrown);
+}
+
+button svg {
+    width: Zvw;
+    height: 2vw;
+}
+
+
+/* Switch */
+
+.switch {
+    display: flex;
+    cursor: pointer;
+    gap: 1vw;
+    align-items: center;
+}
+
+.switch .stateText {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.switch .toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 24px;
+}
+
+.switch .toggle-switch label {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: var(--beige);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.switch .toggle-switch input {
+    display: none; /* Hide the checkbox */
+}
+
+.switch .toggle-switch label::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: var(--dbrown);
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.switch .toggle-switch input:checked + label::before {
+    transform: translateX(26px); /* Move the dot to the right when checked */
+}
+
+.switch .toggle-switch input:checked + label {
+    background-color: var(--green) ; 
+}

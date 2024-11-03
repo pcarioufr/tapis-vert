@@ -1,4 +1,4 @@
-from .users import User
+from .users import User, MagicCode
 from .rooms import Room
 
-__all__ = ["User", "Room"]
+__all__ = ["User", "MagicCode", "Room"]

@@ -1,0 +1,108 @@
+    <!-- SELF ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/auth/self.css') }}" />
+
+
+    <!-- SelfFooterEntry -->
+
+    <template id=t-self-footer-panel>
+        <div class="self-footer-panel">
+            <span class="title">me</span>
+            <div class="c-cookie"></div>
+            <div class="c-login">
+                <!-- TextInput: Magic Link -->
+                <!-- Button: Logout -->
+            </div>
+            <div class="c-loggedin">
+                <!-- TextInput: Name -->
+                <!-- Button: Logout -->
+            </div>
+        </div>
+    </template>
+
+    <script>
+
+    class SelfFooterEntry extends FooterEntry {
+
+        constructor() {
+
+            super( "left-entries" )
+
+            this.icon = "account-circle-line"
+            this.name = "{{user_id}}"
+
+            this.panel = build("t-self-footer-panel")
+
+            // Cookies Section
+
+            this.cookies = new Cookies()
+            this.switch = new Switch(this.footerPanel.select(".c-cookie"))
+
+            this.cookies.get("ok_cookie") == "yes" ?
+                this.switch.checked = true :
+                this.switch.checked = false ;
+
+            this.switch.onCallback  = ( _ => this.cookies.set("ok_cookie", "yes") )
+            this.switch.onText      = "I Accept Cookies"
+            this.switch.offCallback = ( _ => this.cookies.delete("ok_cookie")     )
+            this.switch.offText     = "I Reject Cookies"
+
+
+            // Authent Section - Login [with Magic Link] option
+
+            this.passwordInput = new TextInput()
+            this.footerPanel.select(".c-login").append(this.passwordInput.e)
+
+            this.passwordInput.title = "password"
+            this.passwordInput.password = true
+            this.passwordInput.autocomplete = "current-password"
+
+            this.login = new Button()
+            this.passwordInput.e.after(this.login.e)
+            this.login.name = "log in"
+            this.login.icon = "login-circle"
+            this.login.color = "green"
+            
+            this.login.callback = ( _ => {
+
+                call('POST', '/auth/login', { user_id: "{{user_id}}" })
+                .then( r => r.json() )
+                .then( r => {                        
+                    this.footerPanel.tag("logged")
+                })
+
+            })
+
+            // Authent Section - Logged in option
+
+            this.nameInput     = new TextInput()
+            this.footerPanel.select(".c-loggedin").append(this.nameInput.e)
+
+            this.nameInput.title = "name"
+            this.nameInput.spellcheck = false
+            this.nameInput.autocomplete = "username"
+
+            this.logout = new Button()
+            this.nameInput.e.after(this.logout.e)
+            this.logout.name = "log out"
+            this.logout.icon = "logout-circle"
+            this.logout.color = "red"
+
+            this.logout.callback = ( _ => {
+
+                call('POST', '/auth/logout', { user_id: "{{user_id}}" })
+                .then( r => r.json() )
+                .then( r => {                        
+                    this.footerPanel.untag("logged")
+                })
+
+            })
+
+
+
+        }
+
+        
+
+    }
+    </script>

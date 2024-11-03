@@ -11,6 +11,7 @@ html { height: 100% }
    --orange: #f0a67b;
    --black: #000000;
    --dgrey: #554444;
+   --grey:  #686363;
    --white: #eeeeee;
 
    --dbrown: #4f3111;
@@ -120,9 +121,9 @@ body{
     align-items: center;
     row-gap: 20px;
 
-}
+    background: var(--dgreen)
 
-body[dgreen] { background: var(--dgreen) }
+}
 
 .page { 
     display: flex;
