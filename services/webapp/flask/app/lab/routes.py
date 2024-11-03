@@ -13,4 +13,4 @@ def test(test=None):
         return flask.jsonify(), 400
     
 
-    return flask.render_template("test/{}.jinja".format(test))
+    return flask.render_template("lab/{}.jinja".format(test))
