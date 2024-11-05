@@ -14,9 +14,11 @@ def auth_login():
 
     user = User.get(user_id)
 
-    if True:
+    if user is not None:
         flask_login.login_user(user)  # Mark the user as logged in
         return flask.jsonify({"success": True, "message": "Login successful"})
+    else:
+        return flask.jsonify({"success": False, "message": "Login failed"}), 403
 
 
 @auth.route("/logout", methods=["POST"])

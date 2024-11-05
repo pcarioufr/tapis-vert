@@ -47,7 +47,7 @@ footer .entry .name {
 .footer-panel {
   position: absolute;
   bottom: 5vw;
-  width: 15vw; /* Only 100px wide */
+  width: fit-content;
   height: fit-content;
   background-color: var(--dbrown);
   border-radius: 1vw 1vw 0 0;

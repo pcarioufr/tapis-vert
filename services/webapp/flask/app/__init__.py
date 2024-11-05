@@ -26,4 +26,6 @@ def init_app():
         app.register_blueprint(auth, url_prefix="/auth")
         app.register_blueprint(lab,  url_prefix="/lab")
 
+        from .routes import ping
+
         return app

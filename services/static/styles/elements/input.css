@@ -1,0 +1,58 @@
+
+
+  
+div.field {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1vw;
+}
+
+div.field .c-title {
+    display: flex;
+    gap: 1vw;
+}
+
+div.field .c-title .title{
+    font-size: 2vw;
+}
+
+div.field .c-title .icon{
+    font-size: 2vw;
+}
+
+
+div.field .feedback .message{
+    font-size: 2vw;
+}
+
+div.field[text] input {
+    width: 20vw;
+    padding: 1vw;
+    font-size: 2vw;
+    text-align: center;
+    border: 1px solid var(--beige);
+    border-radius: 1.5vw;
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--beige);
+    outline: none;
+    backdrop-filter: blur(10px);
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+div.field[text] input:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+div.field[text] input:focus {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+div.field[text] svg {
+    position: absolute;
+    left: 1vw;
+    top: 4.5vw;
+    height: 2.5vw;
+    width: 2.5vw;
+}

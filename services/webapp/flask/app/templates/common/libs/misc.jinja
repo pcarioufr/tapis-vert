@@ -1,0 +1,17 @@
+    <!-- MISCELLANEOUS UTILS ------ ------ ------ ------ -->
+
+    <script>
+
+    // a funciton that does nothing
+    function noop() {}
+
+    // generates a random id
+    function random_id(prefix="") {
+        var result           = prefix ;
+        var characters       = 'abcdef0123456789';
+        var charactersLength = characters.length;
+        for ( var i = 0; i < 10; i++ ) { result += characters.charAt(Math.floor(Math.random() * charactersLength)); }
+        return result;
+    }
+
+    </script>

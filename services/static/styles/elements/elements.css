@@ -40,6 +40,10 @@
     border-radius: max(6px, 2%)
 }
 
+[noselect] {
+    user-select: none;
+    -webkit-user-select: none;
+}
 
 
 svg {

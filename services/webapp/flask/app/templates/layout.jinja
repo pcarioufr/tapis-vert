@@ -28,18 +28,22 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
 
-    <!-- LIBS -->
+    {# COMMONS/LIBS  #}
     {% include 'common/libs/http.jinja' %}
     {% include 'common/libs/events.jinja' %}
     {% include 'common/libs/datadog.jinja' %}
     {% include 'common/libs/cookies.jinja' %}
+    {% include 'common/libs/misc.jinja' %}
 
-    <!-- ELEMENTS -->
+    {# COMMONS/ELEMENTS  #}
     {% include 'common/elements/elements.jinja' %}
     {% include 'common/elements/buttons.jinja' %}
     {% include 'common/elements/qrcode.jinja' %}
     {% include 'common/elements/footer.jinja' %}
-    {% include 'common/elements/self.jinja' %}
+    {% include 'common/elements/input.jinja' %}
+
+    {# AUTH #}
+    {% include 'auth/self.jinja' %}
 
     {% block head %}{% endblock %}
 

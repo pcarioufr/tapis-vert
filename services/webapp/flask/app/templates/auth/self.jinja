@@ -1,0 +1,92 @@
+    <!-- SELF ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/auth/self.css') }}" />
+
+
+    <!-- SelfFooterEntry -->
+
+    <template id=t-self-footer-panel>
+        <div class="self-footer-panel">
+            <span class="title">me</span>
+            <div class="c-cookie" hoverable>
+            </div>
+            <div class="c-login" hoverable>
+                <!-- TextInput: Name -->
+                <!-- TextInput: Password -->
+                <div class="login"hoverable>login</div>
+                <div class="logout"hoverable>logout</div> 
+                <div class="test"hoverable>test</div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+
+    class SelfFooterEntry extends FooterEntry {
+
+        constructor() {
+
+            super( "left-entries" )
+            this.panel = build("t-self-footer-panel")
+
+            this.icon = "account-circle-line"
+            this.name = "{{user_id}}"
+
+            this.cookies = new Cookies()
+            this.switch = new Switch(this.footerPanel.select(".c-cookie"))
+
+            this.nameInput     = new TextInput()
+            this.footerPanel.select(".c-login").prepend(this.nameInput.e)
+            this.nameInput.title = "name"
+            this.nameInput.spellcheck = false
+            this.nameInput.autocomplete = "username"
+
+            this.passwordInput = new TextInput()
+            this.nameInput.e.after(this.passwordInput.e)
+            this.passwordInput.title = "password"
+            this.passwordInput.password = true
+            this.passwordInput.autocomplete = "new-password"
+
+            this.cookies.get("ok_cookie") == "yes" ?
+                this.switch.checked = true :
+                this.switch.checked = false ;
+
+            this.switch.onCallback  = ( _ => this.cookies.set("ok_cookie", "yes") )
+            this.switch.onText      = "I Accept Cookies"
+            this.switch.offCallback = ( _ => this.cookies.delete("ok_cookie")     )
+            this.switch.offText     = "I Reject Cookies"
+
+
+            this.footerPanel.select(".login").onclick = ( _ => {
+
+                call('POST', '/auth/login', { user_id: "{{user_id}}" })
+                .then( r => r.json() )
+                .then( r => {                        
+                    this.footerPanel.tag("logged")
+                })
+
+            })
+
+            this.footerPanel.select(".logout").onclick = ( _ => {
+
+                call('POST', '/auth/logout', { user_id: "{{user_id}}" })
+                .then( r => r.json() )
+                .then( r => {                        
+                    this.footerPanel.untag("logged")
+                })
+
+            })
+
+            this.footerPanel.select(".test").onclick = ( _ => {
+
+                call('GET', '/auth/test')
+
+            })
+
+
+        }
+
+        
+
+    }
+    </script>
