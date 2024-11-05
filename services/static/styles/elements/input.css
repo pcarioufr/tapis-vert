@@ -11,14 +11,16 @@ div.field {
 div.field .c-title {
     display: flex;
     gap: 1vw;
+    align-items: center;
 }
 
-div.field .c-title .title{
+div.field .c-title .title {
     font-size: 2vw;
 }
 
-div.field .c-title .icon{
-    font-size: 2vw;
+div.field .c-title .icon svg {
+    height: 2vw;
+    width: 2vw;
 }
 
 
@@ -49,7 +51,7 @@ div.field[text] input:focus {
     background: rgba(255, 255, 255, 0.5);
 }
 
-div.field[text] svg {
+div.field[text] > svg { /* toggle for password input */
     position: absolute;
     left: 1vw;
     top: 4.5vw;
