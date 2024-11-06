@@ -1,23 +1,54 @@
+/* Button */
 
-div.switch {
+button {
+    width: fit-content;
+    height: 3vw;
+    background: var(--beige);
+    appearance: none; 
+    border: none;
+    outline: none;
+    border-radius: 1vw;
+    display: flex;
+    align-items: center;
+    gap: 0.5vw;
+    padding: 0 1vw 0 1vw ;
+}
+
+button .name {
+    font-size: 1.5vw;
+    color: var(--dbrown);
+}
+
+button svg {
+    width: Zvw;
+    height: 2vw;
+}
+
+button svg > path{
+    fill: var(--dbrown);
+}
+
+/* Switch */
+
+.switch {
     display: flex;
     cursor: pointer;
     gap: 1vw;
     align-items: center;
 }
 
-div.switch .stateText {
+.switch .stateText {
     margin-right: 10px;
     font-size: 16px;
 }
 
-.toggle-switch {
+.switch .toggle-switch {
     position: relative;
     width: 50px;
     height: 24px;
 }
 
-.toggle-switch label {
+.switch .toggle-switch label {
     display: block;
     position: relative;
     width: 100%;
@@ -28,11 +59,11 @@ div.switch .stateText {
     transition: background-color 0.3s;
 }
 
-.toggle-switch input {
+.switch .toggle-switch input {
     display: none; /* Hide the checkbox */
 }
 
-.toggle-switch label::before {
+.switch .toggle-switch label::before {
     content: "";
     position: absolute;
     top: 2px;
@@ -44,10 +75,10 @@ div.switch .stateText {
     transition: transform 0.3s;
 }
 
-.toggle-switch input:checked + label::before {
+.switch .toggle-switch input:checked + label::before {
     transform: translateX(26px); /* Move the dot to the right when checked */
 }
 
-.toggle-switch input:checked + label {
+.switch .toggle-switch input:checked + label {
     background-color: var(--green) ; 
 }

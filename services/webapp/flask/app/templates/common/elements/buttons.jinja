@@ -2,6 +2,44 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/buttons.css') }}">
 
+    <template id="t-button">
+        <button noselect hoverable>
+            <span class="name"></span>
+            <!-- Button: Logout -->
+        </button>
+    </template>
+
+    <script>
+
+    class Button extends Element {
+
+        constructor(eParent = null) {
+            super(build("t-button"), eParent);
+                        
+            this.span = this.select("span.name");
+            this.svg = new SVG();
+            this.span.after(this.svg.e)
+
+            this._callback = noop ;
+
+            this.onclick = ( _ => this._callback() )
+
+        }
+
+        set name(name) { this.span.innerText = name ; }
+        
+        set icon(icon) { this.svg.icon = icon ; }
+
+        set callback(callback) {
+            if (typeof callback === 'function') {  this._callback = callback ; } 
+            else { throw new Error("onCallback must be a function") ; }
+        }
+
+
+    }
+    </script>
+
+
     <template id="t-switch">
         <div class="switch" noselect>
             <div class="toggle-switch">
@@ -55,10 +93,7 @@
             }
         }
 
-
         set checked(bool) { this.checkbox.checked = bool ; }
-
-        set innerText(text) { this.text.innerText = text ; }
 
         set onCallback(callback) {
             if (typeof callback === 'function') {  this._onCallback = callback ; } 
