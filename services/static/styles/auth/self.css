@@ -1,6 +1,6 @@
 
 
-.self-footer-panel {
+.footer-panel > .self-footer-panel {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -8,37 +8,44 @@
 }
 
 
-.footer-panel .ok_cookie{
+.footer-panel > .self-footer-panel .ok_cookie{
   width: 5vw;
   height: 2vw;
   background: var(--red);
 }
 
-.footer-panel[ok_cookie] .ok_cookie {
+.footer-panel[ok_cookie] > .self-footer-panel .ok_cookie {
   background: var(--dgreen);
 }
 
-.footer-panel .login{
+.footer-panel > .self-footer-panel .login{
   width: 5vw;
   height: 2vw;
   background: var(--red);
 }
 
-.footer-panel[logged] .login {
+.footer-panel[logged] > .self-footer-panel .login {
   background: var(--dgreen);
 }
 
-.footer-panel .logout{
+.footer-panel > .self-footer-panel .logout{
   width: 5vw;
   height: 2vw;
 }
 
-.footer-panel[logged] .logout{
+.footer-panel[logged] > .self-footer-panel .logout{
 
 }
 
 
-.footer-panel .c-login{
+.footer-panel > .self-footer-panel .c-login{
   width: fit-content;
 }
 
+.footer-panel > .self-footer-panel .c-loggedin{
+  width: fit-content;
+}
+
+.footer-panel > .self-footer-panel button {
+  margin-left: auto;
+}

@@ -3,7 +3,6 @@
 button {
     width: fit-content;
     height: 3vw;
-    background: var(--beige);
     appearance: none; 
     border: none;
     outline: none;
@@ -12,6 +11,61 @@ button {
     align-items: center;
     gap: 0.5vw;
     padding: 0 1vw 0 1vw ;
+    box-shadow: 0.4vw 0.4vw 0.2vw #00000099;
+    transition: 0.1s ease-in-out;
+}
+
+/* ---- button colors */
+
+button {
+    background: var(--beige);
+}
+button svg > path{
+    fill: var(--dbrown);
+}
+button .name {
+    color: var(--dbrown);
+}
+
+button[red] {
+    background: var(--red);
+}
+button[red] svg > path{
+    fill: var(--black);
+}
+button[red] .name {
+    color: var(--black);
+}
+
+button[green] {
+    background: var(--green);
+}
+button[green] svg > path{
+    fill: var(--black);
+}
+button[green]  .name {
+    color: var(--black);
+}
+
+button[grey] {
+    background: var(--grey);
+}
+button[grey] svg > path{
+    fill: var(--dgrey);
+}
+button[grey] .name {
+    color: var(--dgrey);
+}
+
+/* ---- ---- ---- ---- */
+
+
+button:hover {
+    box-shadow: 0.3vw 0.3vw 0.2vw #00000099;
+}
+
+button.pressed {
+    box-shadow: 0.05vw 0.05vw 0.2vw #00000099;
 }
 
 button .name {
@@ -24,9 +78,6 @@ button svg {
     height: 2vw;
 }
 
-button svg > path{
-    fill: var(--dbrown);
-}
 
 /* Switch */
 

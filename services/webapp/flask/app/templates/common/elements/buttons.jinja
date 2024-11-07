@@ -3,7 +3,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/buttons.css') }}">
 
     <template id="t-button">
-        <button noselect hoverable>
+        <button noselect>
             <span class="name"></span>
             <!-- Button: Logout -->
         </button>
@@ -24,11 +24,30 @@
 
             this.onclick = ( _ => this._callback() )
 
+            this.e.onmousedown = ( _ => {
+                this.e.classList.add("pressed");
+                setTimeout(() => { this.e.classList.remove("pressed");}, 200);
+            });
+
         }
 
-        set name(name) { this.span.innerText = name ; }
-        
-        set icon(icon) { this.svg.icon = icon ; }
+        set name(name)   { this.span.innerText = name ; }
+        set icon(icon)   { this.svg.icon = icon ; }
+        set color(color) { 
+            
+            this.untag("red") ;
+            this.untag("green") ;
+            this.untag("grey") ;
+
+            switch(color) {
+                case "red":    this.tag("red")    ; break ;
+                case "green":  this.tag("green")  ; break ;
+                case "grey":   this.tag("grey")   ; break ;
+                default:
+                    console.error(`${color} isn't supported option for button ${this.e}`);
+            }
+
+        }
 
         set callback(callback) {
             if (typeof callback === 'function') {  this._callback = callback ; } 

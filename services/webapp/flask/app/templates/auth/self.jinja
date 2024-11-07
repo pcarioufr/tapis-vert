@@ -8,12 +8,12 @@
     <template id=t-self-footer-panel>
         <div class="self-footer-panel">
             <span class="title">me</span>
-            <div class="c-cookie" hoverable></div>
-            <div class="c-login" hoverable>
+            <div class="c-cookie"></div>
+            <div class="c-login">
                 <!-- TextInput: Magic Link -->
                 <!-- Button: Logout -->
             </div>
-            <div class="c-loggedin" hoverable>
+            <div class="c-loggedin">
                 <!-- TextInput: Name -->
                 <!-- Button: Logout -->
             </div>
@@ -58,10 +58,11 @@
             this.passwordInput.autocomplete = "current-password"
 
             this.login = new Button()
+            this.passwordInput.e.after(this.login.e)
             this.login.name = "log in"
             this.login.icon = "login-circle"
-            this.passwordInput.e.after(this.login.e)
-
+            this.login.color = "green"
+            
             this.login.callback = ( _ => {
 
                 call('POST', '/auth/login', { user_id: "{{user_id}}" })
@@ -82,9 +83,10 @@
             this.nameInput.autocomplete = "username"
 
             this.logout = new Button()
+            this.nameInput.e.after(this.logout.e)
             this.logout.name = "log out"
             this.logout.icon = "logout-circle"
-            this.nameInput.e.after(this.logout.e)
+            this.logout.color = "red"
 
             this.logout.callback = ( _ => {
 

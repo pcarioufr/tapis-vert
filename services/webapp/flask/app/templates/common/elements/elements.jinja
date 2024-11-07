@@ -26,7 +26,6 @@
             is(name)        { return this.e.classList.contains(classname) }
 
             set hidden(bool)    { bool ? this.tag('hidden')      : this.untag('hidden')      }
-            set hoverable(bool) { bool ? this.tag('hoverable')   : this.untag('hoverable')   }
             set disabled(bool)  { bool ? this.tag('disabled')    : this.untag('disabled')    }
 
             select(query){ return this.e.querySelector(query) } 
