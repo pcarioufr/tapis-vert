@@ -70,8 +70,8 @@
 
         }
         
-        get value()       { return this.input.e.value }
-        set value(value)  { this.input.e.value = value }
+        get value()       { return this.select("input").value }
+        set value(value)  { this.select("input").value = value }
 
         set spellcheck(bool) {
             bool ?

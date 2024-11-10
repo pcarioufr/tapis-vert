@@ -226,7 +226,7 @@
         let user_id, props
         for ( [user_id, props] of Object.entries(u) ) {
 
-            USERS.add(user_id, user_id) ;
+            USERS.add(user_id, props["name"]) ;
 
             props["online"] == "1" ? 
                 USERS.get(user_id).online(true) :

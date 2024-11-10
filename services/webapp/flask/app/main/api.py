@@ -10,7 +10,7 @@ import qrcode
 
 
 
-@main.route("/v1/r/<room_id>", methods=['GET', 'DELETE'])
+@main.route("/api//v1/r/<room_id>", methods=['GET', 'DELETE'])
 def room_api(room_id=None):
 
     if room_id is None:
@@ -31,7 +31,7 @@ def room_api(room_id=None):
 
 
 
-@main.route("/v1/r/<room_id>/round", methods=['POST'])
+@main.route("/api//v1/r/<room_id>/round", methods=['POST'])
 def round_api(room_id=None):
 
     if room_id is None:
@@ -52,7 +52,7 @@ def round_api(room_id=None):
 
 
 
-@main.route("/v1/<room_id>/users/<user_id>", methods=['POST', 'DELETE'])
+@main.route("/api//v1/<room_id>/users/<user_id>", methods=['POST', 'DELETE'])
 def room_user_id_api(room_id=None, user_id=None):
 
     if room_id is None:
@@ -77,7 +77,7 @@ def room_user_id_api(room_id=None, user_id=None):
 
 
 
-@main.route("/v1/users/<user_id>", methods=['POST', 'DELETE', 'GET', 'PUT'])
+@main.route("/api//v1/users/<user_id>", methods=['POST', 'DELETE', 'GET', 'PUT'])
 def user_api(user_id=None):
 
     if user_id is None:
@@ -98,7 +98,7 @@ def user_api(user_id=None):
         return jsonify(user=user.to_dict()), 200
 
     if request.method == 'PUT':
-        user.data["status"] = "world"
+        user.status = "world"
         user.save()
         user = User.get(user_id)
         return jsonify(user=user.to_dict()), 200
@@ -108,7 +108,7 @@ def user_api(user_id=None):
         return jsonify(), 204
 
 
-@main.route('/v1/qrcode', methods=['GET'])
+@main.route('/api/v1/qrcode', methods=['GET'])
 def qr_code():
 
     link = request.args.get("link")

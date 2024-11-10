@@ -1,6 +1,7 @@
-from .mixins import RedisMixin, new_sid
+from .mixins import RedisMixin
 
 import os
+import utils
 
 class User(RedisMixin):
     '''
@@ -11,7 +12,7 @@ class User(RedisMixin):
 
     PREFIX = "user"
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
-    PARAMS = {"name", "status"}
+    FIELDS = {"name", "status", "code_id"}
 
     # Flask-Login required methods and properties
 
@@ -42,6 +43,6 @@ class MagicCode(RedisMixin):
 
     PREFIX = "code"
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
-    PARAMS = {"user_id"}
+    FIELDS = {"user_id"}
 
-    ID_GENERATOR = new_sid
+    ID_GENERATOR = utils.new_sid

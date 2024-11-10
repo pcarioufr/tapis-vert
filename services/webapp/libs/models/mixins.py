@@ -4,19 +4,9 @@ import uuid
 
 from typing import Union
 
-import nanoid
 from utils import log
 
-alphabet = '0123456789abcdefghijklmnopqrstuvwxyz-_'
-
-def new_sid():
-    '''Generates Random ID, suited for Secret IDs'''
-    return nanoid.generate(alphabet, 24)  # Generates an 8-character NanoID
-
-
-def new_id():
-    '''Generates Random ID, suited for Internal Object IDs'''
-    return nanoid.non_secure_generate(alphabet, 10)
+from utils import new_id
 
 
 class RedisMixin:
@@ -25,7 +15,7 @@ class RedisMixin:
     DB_INDEX        = None      # The DB to use for the Redis client
     ID_GENERATOR    = new_id    # The ID generator to use for the class
     PREFIX          = None      # The prefix to be used in Redis keys ("prefix:id")
-    PARAMS          = None      # An allowlist of fields to consider in the hash map values
+    FIELDS          = None      # An allowlist of fields to consider in the hash map values
 
     _redis_client = None        # The Redis Client to use
 
@@ -34,6 +24,26 @@ class RedisMixin:
         self.id = id 
         self.data = data
 
+
+    def __getattr__(self, name):
+        """Intercept attribute access for keys in FIELDS."""
+
+        if name in self.FIELDS:
+            return self.data.get(name, None)  # Return None if the key is missing
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """Intercept attribute setting for keys in FIELDS."""
+
+        if name in {"id", "data", "PREFIX", "DB_INDEX", "FIELDS"}:
+            # Set known attributes normally
+            super().__setattr__(name, value)
+        elif name in self.FIELDS:
+            # If name is in FIELDS, update self.data instead
+            self.data[name] = value
+        else:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        
 
     @classmethod
     def redis_client(cls):
@@ -87,7 +97,7 @@ class RedisMixin:
     def save(self) -> "RedisMixin":
         """Saves the object current state into Redis."""
 
-        params = {k: v for k, v in self.data.items() if k in self.PARAMS}
+        params = {k: v for k, v in self.data.items() if k in self.FIELDS}
         self.redis_client().hset(self.key(self.id), mapping=params)
 
 
@@ -100,7 +110,7 @@ class RedisMixin:
         """Deletes the object from Redis."""
         self.redis_client().delete(self.key(self.id))
 
-        logger.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
+        log.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
 
         return True
 

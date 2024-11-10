@@ -10,9 +10,17 @@ login = flask_login.LoginManager()
 login.session_protection = "strong"
 # login.login_view = "auth.login" TODO
 
+from utils import new_name
 
 class AnonymousWebUser(flask_login.AnonymousUserMixin):
-    pass
+
+    def __init__(self, id=None):
+        self.id = id
+
+    @property
+    def name(self):
+        return new_name(self.id)
+
 
 login.anonymous_user = AnonymousWebUser
 
