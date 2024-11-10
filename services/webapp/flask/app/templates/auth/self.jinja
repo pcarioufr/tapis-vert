@@ -48,30 +48,8 @@
             this.switch.offText     = "I Reject Cookies"
 
 
-            // Authent Section - Login [with Magic Link] option
 
-            this.codeInput = new TextInput()
-            this.footerPanel.select(".c-login").append(this.codeInput.e)
-
-            this.codeInput.title = "password"
-            this.codeInput.password = true
-            this.codeInput.autocomplete = "current-password"
-
-            this.login = new Button()
-            this.codeInput.e.after(this.login.e)
-            this.login.name = "log in"
-            this.login.icon = "login-circle"
-            this.login.color = "green"
-            
-            this.login.callback = ( _ => {
-
-                call('POST', '/auth/login', { code_id: this.codeInput.value })
-                .then( r => r.json() )
-                .then( r => {                        
-                    this.footerPanel.tag("logged")
-                })
-
-            })
+            {% if current_user.is_authenticated %}
 
             // Authent Section - Logged in option
 
@@ -98,6 +76,33 @@
 
             })
 
+            {% else %}
+
+            // Authent Section - Login [with Magic Link] option
+
+            this.codeInput = new TextInput()
+            this.footerPanel.select(".c-login").append(this.codeInput.e)
+
+            this.codeInput.title = "password"
+            this.codeInput.password = true
+            this.codeInput.autocomplete = "current-password"
+
+            this.login = new Button()
+            this.codeInput.e.after(this.login.e)
+            this.login.name = "log in"
+            this.login.icon = "login-circle"
+            this.login.color = "green"
+            
+            this.login.callback = ( _ => {
+
+                call('POST', '/auth/login', { code_id: this.codeInput.value })
+                .then( r => r.json() )
+                .then( r => { this.footerPanel.tag("logged") })
+
+            })
+
+
+            {% endif %}
 
 
         }

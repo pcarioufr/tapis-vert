@@ -40,6 +40,13 @@ def render_template(template, **kwargs):
     )
 
 
+def session_management():
+
+    flask.session.permanent = True
+    flask.session.modified = True
+    app.permanent_session_lifetime = datetime.timedelta(seconds=1800)
+
+
 def visitor_id():
     
     if 'visitor_id' not in flask.session:
@@ -47,8 +54,6 @@ def visitor_id():
         visitor_id = f"v-{new_id()}"
         flask.session['visitor_id'] = visitor_id
         log.info(f"assign a visitor_id {visitor_id}")
-
-
 
 
     else:
@@ -59,16 +64,3 @@ def visitor_id():
 
 
 
-# @app.before_request
-# def before_request():
-
-#     flask.session.permanent = True
-#     flask.session.modified = True
-#     app.permanent_session_lifetime = datetime.timedelta(seconds=1800)
-
-#     # check master cookie accounting for cookie acceptance 
-#     ok_cookie = request.cookies.get("ok_cookie")
-#     if ok_cookie is None:
-#         flask.g.ok_cookie = "false"
-#     else:
-#         flask.g.ok_cookie = ok_cookie

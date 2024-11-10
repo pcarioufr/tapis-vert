@@ -29,8 +29,9 @@ def init_app():
 
         from .api import ping
 
-        from .routines import render_template, visitor_id
+        from .routines import render_template, visitor_id, session_management
 
+        app.before_request(session_management)
         app.before_request(visitor_id)
 
 
