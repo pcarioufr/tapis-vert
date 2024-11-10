@@ -1,6 +1,7 @@
-from .mixins import RedisMixin, new_sid
+from .mixins import RedisMixin
 
 import os
+import utils
 
 class User(RedisMixin):
     '''
@@ -44,4 +45,4 @@ class MagicCode(RedisMixin):
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
     PARAMS = {"user_id"}
 
-    ID_GENERATOR = new_sid
+    ID_GENERATOR = utils.new_sid
