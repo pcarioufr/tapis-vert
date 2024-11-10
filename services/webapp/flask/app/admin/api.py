@@ -17,7 +17,7 @@ def invite():
     user = User.create({ "name": name })
 
     code = MagicCode.create({ "user_id": user.id })
-    user.data["code_id"] = code.id
+    user.code_id = code.id
     user.save()
 
     return flask.jsonify(code.to_dict()), 201

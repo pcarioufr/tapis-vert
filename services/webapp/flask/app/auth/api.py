@@ -19,9 +19,9 @@ def auth_login():
     
     log.info(f'{code}')
 
-    user_id = code.data["user_id"]
-    user = User.get(code.data["user_id"])
-    user_name = user.data["name"]
+    user_id = code.user_id
+    user = User.get(user_id)
+    user_name = user.name
 
     if user is not None:
         flask_login.login_user(user)
