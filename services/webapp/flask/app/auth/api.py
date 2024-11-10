@@ -2,23 +2,34 @@ import flask, flask_login
 
 from . import auth  # Import the Blueprint from __init__.py
 
-from models import User
+from models import User, MagicCode
+from utils import log
 
 @auth.route("/login", methods=["POST"])
 def auth_login():
     """Logs in the current user."""
 
-    user_id = flask.request.args.get("user_id")
-    if user_id is None: 
-        return flask.jsonify(), 404
+    code_id = flask.request.args.get("code_id")
+    if code_id is None: 
+        return flask.jsonify({"success": False}), 404
 
-    user = User.get(user_id)
+    code = MagicCode.get(code_id)
+    if code is None:
+        return flask.jsonify({"success": False}), 403
+    
+    log.info(f'{code}')
+
+    user_id = code.data["user_id"]
+    user = User.get(code.data["user_id"])
+    user_name = user.data["name"]
 
     if user is not None:
-        flask_login.login_user(user)  # Mark the user as logged in
-        return flask.jsonify({"success": True, "message": "Login successful"})
+        flask_login.login_user(user)
+        log.info(f"user {user_id}:{user_name} logged in")
+        return flask.jsonify({"success": True, "user": user.to_dict() })
     else:
-        return flask.jsonify({"success": False, "message": "Login failed"}), 403
+        log.warning(f"login with code for invalid user_id {user_id}")
+        return flask.jsonify({"success": False}), 403
 
 
 @auth.route("/logout", methods=["POST"])
