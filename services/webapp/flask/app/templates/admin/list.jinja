@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code List</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/admin/list.css') }}" />
+
+</head>
+<body>
+
+    <div class="container">
+        <h1>Code List</h1>
+        <table id="codeTable">
+            <thead>
+                <tr>
+                    <th>id</th>
+                    <th>user_id</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Data rows will be inserted here by JavaScript -->
+            </tbody>
+        </table>
+        <div id="errorMessage" class="error"></div>
+    </div>
+
+    <script>
+
+        // Fetch data from the API and display it in the table
+        async function fetchData() {
+            try {
+                const response = await fetch('/admin/api/v1/codes');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data');
+                }
+                const data = await response.json();
+                populateTable(data);
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Populate the table with data
+        function populateTable(data) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                
+                const idCell = document.createElement('td');
+                idCell.textContent = item.id;
+                row.appendChild(idCell);
+
+                const userCell = document.createElement('td');
+                userCell.textContent = item.user_id || 'N/A'; // Display 'N/A' if name is missing
+                row.appendChild(userCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Fetch data when the page loads
+        document.addEventListener('DOMContentLoaded', fetchData);
+    </script>
+
+</body>
+</html>
