@@ -3,67 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code List</title>
-
+    <title>Admin Tables</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/admin/list.css') }}" />
-
 </head>
 <body>
 
-    <div class="container">
-        <h1>Code List</h1>
-        <table id="codeTable">
-            <thead>
-                <tr>
-                    <th>id</th>
-                    <th>user_id</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody">
-                <!-- Data rows will be inserted here by JavaScript -->
-            </tbody>
-        </table>
-        <div id="errorMessage" class="error"></div>
+    <div class="containers">
+        <!-- User Table -->
+        <div class="container">
+            <h1>User List</h1>
+            <table id="userTable">
+                <thead>
+                    <tr id="userHeaders"></tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <!-- User data will be populated here -->
+                </tbody>
+            </table>
+            <div id="userErrorMessage" class="error"></div>
+        </div>
+
+        <!-- Code Table -->
+        <div class="container">
+            <h1>Code List</h1>
+            <table id="codeTable">
+                <thead>
+                    <tr id="codeHeaders"></tr>
+                </thead>
+                <tbody id="codeTableBody">
+                    <!-- Code data will be populated here -->
+                </tbody>
+            </table>
+            <div id="codeErrorMessage" class="error"></div>
+        </div>
+
     </div>
 
     <script>
+        class TableConfig {
+            constructor(apiEndpoint, tableId, errorId, headersId, headers, keys) {
+                this.apiEndpoint = apiEndpoint;
+                this.tableId = tableId;
+                this.errorId = errorId;
+                this.headersId = headersId;
+                this.headers = headers;
+                this.keys = keys;
+            }
 
-        // Fetch data from the API and display it in the table
-        async function fetchData() {
-            try {
-                const response = await fetch('/admin/api/v1/codes');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch data');
+            // Initialize table headers
+            initializeTableHeaders() {
+                const headersRow = document.getElementById(this.headersId);
+                headersRow.innerHTML = ''; // Clear existing headers
+                this.headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    headersRow.appendChild(th);
+                });
+            }
+
+            // Fetch data from API
+            async fetchData() {
+                try {
+                    const response = await fetch(this.apiEndpoint);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch data');
+                    }
+                    const data = await response.json();
+                    this.populateTable(data);
+                } catch (error) {
+                    document.getElementById(this.errorId).textContent = 'Error: ' + error.message;
                 }
-                const data = await response.json();
-                populateTable(data);
-            } catch (error) {
-                document.getElementById('errorMessage').textContent = 'Error: ' + error.message;
+            }
+
+            // Populate the table with data
+            populateTable(data) {
+                const tableBody = document.getElementById(this.tableId);
+                tableBody.innerHTML = ''; // Clear existing rows
+
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    // Populate data cells based on config keys
+                    this.keys.forEach(key => {
+                        const cell = document.createElement('td');
+                        cell.textContent = item[key] || 'N/A';
+                        row.appendChild(cell);
+                    });
+
+                    // Add delete button
+                    const actionCell = document.createElement('td');
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.onclick = () => this.deleteEntry(item.id);
+                    actionCell.appendChild(deleteButton);
+                    row.appendChild(actionCell);
+
+                    tableBody.appendChild(row);
+                });
+            }
+
+            // Function to delete an entry by ID
+            async deleteEntry(id) {
+                try {
+                    const response = await fetch(`${this.apiEndpoint}/${id}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        throw new Error('Failed to delete entry');
+                    }
+                    // Refresh data after deletion
+                    this.fetchData();
+                } catch (error) {
+                    document.getElementById(this.errorId).textContent = 'Error: ' + error.message;
+                }
             }
         }
 
-        // Populate the table with data
-        function populateTable(data) {
-            const tableBody = document.getElementById('tableBody');
-            tableBody.innerHTML = ''; // Clear existing rows
-
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                
-                const idCell = document.createElement('td');
-                idCell.textContent = item.id;
-                row.appendChild(idCell);
-
-                const userCell = document.createElement('td');
-                userCell.textContent = item.user_id || 'N/A'; // Display 'N/A' if name is missing
-                row.appendChild(userCell);
-
-                tableBody.appendChild(row);
-            });
+        // Subclass for the User table
+        class UserTable extends TableConfig {
+            constructor() {
+                super(
+                    '/admin/api/v1/users',
+                    'userTableBody',
+                    'userErrorMessage',
+                    'userHeaders',
+                    ['id', 'name', 'status', 'code', 'Actions'],
+                    ['id', 'name', 'status', 'code_id']
+                );
+            }
         }
 
-        // Fetch data when the page loads
-        document.addEventListener('DOMContentLoaded', fetchData);
+        // Subclass for the Code table
+        class CodeTable extends TableConfig {
+            constructor() {
+                super(
+                    '/admin/api/v1/codes',
+                    'codeTableBody',
+                    'codeErrorMessage',
+                    'codeHeaders',
+                    ['id', 'user_id', 'Actions'],
+                    ['id', 'user_id']
+                );
+            }
+        }
+
+        // Instantiate and initialize tables
+        document.addEventListener('DOMContentLoaded', () => {
+            const userTable = new UserTable();
+            const codeTable = new CodeTable();
+
+            userTable.initializeTableHeaders();
+            userTable.fetchData();
+
+            codeTable.initializeTableHeaders();
+            codeTable.fetchData();
+        });
     </script>
 
 </body>

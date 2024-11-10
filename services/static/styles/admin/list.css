@@ -9,6 +9,14 @@ body {
     align-items: center;
     height: 100vh;
 }
+
+.containers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px
+
+}
+
 .container {
     width: 90%;
     max-width: 800px;

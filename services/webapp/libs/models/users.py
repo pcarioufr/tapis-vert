@@ -11,7 +11,7 @@ class User(RedisMixin):
 
     PREFIX = "user"
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
-    PARAMS = {"name", "status"}
+    PARAMS = {"name", "status", "code_id"}
 
     # Flask-Login required methods and properties
 
