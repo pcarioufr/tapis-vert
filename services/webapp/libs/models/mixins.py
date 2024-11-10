@@ -100,7 +100,7 @@ class RedisMixin:
         """Deletes the object from Redis."""
         self.redis_client().delete(self.key(self.id))
 
-        logger.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
+        log.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
 
         return True
 
