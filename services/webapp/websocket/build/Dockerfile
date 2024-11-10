@@ -1,4 +1,4 @@
-FROM python:3.9-alpine3.13
+FROM python:3.11.10-alpine3.20
 
 WORKDIR /websocket
 
