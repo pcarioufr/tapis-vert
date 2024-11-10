@@ -18,7 +18,7 @@ login.anonymous_user = AnonymousWebUser
 
 
 # Import routes to register them with the Blueprint
-from . import routes 
+from . import api 
 
 
 @login.user_loader
