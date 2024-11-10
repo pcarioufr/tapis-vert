@@ -7,16 +7,16 @@ from typing import Union
 import nanoid
 from utils import log
 
-alphabet = '0123456789abcdefghijklmnopqrstuvwxyz-_'
 
+S_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_.'
 def new_sid():
     '''Generates Random ID, suited for Secret IDs'''
-    return nanoid.generate(alphabet, 24)  # Generates an 8-character NanoID
+    return nanoid.generate(S_ALPHABET, 24)
 
-
+ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz'
 def new_id():
     '''Generates Random ID, suited for Internal Object IDs'''
-    return nanoid.non_secure_generate(alphabet, 10)
+    return nanoid.non_secure_generate(ALPHABET, 10)
 
 
 class RedisMixin:
