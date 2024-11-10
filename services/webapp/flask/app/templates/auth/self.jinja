@@ -29,7 +29,7 @@
             super( "left-entries" )
 
             this.icon = "account-circle-line"
-            this.name = "{{user_id}}"
+            this.name = "{{user_name}}"
 
             this.panel = build("t-self-footer-panel")
 
@@ -50,22 +50,22 @@
 
             // Authent Section - Login [with Magic Link] option
 
-            this.passwordInput = new TextInput()
-            this.footerPanel.select(".c-login").append(this.passwordInput.e)
+            this.codeInput = new TextInput()
+            this.footerPanel.select(".c-login").append(this.codeInput.e)
 
-            this.passwordInput.title = "password"
-            this.passwordInput.password = true
-            this.passwordInput.autocomplete = "current-password"
+            this.codeInput.title = "password"
+            this.codeInput.password = true
+            this.codeInput.autocomplete = "current-password"
 
             this.login = new Button()
-            this.passwordInput.e.after(this.login.e)
+            this.codeInput.e.after(this.login.e)
             this.login.name = "log in"
             this.login.icon = "login-circle"
             this.login.color = "green"
             
             this.login.callback = ( _ => {
 
-                call('POST', '/auth/login', { user_id: "{{user_id}}" })
+                call('POST', '/auth/login', { code_id: this.codeInput.value })
                 .then( r => r.json() )
                 .then( r => {                        
                     this.footerPanel.tag("logged")

@@ -15,6 +15,7 @@ def init_app():
     app = Flask(__name__,
                 static_url_path="/static",
                 template_folder='./templates')
+
     app.config.from_object('config.Config')
 
     login.init_app(app)
@@ -27,5 +28,10 @@ def init_app():
         app.register_blueprint(admin, url_prefix="/admin")
 
         from .api import ping
+
+        from .routines import render_template, visitor_id
+
+        app.before_request(visitor_id)
+
 
         return app
