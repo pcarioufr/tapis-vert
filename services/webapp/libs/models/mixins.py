@@ -4,14 +4,30 @@ import uuid
 
 from typing import Union
 
+import nanoid
+from utils import log
+
+alphabet = '0123456789abcdefghijklmnopqrstuvwxyz-_'
+
+def new_sid():
+    '''Generates Random ID, suited for Secret IDs'''
+    return nanoid.generate(alphabet, 24)  # Generates an 8-character NanoID
+
+
+def new_id():
+    '''Generates Random ID, suited for Internal Object IDs'''
+    return nanoid.non_secure_generate(alphabet, 10)
+
+
 class RedisMixin:
     """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
 
-    DB_INDEX = None   # The DB to use for the Redis client
-    PREFIX   = None   # The prefix to be used in Redis keys ("prefix:id")
-    PARAMS   = None   # An allowlist of fields to consider in the hash map values
+    DB_INDEX        = None      # The DB to use for the Redis client
+    ID_GENERATOR    = new_id    # The ID generator to use for the class
+    PREFIX          = None      # The prefix to be used in Redis keys ("prefix:id")
+    PARAMS          = None      # An allowlist of fields to consider in the hash map values
 
-    _redis_client = None
+    _redis_client = None        # The Redis Client to use
 
 
     def __init__(self, id: str, data: dict):
@@ -42,12 +58,15 @@ class RedisMixin:
     def create(cls, data: dict) -> "RedisMixin":
         """Creates the object in Redis."""
         while True:
-            id = str(uuid.uuid4())
+            id = str(cls.ID_GENERATOR())
             if not cls.redis_client().exists(cls.key(id)):
                 break  # Unique ID found
 
         instance = cls(id=id, data=data)
         instance.save()
+
+        log.info(f"{cls.__name__} with ID {id} created")
+
         return instance
 
 
@@ -67,14 +86,22 @@ class RedisMixin:
 
     def save(self) -> "RedisMixin":
         """Saves the object current state into Redis."""
+
         params = {k: v for k, v in self.data.items() if k in self.PARAMS}
         self.redis_client().hset(self.key(self.id), mapping=params)
+
+
+        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {params}")
+
         return self
 
 
     def delete(self) -> bool:
         """Deletes the object from Redis."""
         self.redis_client().delete(self.key(self.id))
+
+        logger.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
+
         return True
 
 
@@ -84,3 +111,18 @@ class RedisMixin:
             "id": self.id,
             **self.data  # Expand the contents of data dictionary
         }
+    
+    @classmethod
+    def scan_all(cls) -> list:
+        """Scans and lists all objects. """
+        """This method is suited for large datasets (millions of entries)."""
+        client = cls.redis_client()
+        instances = []
+        
+        # Iterate over keys using scan_iter to avoid blocking
+        for key in client.scan_iter(f"{cls.PREFIX}:*"):
+            data = client.hgetall(key)
+            id = key.split(":")[1]  # Extract the id from the key
+            instances.append(cls(id=id, data=data))
+        
+        return instances

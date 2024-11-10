@@ -1,11 +1,16 @@
-from .mixins import RedisMixin
+from .mixins import RedisMixin, new_sid
 
 import os
 
 class User(RedisMixin):
+    '''
+    Users:
+    * name: public name - appearing in app
+    * status: online True/False 
+    '''
 
     PREFIX = "user"
-    DB_INDEX = os.environ.get("REDIS_ROOMS_DB")
+    DB_INDEX = os.environ.get("REDIS_USERS_DB")
     PARAMS = {"name", "status"}
 
     # Flask-Login required methods and properties
@@ -26,3 +31,17 @@ class User(RedisMixin):
     def is_anonymous(self) -> bool:
         # Flask-Login expects this to return False for authenticated users
         return False
+
+
+
+class MagicCode(RedisMixin):
+    '''
+    Magic Codes: for users to login in
+    * user_id: reference to user
+    '''
+
+    PREFIX = "code"
+    DB_INDEX = os.environ.get("REDIS_USERS_DB")
+    PARAMS = {"user_id"}
+
+    ID_GENERATOR = new_sid
