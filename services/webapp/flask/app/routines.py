@@ -49,18 +49,16 @@ def session_management():
 
 def visitor_id():
     
+    # Ensure Session a Visitor ID
     if 'visitor_id' not in flask.session:
 
         visitor_id = f"v-{new_id()}"
         flask.session['visitor_id'] = visitor_id
         log.info(f"assign a visitor_id {visitor_id}")
 
-
-    else:
-        visitor_id = flask.session['visitor_id']
+    # Assign Visitor ID has Anonymous User ID
+    if not current_user.is_authenticated:
     
-    # Assign the ID to current_user
-    current_user.id = visitor_id
-
-
+        visitor_id = flask.session['visitor_id']
+        current_user.id = visitor_id
 
