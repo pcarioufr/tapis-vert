@@ -16,7 +16,7 @@ def init_app():
                 static_url_path="/static",
                 template_folder='./templates')
 
-    app.config.from_object('config.Config')
+    app.config.from_object('app.config.Config')
 
     login.init_app(app)
 
