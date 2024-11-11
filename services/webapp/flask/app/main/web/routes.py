@@ -1,24 +1,18 @@
-from . import main  # Import the Blueprint from __init__.py
+from app.main import main_web
 
 import flask
-from flask import request, send_file, jsonify
-
-from utils import log
 
 from app.routines import render_template
+from utils import log
 
 
-from flask_login import login_required
-
-
-
-@main.route("/r/<room_id>", methods=['GET'])
+@main_web.route("/r/<room_id>", methods=['GET'])
 def room_app(room_id=None):
 
 
     # Checks if the room exists
     if room_id is None:
-        return jsonify(), 404
+        return flask.jsonify(), 404
 
 
     return render_template (

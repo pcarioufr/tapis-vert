@@ -39,26 +39,3 @@ def render_template(template, **kwargs):
         **kwargs
     )
 
-
-def session_management():
-
-    flask.session.permanent = True
-    flask.session.modified = True
-    app.permanent_session_lifetime = datetime.timedelta(seconds=1800)
-
-
-def visitor_id():
-    
-    # Ensure Session a Visitor ID
-    if 'visitor_id' not in flask.session:
-
-        visitor_id = f"v-{new_id()}"
-        flask.session['visitor_id'] = visitor_id
-        log.info(f"assign a visitor_id {visitor_id}")
-
-    # Assign Visitor ID has Anonymous User ID
-    if not current_user.is_authenticated:
-    
-        visitor_id = flask.session['visitor_id']
-        current_user.id = visitor_id
-

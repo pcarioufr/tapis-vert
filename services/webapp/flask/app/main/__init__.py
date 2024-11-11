@@ -1,9 +1,9 @@
 import flask
 
-# Initialize the Blueprint
-main = flask.Blueprint("main", __name__)
+# Initialize Blueprints for API and Pages
+main_api = flask.Blueprint("main_api", __name__)
+main_web = flask.Blueprint("main_web", __name__)
 
-
-# Import routes to register them with the Blueprint
-from . import web
-from . import api
+# Import the routes from submodules
+from .api import routes
+from .web import routes, routines

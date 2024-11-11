@@ -1,4 +1,4 @@
-from . import admin  # Import the Blueprint from __init__.py
+from app.admin import admin_api  # Import the Blueprint from __init__.py
 
 import flask 
 
@@ -7,7 +7,7 @@ from models import Room, User, MagicCode
 
 
 
-@admin.route("/api/v1/invite", methods=['POST'])
+@admin_api.route("/v1/invite", methods=['POST'])
 def invite():
 
     name = flask.request.args.get("name")
@@ -24,7 +24,7 @@ def invite():
 
 
 
-@admin.route("/api/v1/users/<user_id>", methods=['GET', 'DELETE'])
+@admin_api.route("/v1/users/<user_id>", methods=['GET', 'DELETE'])
 def users(user_id):
 
 
@@ -51,7 +51,7 @@ def users(user_id):
 
 
 
-@admin.route("/api/v1/codes/<code_id>", methods=['GET', 'DELETE'])
+@admin_api.route("/v1/codes/<code_id>", methods=['GET', 'DELETE'])
 def codes(code_id):
 
 
@@ -78,7 +78,7 @@ def codes(code_id):
 
 
 
-@admin.route("/api/v1/codes", methods=['GET'])
+@admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
     codes = MagicCode.scan_all()
@@ -86,7 +86,7 @@ def list_codes():
     return flask.jsonify(data), 200
 
 
-@admin.route("/api/v1/users", methods=['GET'])
+@admin_api.route("/v1/users", methods=['GET'])
 def list_users():
 
     users = User.scan_all()
@@ -94,7 +94,7 @@ def list_users():
     return flask.jsonify(data), 200
 
 
-@admin.route("/api/v1/room", methods=['GET'])
+@admin_api.route("/v1/room", methods=['GET'])
 def list_rooms():
 
     rooms = Room.scan_all()
