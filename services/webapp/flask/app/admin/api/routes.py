@@ -3,7 +3,7 @@ from app.admin import admin_api  # Import the Blueprint from __init__.py
 import flask 
 
 from utils import log
-from models import Room, User, MagicCode
+from models import Room, User, MagicCode, User_MagicCode
 
 
 
@@ -20,7 +20,44 @@ def invite():
     user.code_id = code.id
     user.save()
 
+    User_MagicCode.add_association(user.id, code.id)
+
     return flask.jsonify(code.to_dict()), 201
+
+
+
+@admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'DELETE'])
+def rooms(room_id):
+
+    if room_id is None:
+
+        return flask.jsonify({"error": "missing code_id: /api/v1/rooms/<room_id>"}), 400
+
+
+    if flask.request.method == 'DELETE':
+
+        room = Room.get(room_id)
+        room.delete()
+
+        return flask.jsonify(), 204
+
+
+    if flask.request.method == 'GET':
+
+        room = User.get(room_id)
+        return flask.jsonify(room.to_dict()), 200
+
+
+@admin_api.route("/v1/user_codes/<user_id>", methods=['GET'])
+def user_codes(user_id):
+
+    if user_id is None:
+
+        return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>/codes"}), 400
+
+    codes = User_MagicCode.get_right_for_left(user_id)
+    return flask.jsonify(codes)
+
 
 
 
@@ -36,7 +73,7 @@ def users(user_id):
     if flask.request.method == 'DELETE':
 
         user = User.get(user_id)
-        code = MagicCode.get(user.data["code_id"])
+        code = MagicCode.get(user.code_id)
 
         code.delete()
         user.delete()
@@ -63,7 +100,7 @@ def codes(code_id):
     if flask.request.method == 'DELETE':
 
         code = MagicCode.get(code_id)
-        user = User.get(code.data["user_id"])
+        user = User.get(code.user_id)
 
         user.delete()
         code.delete()
@@ -94,9 +131,47 @@ def list_users():
     return flask.jsonify(data), 200
 
 
-@admin_api.route("/v1/room", methods=['GET'])
+@admin_api.route("/v1/rooms", methods=['GET'])
 def list_rooms():
 
     rooms = Room.scan_all()
     data = [room.to_dict() for room in rooms]
     return flask.jsonify(data), 200
+
+@admin_api.route("/v1/user_codes", methods=['GET'])
+def list_user_magiccode_associations():
+    associations = User_MagicCode.list_all_associations()
+    return flask.jsonify(associations), 200
+
+
+
+import redis, os 
+redis_client = redis.Redis(
+    host=os.environ.get("REDIS_HOST"),
+    db=os.environ.get("REDIS_DATA_DB"),
+    decode_responses=True
+)
+    
+
+@admin_api.route('/search', methods=['GET'])
+def search_keys():
+
+    # Get the key pattern from the query parameters
+    key_pattern = flask.request.args.get('pattern', '*')
+    max_results = 100
+    results = []
+
+    # Use SCAN to fetch keys matching the pattern, with a limit of max_results
+    for key in redis_client.scan_iter(key_pattern, count=100):
+        # Retrieve the hashmap associated with each key
+        hashmap = redis_client.hgetall(key)
+        # Append the key and its hashmap to the results
+        results.append({
+            'key': key,
+            'hashmap': str(hashmap)  # Convert hashmap to string for simplicity
+        })
+        # Stop if we've reached the max_results cap
+        if len(results) >= max_results:
+            break
+
+    return flask.jsonify(results), 200

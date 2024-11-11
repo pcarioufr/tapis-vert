@@ -1,4 +1,4 @@
-from .mixins import RedisMixin
+from .mixins import RedisMixin, RedisAssociation
 
 import os
 import utils
@@ -8,11 +8,26 @@ class User(RedisMixin):
     Users:
     * name: public name - appearing in app
     * status: online True/False 
+    * code_id: MagicCode for the user to login with
+    * rooms: an array of room_id that the user owns or co-owns
     '''
 
     PREFIX = "user"
-    DB_INDEX = os.environ.get("REDIS_USERS_DB")
     FIELDS = {"name", "status", "code_id"}
+
+
+    # TODO extend delete method to delete code along with the user
+    # def delete(self) -> bool:
+
+    #     # Additional custom logic before deletion
+
+    #     # Call the RedisMixin's delete method
+    #     result = super().delete()
+
+    #     # Additional custom logic after deletion, if needed
+
+    #     return result
+    
 
     # Flask-Login required methods and properties
 
@@ -46,3 +61,14 @@ class MagicCode(RedisMixin):
     FIELDS = {"user_id"}
 
     ID_GENERATOR = utils.new_sid
+
+
+
+class User_MagicCode(RedisAssociation):
+
+    DB_INDEX = os.environ.get("REDIS_USERS_DB")
+    LEFT_PREFIX = "user"
+    RIGHT_PREFIX = "code"
+
+    left_class = User        # Reference to the User class
+    right_class = MagicCode   # Reference to the MagicCode class

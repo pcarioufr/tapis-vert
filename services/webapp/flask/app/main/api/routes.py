@@ -1,9 +1,9 @@
 from app.main import main_api  # Import the Blueprint from __init__.py
 
-from flask import request, send_file, jsonify
+import flask, flask_login
 
 from utils import log
-from models import Room, User
+from models import Room, User, MagicCode
 
 import io
 import qrcode
@@ -15,107 +15,64 @@ def room_api(room_id=None):
 
     if room_id is None:
         log.warning("missing room_id in url")
-        return jsonify(), 400
+        return flask.jsonify(), 400
 
     room = Room(room_id)
 
-    if request.method == 'DELETE':
+    if flask.request.method == 'DELETE':
 
         room.delete()
-        return jsonify(), 204
+        return flask.jsonify(), 204
 
-    if request.method == 'GET':
+    if flask.request.method == 'GET':
 
-        return jsonify(room=room.get()), 200
-
-
-
-
-@main_api.route("/v1/r/<room_id>/round", methods=['POST'])
-def round_api(room_id=None):
-
-    if room_id is None:
-        log.warning("missing room_id in url")
-        return jsonify(), 400
-
-    room = Room(room_id)
-
-    # POST
-
-    # Get users list from URL query params
-    players = request.args.getlist("user")
-    log.debug("players: {}".format(players))
-
-    room.new_round(players)
-
-    return jsonify(room.get())
+        return flask.jsonify(room=room.get()), 200
 
 
 
-@main_api.route("/v1/<room_id>/users/<user_id>", methods=['POST', 'DELETE'])
-def room_user_id_api(room_id=None, user_id=None):
 
-    if room_id is None:
-        log.warning("missing room_id in url")
-        return jsonify(), 400
-
-    if user_id is None:
-        log.warning("missing user_id in url")
-        return jsonify(), 400
-
-    room = Room(room_id)
-
-    # POST
-    if request.method == 'POST':
-        room.set_user(user_id, "offline")
-        return jsonify(), 200
-
-    # DELETE
-    if request.method == 'DELETE':
-        room.remove_user(user_id)
-        return jsonify(), 204
-
-
-
-@main_api.route("/v1/users/<user_id>", methods=['POST', 'DELETE', 'GET', 'PUT'])
+@flask_login.login_required
+@main_api.route("/v1/users/<user_id>", methods=['DELETE', 'GET', 'PUT'])
 def user_api(user_id=None):
 
     if user_id is None:
         log.warning("missing user_id in url")
-        return jsonify(), 400
+        return flask.jsonify(), 400
 
-
-    if request.method == 'POST':
-        user = User.create({ "status" : "hello"})
-        return jsonify(user=user.to_dict()), 200
-
+    if user_id != flask_login.current_user.id:
+        return flask.jsonify(), 403
 
     user = User.get(user_id)
-    if user is None:
-        return jsonify(), 404
 
-    if request.method == 'GET':
-        return jsonify(user=user.to_dict()), 200
+    if flask.request.method == 'GET':
+        return flask.jsonify(user=user.to_dict()), 200
 
-    if request.method == 'PUT':
-        user.status = "world"
+    if flask.request.method == 'PUT':
+        user.data = flask.request.args
         user.save()
         user = User.get(user_id)
-        return jsonify(user=user.to_dict()), 200
+        return flask.jsonify(user=user.to_dict()), 200
 
-    if request.method == 'DELETE':
+    if flask.request.method == 'DELETE':
+
+        code = MagicCode.get(user.code_id)
+        code.delete()
+
         user.delete()
-        return jsonify(), 204
+
+        return flask.jsonify(), 204
+
+
 
 
 @main_api.route('/v1/qrcode', methods=['GET'])
 def qr_code():
 
-    link = request.args.get("link")
+    link = flask.request.args.get("link")
     if link is None:
-        return jsonify(), 400
+        return flask.jsonify(), 400
 
-    size = request.args.get("size")
+    size = flask.request.args.get("size")
     if size is None:
         size = 8
 
@@ -133,4 +90,4 @@ def qr_code():
     img.get_image().save(img_io, 'PNG')
     img_io.seek(0)
 
-    return send_file(img_io, mimetype='image/png')
+    return flask.send_file(img_io, mimetype='image/png')

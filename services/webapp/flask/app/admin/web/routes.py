@@ -6,7 +6,12 @@ from utils import log
 
 
 @admin_web.route("/list", methods=['GET'])
-def test():
+def list():
     
-
     return flask.render_template("admin/list.jinja")
+
+
+@admin_web.route("/redis", methods=['GET'])
+def search():
+    
+    return flask.render_template("admin/redis.jinja")
