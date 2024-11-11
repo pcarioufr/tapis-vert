@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #results { margin-top: 20px; }
+        .result-item { margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Redis Client</h1>
+    <input type="text" id="searchPattern" placeholder="Enter key pattern (e.g., user:*)" />
+    <button onclick="searchRedis()">Search</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function searchRedis() {
+            // Get the key pattern from the input field
+            const pattern = document.getElementById('searchPattern').value;
+
+            // Make a request to the Flask backend
+            const response = await fetch(`/admin/api/search?pattern=${encodeURIComponent(pattern)}`);
+            const results = await response.json();
+
+            // Display the results in the results div
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';  // Clear previous results
+
+            results.forEach(item => {
+                // Create a div for each result item
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'result-item';
+
+                // Display the key and hashmap as text
+                itemDiv.innerHTML = `<strong>Key:</strong> ${item.key}<br><strong>Hashmap:</strong> ${item.hashmap}`;
+                resultsDiv.appendChild(itemDiv);
+            });
+        }
+    </script>
+</body>
+</html>

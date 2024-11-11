@@ -3,7 +3,8 @@ import redis.asyncio as aioredis
 import os
 from fastapi import WebSocket
 
-from utils import log
+from utils import get_logger
+log = get_logger(__name__)
 
 
 class RedisPubSubManager:

@@ -4,8 +4,11 @@ import flask
 
 import datetime
 
-from utils import log, LOG_LEVEL
 from utils import new_id
+
+from utils import get_logger, LOG_LEVEL
+log = get_logger(__name__)
+
 
 from flask_login import current_user
 
@@ -38,29 +41,4 @@ def render_template(template, **kwargs):
         request_cookies=flask.request.cookies, # Include request cookies for debugging
         **kwargs
     )
-
-
-def session_management():
-
-    flask.session.permanent = True
-    flask.session.modified = True
-    app.permanent_session_lifetime = datetime.timedelta(seconds=1800)
-
-
-def visitor_id():
-    
-    if 'visitor_id' not in flask.session:
-
-        visitor_id = f"v-{new_id()}"
-        flask.session['visitor_id'] = visitor_id
-        log.info(f"assign a visitor_id {visitor_id}")
-
-
-    else:
-        visitor_id = flask.session['visitor_id']
-    
-    # Assign the ID to current_user
-    current_user.id = visitor_id
-
-
 

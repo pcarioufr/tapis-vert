@@ -1,114 +1,164 @@
-import redis
 import os
-import uuid
-
+import redis
+import importlib
+from datetime import datetime
 from typing import Union
 
-from utils import log
+from utils import get_logger, new_id
+log = get_logger(__name__)
 
-from utils import new_id
+
+REDIS_CLIENT = redis.Redis(
+    host=os.environ.get("REDIS_HOST"),
+    db=os.environ.get("REDIS_DATA_DB"),
+    decode_responses=True
+)
 
 
-class RedisMixin:
+class RedisMixinMeta(type):
+    """Metaclass to dynamically generate association methods for RedisMixin subclasses."""
+
+    def __new__(cls, name, bases, dct):
+
+        # Create the new class
+        new_cls = super().__new__(cls, name, bases, dct)
+
+        # Add association methods based on RELATED
+        related = dct.get("RELATED", {}) or {}
+
+        log.debug(f"Processing class {name} with RELATED: {related}")
+
+        for relation_name, association_class_path in related.items():
+            def make_method(relation_name, association_class_path):
+                def association_method(self):
+                    return AssociationManager(self, association_class_path)
+                association_method.__name__ = relation_name
+                association_method.__doc__ = f"Returns a manager for the {relation_name} association."
+                return association_method
+
+            # Add the generated method to the class
+            setattr(new_cls, relation_name, make_method(relation_name, association_class_path))
+
+        return new_cls
+
+
+
+class RedisMixin(metaclass=RedisMixinMeta):
     """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
 
-    DB_INDEX        = None      # The DB to use for the Redis client
+    # To be defined in subclasses
     ID_GENERATOR    = new_id    # The ID generator to use for the class
-    PREFIX          = None      # The prefix to be used in Redis keys ("prefix:id")
-    FIELDS          = None      # An allowlist of fields to consider in the hash map values
-
-    _redis_client = None        # The Redis Client to use
+    FIELDS          = {}        # An allowlist of fields to consider in the hash map values
+    RELATED         = {}        # {"relation_name": "association_class_path", ...}
 
 
-    def __init__(self, id: str, data: dict):
+    _META_FIELDS = {"last_edited"}  # Known metadata fields
+
+    def __init__(self, id: str, data: dict, meta: dict = None):
         self.id = id 
-        self.data = data
-
+        self.data = data      # Object data (allowed fields)
+        self._meta = meta or {}  # Object metadata (private attribute)
 
     def __getattr__(self, name):
-        """Intercept attribute access for keys in FIELDS."""
+        """Intercepts attribute access for keys in FIELDS."""
 
         if name in self.FIELDS:
-            return self.data.get(name, None)  # Return None if the key is missing
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            return self.data.get(name, None)
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            return None
 
     def __setattr__(self, name, value):
-        """Intercept attribute setting for keys in FIELDS."""
+        """Intercepts attribute setting for keys in FIELDS."""
 
-        if name in {"id", "data", "PREFIX", "DB_INDEX", "FIELDS"}:
-            # Set known attributes normally
+        if name in {"id", "data", "_meta", "FIELDS", "_META_FIELDS"}:
             super().__setattr__(name, value)
         elif name in self.FIELDS:
-            # If name is in FIELDS, update self.data instead
             self.data[name] = value
         else:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
         
+    @classmethod
+    def _prefix(cls):
+        """Returns the lowercased class name to use as key prefix."""
+        return cls.__name__.lower()
 
     @classmethod
-    def redis_client(cls):
-        """Returns the appropriate Redis client for the class"""
-        if cls._redis_client is None:
-            cls._redis_client = redis.Redis(
-                host=os.environ.get("REDIS_HOST"),
-                db=cls.DB_INDEX,  # Use the subclass's DB_INDEX
-                decode_responses=True
+    def _key(cls, id: str) -> str:
+        """Returns the Redis key of an object"""
+        return f"{cls._prefix()}:{id}"
+
+    @classmethod
+    def create(cls, **kwargs) -> "RedisMixin":
+        """Creates the object in Redis using keyword arguments for data fields."""
+        log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
+
+        # Separate valid and invalid fields
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
+
+        # Log a warning for invalid fields
+        if invalid_fields:
+            log.warning(
+                f"Invalid fields for {cls.__name__}: {invalid_fields}. "
+                f"Allowed fields are: {cls.FIELDS}"
             )
 
-        return cls._redis_client
-
-
-    @classmethod
-    def key(cls, id: str) -> str:
-        """Returns the Redis key of an object"""
-        return f"{cls.PREFIX}:{id}"
-
-
-    @classmethod
-    def create(cls, data: dict) -> "RedisMixin":
-        """Creates the object in Redis."""
+        # Generate a unique ID and create the instance
         while True:
             id = str(cls.ID_GENERATOR())
-            if not cls.redis_client().exists(cls.key(id)):
+            if not REDIS_CLIENT.exists(cls._key(id)):
                 break  # Unique ID found
 
         instance = cls(id=id, data=data)
         instance.save()
 
-        log.info(f"{cls.__name__} with ID {id} created")
-
         return instance
-
 
     @classmethod
     def get(cls, id: str) -> Union["RedisMixin",  None]:
-        """Retrives the object from Redis."""
-        data = cls.redis_client().hgetall(cls.key(id))
-        if not data:
+        """Retrieves the object from Redis, splitting data and meta."""
+        key = cls._key(id)
+        raw_data = REDIS_CLIENT.hgetall(key)
+        
+        if not raw_data:
             return None
-        return cls(id=id, data=data)
 
+        # Separate data and meta based on known fields and metadata fields
+        data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
+        meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+
+        return cls(id=id, data=data, meta=meta)
+    
     @classmethod
     def exist(cls, id: str) -> bool:
-        """Assess whether the object exists."""
-        return cls.redis_client().exists(cls.key(id))
+        """Assesses whether the object exists."""
+        return REDIS_CLIENT.exists(cls._key(id))
 
 
     def save(self) -> "RedisMixin":
         """Saves the object current state into Redis."""
 
-        params = {k: v for k, v in self.data.items() if k in self.FIELDS}
-        self.redis_client().hset(self.key(self.id), mapping=params)
+        key = self._key(self.id)
 
+        # Prepare data and metadata for storage
+        data = {k: v for k, v in self.data.items() if k in self.FIELDS}
+        
+        # Update metadata (e.g., timestamp for 'last_edited')
+        self._meta["last_edited"] = datetime.utcnow().isoformat()
 
-        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {params}")
+        # Combine data and metadata for saving in Redis
+        combined_data = {**data, **self._meta}
+        REDIS_CLIENT.hset(key, mapping=combined_data)
 
+        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {data} (metadata {self._meta})")
         return self
 
 
     def delete(self) -> bool:
         """Deletes the object from Redis."""
-        self.redis_client().delete(self.key(self.id))
+        REDIS_CLIENT.delete(self._key(self.id))
 
         log.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
 
@@ -116,23 +166,280 @@ class RedisMixin:
 
 
     def to_dict(self):
-        """Convert the object to a dictionary for JSON serialization."""
-        return {
+        """Converts the object to a dictionary for JSON serialization."""
+        result = {
             "id": self.id,
-            **self.data  # Expand the contents of data dictionary
+            **self.data,
+            "metadata": self._meta,
         }
-    
+
+
+        return result
+
+
     @classmethod
     def scan_all(cls) -> list:
         """Scans and lists all objects. """
-        """This method is suited for large datasets (millions of entries)."""
-        client = cls.redis_client()
+
         instances = []
-        
-        # Iterate over keys using scan_iter to avoid blocking
-        for key in client.scan_iter(f"{cls.PREFIX}:*"):
-            data = client.hgetall(key)
+
+        for key in REDIS_CLIENT.scan_iter(f"{cls._prefix()}:*"):
+            raw_data = REDIS_CLIENT.hgetall(key)
             id = key.split(":")[1]  # Extract the id from the key
-            instances.append(cls(id=id, data=data))
-        
+
+            # Separate data and metadata
+            data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+
+            instances.append(cls(id=id, data=data, meta=meta))
+
         return instances
+
+
+from datetime import datetime
+import logging
+
+log = logging.getLogger(__name__)
+
+
+class RedisAssociationMixin:
+    """A class for managing n:m relationships with data fields and metadata in Redis."""
+
+    L_CLASS = None   # Left-side class (e.g., Room)
+    R_CLASS = None   # Right-side class (e.g., User)
+    NAME = "left:linksto:right"  # Name of the association for key generation
+
+    FIELDS = None    # Association-specific data fields (e.g., "role")
+    _META_FIELDS = {"last_edited"}  # Metadata fields only
+
+    def __init__(self, key: str, data: dict, meta: dict = None):
+        self.key = key
+        self.data = data
+        self._meta = meta or {}
+
+    @classmethod
+    def _L_prefix(cls):
+        """Returns the lowercased class name for the left-side class."""
+        return cls.L_CLASS.__name__.lower()
+
+    @classmethod
+    def _R_prefix(cls):
+        """Returns the lowercased class name for the right-side class."""
+        return cls.R_CLASS.__name__.lower()
+
+    @classmethod
+    def _key(cls, left_id: str, right_id: str) -> str:
+        """Generate the Redis key for an association between two objects."""
+        return f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:{right_id}"
+
+    def __getattr__(self, name):
+        """Intercepts attribute access for keys in FIELDS."""
+
+        if name in self.FIELDS:
+            return self.data.get(name, None)
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            return None
+
+    def __setattr__(self, name, value):
+        """Intercepts attribute setting for keys in FIELDS."""
+
+        if name in {"key", "data", "_meta", "FIELDS", "_META_FIELDS"}:
+            super().__setattr__(name, value)
+        elif name in self.FIELDS:
+            self.data[name] = value
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    @classmethod
+    def create(cls, left_id: str, right_id: str, **kwargs) -> "RedisAssociationMixin":
+        """Creates an association instance using keyword arguments for data fields."""
+        log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
+
+        # Separate valid and invalid fields
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
+
+        # Log a warning for invalid fields
+        if invalid_fields:
+            log.warning(
+                f"Invalid fields for association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id}: {invalid_fields}. "
+                f"Allowed fields are: {cls.FIELDS}"
+            )
+
+        # Initialize the instance and save it
+        instance = cls(cls._key(left_id, right_id), data=data)
+        instance.save()
+
+        return instance
+
+    @classmethod
+    def get(cls, left_id: str, right_id: str) -> Union["RedisAssociationMixin", None]:
+        """Retrieves the association, splitting fields and metadata."""
+        key = cls._key(left_id, right_id)
+        combined_data = REDIS_CLIENT.hgetall(key)
+
+        if not combined_data:
+            return None
+
+        # Split combined_data into fields and metadata
+        data = {k: v for k, v in combined_data.items() if k in cls.FIELDS}
+        meta = {k: v for k, v in combined_data.items() if k in cls._META_FIELDS}
+
+        return cls(key=key, data=data, metadata=meta)
+
+    def save(self):
+
+        """Saves the association's data fields and metadata to Redis."""
+        self._meta["last_edited"] = datetime.utcnow().isoformat()
+
+        # Combine data and metadata for storage
+        combined_data = {**self.data, **self._meta}
+        REDIS_CLIENT.hset(self.key, mapping=combined_data)
+
+        log.info(f"Association with key {self.key} saved with data {self.data} and metadata {self._meta}")
+        return self
+
+
+    def delete(self) -> bool:
+        """Deletes the association from Redis."""
+        REDIS_CLIENT.delete(self.key)
+        log.info(f"Association removed: {self.key}")
+        return True
+
+    @classmethod
+    def scan_all(cls) -> list:
+        """Lists all associations with data fields and metadata as JSON-serializable dictionaries."""
+        associations = []
+        pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:*"
+
+        for key in REDIS_CLIENT.scan_iter(pattern):
+            combined_data = REDIS_CLIENT.hgetall(key)
+            parts = key.split("::")
+            left_id = parts[1].split(":")[1]
+            right_id = parts[2].split(":")[1]
+
+            # Separate data fields and metadata
+            data = {k: v for k, v in combined_data.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in combined_data.items() if k in cls._META_FIELDS}
+
+            associations.append({
+                f"{cls._L_prefix()}_id": left_id,
+                f"{cls._R_prefix()}_id": right_id,
+                "data": data,
+                "metadata": meta
+            })
+
+        return associations
+
+    @classmethod
+    def get_left_ids_for_right(cls, right_id: str) -> list:
+        """Retrieve all left-side object IDs associated with a given right-side object."""
+        left_ids = []
+        pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:{right_id}"
+        
+        for key in REDIS_CLIENT.scan_iter(pattern):
+
+            left_id = key.split("::")[1].split(":")[1]  # Extract left_id from the key
+            raw_data = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
+            
+            # Separate fields and metadata
+            data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+            
+            left_ids.append({
+                "id": left_id,
+                "data": data,
+                "metadata": meta
+            })
+
+        return left_ids
+
+    @classmethod
+    def get_right_ids_for_left(cls, left_id: str) -> list:
+        """Retrieve all right-side object IDs associated with a given left-side object."""
+        right_ids = []
+        pattern = f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:*"
+        
+        for key in REDIS_CLIENT.scan_iter(pattern):
+            right_id = key.split("::")[2].split(":")[1]  # Extract right_id from the key
+            metadata = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
+            
+            # Separate fields and metadata
+            data = {k: v for k, v in metadata.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in metadata.items() if k in cls._META_FIELDS}
+            
+            right_ids.append({
+                "id": right_id,
+                "data": data,
+                "metadata": meta
+            })
+
+        return right_ids
+
+    def to_dict(self):
+        """Converts the association to a dictionary for JSON serialization."""
+        left_id, right_id = self.key.split("::")[1].split(":")[1], self.key.split("::")[2].split(":")[1]
+        return {
+            f"{self._L_prefix()}_id": left_id,
+            f"{self._R_prefix()}_id": right_id,
+            "data": self.data,
+            "metadata": self._meta
+        }
+
+
+class AssociationManager:
+    """An abstract manager for handling associations between two RedisMixin classes."""
+
+    def __init__(self, instance, association_class):
+        """
+        Initializes the manager for handling associations.
+
+        Args:
+            instance: The instance of the calling object (e.g., User or Code).
+            association_class: The association class that defines the relationship (e.g., UserCode).
+        """
+        self.instance = instance
+        self.association_class = self._resolve_class(association_class)
+
+        # Determine the opposite class based on _L_CLASS and _R_CLASS
+        if isinstance(instance, self.association_class.L_CLASS):
+            self.side = 'left'
+            self.opposite_class = self.association_class.R_CLASS
+            self.get_associations = self.association_class.get_right_ids_for_left
+        elif isinstance(instance, self.association_class.R_CLASS):
+            self.side = 'right'
+            self.opposite_class = self.association_class.L_CLASS
+            self.get_associations = self.association_class.get_left_ids_for_right
+        else:
+            raise ValueError(f"{instance.__class__.__name__} is not valid for this association.")
+
+    def _resolve_class(self, class_ref):
+        """Resolve a class reference given as a string or class object."""
+        if isinstance(class_ref, str):
+            module_name, class_name = class_ref.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+        return class_ref
+
+    def add(self, opposite_id: str, **data):
+        """Adds an association between the instance and an opposite-side object."""
+
+        if self.side == 'left':
+            self.association_class.create(self.instance.id, opposite_id, **data)
+        else:
+            self.association_class.create(opposite_id, self.instance.id, **data)
+
+    def remove(self, opposite_id: str):
+        """Removes the association between the left instance and an opposite-side object."""
+        if self.side == 'left':
+            association = self.association_class.get(self.instance.id, opposite_id)
+        else:
+            association = self.association_class.get(opposite_id, self.instance.id)
+
+        if association:
+            association.delete()
+
+    def get(self) -> list:
+        """Retrieves all associations for the left instance."""
+        return self.get_associations(self.instance.id)

@@ -37,6 +37,21 @@
             <div id="codeErrorMessage" class="error"></div>
         </div>
 
+        <!-- UserCode Table -->
+        <div class="container">
+            <h1>User<>Code List</h1>
+            <table id="user_codeTable">
+                <thead>
+                    <tr id="user_codeHeaders"></tr>
+                </thead>
+                <tbody id="user_codeTableBody">
+                    <!-- UserCode data will be populated here -->
+                </tbody>
+            </table>
+            <div id="user_codeErrorMessage" class="error"></div>
+        </div>
+
+
     </div>
 
     <script>
@@ -125,7 +140,7 @@
                     'userTableBody',
                     'userErrorMessage',
                     'userHeaders',
-                    ['id', 'name', 'status', 'code', 'Actions'],
+                    ['id', 'name', 'status', 'code_id', 'Actions'],
                     ['id', 'name', 'status', 'code_id']
                 );
             }
@@ -145,16 +160,37 @@
             }
         }
 
+        // Subclass for the User->Code table
+        class UserCodeTable extends TableConfig {
+            constructor() {
+                super(
+                    '/admin/api/v1/user_codes',
+                    'user_codeTableBody',
+                    'user_codeErrorMessage',
+                    'user_codeHeaders',
+                    ['user_id', 'code_id', 'Actions'],
+                    ['user_id', 'code_id']
+                );
+            }
+        }
+
         // Instantiate and initialize tables
         document.addEventListener('DOMContentLoaded', () => {
+
             const userTable = new UserTable();
             const codeTable = new CodeTable();
+            const user_codeTable = new UserCodeTable();
 
             userTable.initializeTableHeaders();
             userTable.fetchData();
 
             codeTable.initializeTableHeaders();
             codeTable.fetchData();
+
+            user_codeTable.initializeTableHeaders();
+            user_codeTable.fetchData();
+
+
         });
     </script>
 

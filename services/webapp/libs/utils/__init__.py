@@ -1,2 +1,2 @@
-from .logs import log, LOG_LEVEL
+from .logs import LOG_LEVEL, get_logger
 from .ids import new_id, new_sid, new_name

@@ -1,4 +1,3 @@
-from utils import log
 from models import Room
 
 from ddtrace import tracer
@@ -8,8 +7,10 @@ tracer.configure(context_provider=context_provider)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from managers import WebSocketManager
-import json, os
 
+
+from utils import get_logger
+log = get_logger(__name__)
 
 app = FastAPI()
 
