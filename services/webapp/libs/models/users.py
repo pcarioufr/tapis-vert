@@ -8,11 +8,10 @@ class User(RedisMixin):
     Users:
     * name: public name - appearing in app
     * status: online True/False 
-    * code_id: MagicCode for the user to login with
+    * code_id: Code for the user to login with
     * rooms: an array of room_id that the user owns or co-owns
     '''
 
-    PREFIX = "user"
     FIELDS = {"name", "status", "code_id"}
 
 
@@ -50,13 +49,12 @@ class User(RedisMixin):
 
 
 
-class MagicCode(RedisMixin):
+class Code(RedisMixin):
     '''
     Magic Codes: for users to login in
     * user_id: reference to user
     '''
 
-    PREFIX = "code"
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
     FIELDS = {"user_id"}
 
@@ -64,11 +62,11 @@ class MagicCode(RedisMixin):
 
 
 
-class User_MagicCode(RedisAssociation):
+class UserCode(RedisAssociation):
 
     DB_INDEX = os.environ.get("REDIS_USERS_DB")
-    LEFT_PREFIX = "user"
-    RIGHT_PREFIX = "code"
 
-    left_class = User        # Reference to the User class
-    right_class = MagicCode   # Reference to the MagicCode class
+    L_CLASS = User   # Reference to the User class
+    R_CLASS = Code   # Reference to the Code class
+
+    NAME    = "ownership"

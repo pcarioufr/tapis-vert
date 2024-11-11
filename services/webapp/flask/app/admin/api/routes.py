@@ -3,7 +3,7 @@ from app.admin import admin_api  # Import the Blueprint from __init__.py
 import flask 
 
 from utils import log
-from models import Room, User, MagicCode, User_MagicCode
+from models import Room, User, Code, UserCode
 
 
 
@@ -16,11 +16,11 @@ def invite():
 
     user = User.create({ "name": name })
 
-    code = MagicCode.create({ "user_id": user.id })
+    code = Code.create({ "user_id": user.id })
     user.code_id = code.id
     user.save()
 
-    User_MagicCode.add_association(user.id, code.id)
+    UserCode.add_association(user.id, code.id)
 
     return flask.jsonify(code.to_dict()), 201
 
@@ -55,7 +55,7 @@ def user_codes(user_id):
 
         return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>/codes"}), 400
 
-    codes = User_MagicCode.get_right_for_left(user_id)
+    codes = UserCode.get_right_for_left(user_id)
     return flask.jsonify(codes)
 
 
@@ -73,7 +73,7 @@ def users(user_id):
     if flask.request.method == 'DELETE':
 
         user = User.get(user_id)
-        code = MagicCode.get(user.code_id)
+        code = Code.get(user.code_id)
 
         code.delete()
         user.delete()
@@ -99,7 +99,7 @@ def codes(code_id):
 
     if flask.request.method == 'DELETE':
 
-        code = MagicCode.get(code_id)
+        code = Code.get(code_id)
         user = User.get(code.user_id)
 
         user.delete()
@@ -110,7 +110,7 @@ def codes(code_id):
 
     if flask.request.method == 'GET':
 
-        code = MagicCode.get(code_id)
+        code = Code.get(code_id)
         return flask.jsonify(code.to_dict()), 200
 
 
@@ -118,7 +118,7 @@ def codes(code_id):
 @admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
-    codes = MagicCode.scan_all()
+    codes = Code.scan_all()
     data = [code.to_dict() for code in codes]    
     return flask.jsonify(data), 200
 
@@ -140,12 +140,13 @@ def list_rooms():
 
 @admin_api.route("/v1/user_codes", methods=['GET'])
 def list_user_magiccode_associations():
-    associations = User_MagicCode.list_all_associations()
+    associations = UserCode.list_all_associations()
     return flask.jsonify(associations), 200
 
 
 
-import redis, os 
+import redis, os
+
 redis_client = redis.Redis(
     host=os.environ.get("REDIS_HOST"),
     db=os.environ.get("REDIS_DATA_DB"),
@@ -175,3 +176,20 @@ def search_keys():
             break
 
     return flask.jsonify(results), 200
+
+
+
+@admin_api.route('/users/<user_id>/codes', methods=['GET'])
+def user_to_codes(user_id=None):
+
+    codes = UserCode.get_right_ids_for_left(user_id)
+
+    return flask.jsonify(codes), 200
+
+
+@admin_api.route('/codes/<code_id>/users', methods=['GET'])
+def code_to_users(code_id=None):
+
+    users = UserCode.get_left_ids_for_right(code_id)
+
+    return flask.jsonify(users), 200

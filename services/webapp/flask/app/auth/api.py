@@ -2,7 +2,7 @@ import flask, flask_login
 
 from . import auth  # Import the Blueprint from __init__.py
 
-from models import User, MagicCode
+from models import User, Code
 from utils import log
 
 @auth.route("/login", methods=["POST"])
@@ -13,7 +13,7 @@ def auth_login():
     if code_id is None: 
         return flask.jsonify({"success": False}), 404
 
-    code = MagicCode.get(code_id)
+    code = Code.get(code_id)
     if code is None:
         return flask.jsonify({"success": False}), 403
     

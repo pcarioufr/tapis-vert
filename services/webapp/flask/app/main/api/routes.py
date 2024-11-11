@@ -3,7 +3,7 @@ from app.main import main_api  # Import the Blueprint from __init__.py
 import flask, flask_login
 
 from utils import log
-from models import Room, User, MagicCode
+from models import Room, User, Code
 
 import io
 import qrcode
@@ -55,7 +55,7 @@ def user_api(user_id=None):
 
     if flask.request.method == 'DELETE':
 
-        code = MagicCode.get(user.code_id)
+        code = Code.get(user.code_id)
         code.delete()
 
         user.delete()
