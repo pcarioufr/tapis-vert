@@ -1,4 +1,4 @@
-from .mixins import RedisMixin, RedisAssociation
+from .mixins import RedisMixin, RedisAssociationMixin
 
 import os
 import utils
@@ -51,22 +51,25 @@ class User(RedisMixin):
 
 class Code(RedisMixin):
     '''
-    Magic Codes: for users to login in
+    Code: Magic Code for users to login in
     * user_id: reference to user
     '''
 
-    DB_INDEX = os.environ.get("REDIS_USERS_DB")
-    FIELDS = {"user_id"}
+    FIELDS = {}
 
     ID_GENERATOR = utils.new_sid
 
 
 
-class UserCode(RedisAssociation):
+class UserCode(RedisAssociationMixin):
+    '''
+    Association
+    User owns Code
+    '''
 
-    DB_INDEX = os.environ.get("REDIS_USERS_DB")
+    FIELDS = {}
 
-    L_CLASS = User   # Reference to the User class
-    R_CLASS = Code   # Reference to the Code class
+    L_CLASS = User
+    R_CLASS = Code
 
-    NAME    = "ownership"
+    NAME    = "user_code_ownership"

@@ -20,7 +20,7 @@ def invite():
     user.code_id = code.id
     user.save()
 
-    UserCode.add_association(user.id, code.id)
+    UserCode.create(user.id, code.id)
 
     return flask.jsonify(code.to_dict()), 201
 
