@@ -3,7 +3,9 @@ from app.main import main_web
 import datetime
 import flask
 
-from utils import log
+from utils import get_logger
+log = get_logger(__name__)
+
 from utils import new_id
 
 from flask_login import current_user

@@ -2,10 +2,10 @@ from app.admin import admin_api  # Import the Blueprint from __init__.py
 
 import flask 
 
-from utils import log
 from models import Room, User, Code, UserCode
 
-
+from utils import get_logger
+log = get_logger(__name__)
 
 @admin_api.route("/v1/invite", methods=['POST'])
 def invite():

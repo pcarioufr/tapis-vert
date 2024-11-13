@@ -1,13 +1,12 @@
 from app.main import main_api  # Import the Blueprint from __init__.py
 
+import io, qrcode
 import flask, flask_login
 
-from utils import log
 from models import Room, User, Code
 
-import io
-import qrcode
-
+from utils import get_logger
+log = get_logger(__name__)
 
 
 @main_api.route("/v1/r/<room_id>", methods=['GET', 'DELETE'])

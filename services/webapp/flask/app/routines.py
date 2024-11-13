@@ -4,8 +4,11 @@ import flask
 
 import datetime
 
-from utils import log, LOG_LEVEL
 from utils import new_id
+
+from utils import get_logger, LOG_LEVEL
+log = get_logger(__name__)
+
 
 from flask_login import current_user
 

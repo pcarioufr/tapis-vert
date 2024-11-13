@@ -3,7 +3,8 @@ from app.main import main_web
 import flask
 
 from app.routines import render_template
-from utils import log
+from utils import get_logger
+log = get_logger(__name__)
 
 
 @main_web.route("/r/<room_id>", methods=['GET'])

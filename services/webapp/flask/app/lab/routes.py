@@ -2,7 +2,8 @@ import flask
 
 from . import lab # Import the Blueprint from __init__.py
 
-from utils import log
+from utils import get_logger
+log = get_logger(__name__)
 
 
 @lab.route("/<test>", methods=['GET'])

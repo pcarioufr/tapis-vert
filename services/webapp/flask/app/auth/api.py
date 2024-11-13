@@ -3,7 +3,9 @@ import flask, flask_login
 from . import auth  # Import the Blueprint from __init__.py
 
 from models import User, Code
-from utils import log
+from utils import get_logger
+log = get_logger(__name__)
+
 
 @auth.route("/login", methods=["POST"])
 def auth_login():

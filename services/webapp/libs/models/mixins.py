@@ -1,11 +1,10 @@
-import redis
 import os
-import uuid
-
+import redis
+from datetime import datetime
 from typing import Union
 
-from utils import log, new_id
-from datetime import datetime
+from utils import get_logger, new_id
+log = get_logger(__name__)
 
 
 REDIS_CLIENT = redis.Redis(
@@ -59,15 +58,16 @@ class RedisMixin:
     @classmethod
     def create(cls, data: dict) -> "RedisMixin":
         """Creates the object in Redis."""
+        log.info(f"Creating {cls.__name__} with ID {id}")
+
         while True:
             id = str(cls.ID_GENERATOR())
             if not REDIS_CLIENT.exists(cls._key(id)):
                 break  # Unique ID found
 
         instance = cls(id=id, data=data)
-        instance = instance.save()
+        instance.save()
 
-        log.info(f"{cls.__name__} with ID {id} created")
 
         return instance
 
@@ -184,13 +184,15 @@ class RedisAssociationMixin:
     @classmethod
     def create(cls, left_id: str, right_id: str, data: dict = None) -> "RedisAssociationMixin":
         """Creates an association instance and saves it, returning the updated instance."""
+
+        log.info(f"Creating Association: {cls._L_prefix()} {left_id} <-> {cls._R_prefix()} {right_id} with data {data} and metadata {instance._meta}")
+
         data = {k: v for k, v in (data or {}).items() if k in cls.FIELDS}
 
         # Initialize the instance with data and metadata, then call save to handle Redis storage
         instance = cls(cls._key(left_id, right_id), data=data)
-        instance = instance.save()
+        instance.save()
 
-        log.info(f"Association created: {cls._L_prefix()} {left_id} <-> {cls._R_prefix()} {right_id} with data {data} and metadata {instance._meta}")
         return instance
 
     @classmethod
