@@ -1,33 +1,40 @@
 from .mixins import RedisMixin, RedisAssociationMixin
 
 import os
-import utils
+from utils import get_logger, new_sid
+from ddtrace import tracer
+
+log = get_logger(__name__)
 
 class User(RedisMixin):
     '''
     Users:
     * name: public name - appearing in app
     * status: online True/False 
-    * code_id: Code for the user to login with
-    * rooms: an array of room_id that the user owns or co-owns
+    * codes: the Magic Links that the user can log in with
     '''
 
     FIELDS = {"name", "status"}
     RELATED = {"codes": "models.UserCode"}
 
+    @tracer.wrap()
+    def delete(self) -> bool:
+        """Deletes the user and all associated codes."""
+        log.info(f"Deleting all codes associated with User ID {self.id}")
 
-    # TODO extend delete method to delete code along with the user
-    # def delete(self) -> bool:
+        # Iterate over codes associated with this user
+        for code in self.codes().get():
+            try:
+                code_instance = Code.get(code["id"])
+                if code_instance:
+                    code_instance.delete()
+                    log.info(f"Deleted Code with ID {code['id']} associated with User ID {self.id}")
+            except Exception as e:
+                log.error(f"Failed to delete Code with ID {code['id']} for User ID {self.id}: {e}")
 
-    #     # Additional custom logic before deletion
-
-    #     # Call the RedisMixin's delete method
-    #     result = super().delete()
-
-    #     # Additional custom logic after deletion, if needed
-
-    #     return result
-    
+        # Delete the user and its associations
+        super().delete()
+        return True
 
     # Flask-Login required methods and properties
 
@@ -57,7 +64,7 @@ class Code(RedisMixin):
     '''
 
     FIELDS = {}
-    ID_GENERATOR = utils.new_sid
+    ID_GENERATOR = new_sid
     RELATED = {"users": "models.UserCode"}
 
 
