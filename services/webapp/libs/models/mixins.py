@@ -120,14 +120,14 @@ class RedisMixin(metaclass=RedisMixinMeta):
     def get(cls, id: str) -> Union["RedisMixin",  None]:
         """Retrieves the object from Redis, splitting data and meta."""
         key = cls._key(id)
-        raw_data = REDIS_CLIENT.hgetall(key)
+        raw = REDIS_CLIENT.hgetall(key)
         
-        if not raw_data:
+        if not raw:
             return None
 
         # Separate data and meta based on known fields and metadata fields
-        data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
 
         return cls(id=id, data=data, meta=meta)
     
@@ -165,14 +165,19 @@ class RedisMixin(metaclass=RedisMixinMeta):
         return True
 
 
-    def to_dict(self):
+    def to_dict(self, include_related=False):
         """Converts the object to a dictionary for JSON serialization."""
         result = {
             "id": self.id,
-            **self.data,
+            "data": self.data,
             "metadata": self._meta,
         }
 
+        if include_related and self.RELATED:
+            result["relations"] = {}
+            for relation_name, association_class in self.RELATED.items():
+                manager = AssociationManager(self, association_class)
+                result["relations"][relation_name] = manager.get()
 
         return result
 
@@ -184,12 +189,12 @@ class RedisMixin(metaclass=RedisMixinMeta):
         instances = []
 
         for key in REDIS_CLIENT.scan_iter(f"{cls._prefix()}:*"):
-            raw_data = REDIS_CLIENT.hgetall(key)
+            raw = REDIS_CLIENT.hgetall(key)
             id = key.split(":")[1]  # Extract the id from the key
 
             # Separate data and metadata
-            data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
 
             instances.append(cls(id=id, data=data, meta=meta))
 
@@ -277,14 +282,14 @@ class RedisAssociationMixin:
     def get(cls, left_id: str, right_id: str) -> Union["RedisAssociationMixin", None]:
         """Retrieves the association, splitting fields and metadata."""
         key = cls._key(left_id, right_id)
-        combined_data = REDIS_CLIENT.hgetall(key)
+        raw = REDIS_CLIENT.hgetall(key)
 
-        if not combined_data:
+        if not raw:
             return None
 
         # Split combined_data into fields and metadata
-        data = {k: v for k, v in combined_data.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in combined_data.items() if k in cls._META_FIELDS}
+        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
 
         return cls(key=key, data=data, metadata=meta)
 
@@ -314,75 +319,72 @@ class RedisAssociationMixin:
         pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:*"
 
         for key in REDIS_CLIENT.scan_iter(pattern):
-            combined_data = REDIS_CLIENT.hgetall(key)
+            raw = REDIS_CLIENT.hgetall(key)
             parts = key.split("::")
             left_id = parts[1].split(":")[1]
             right_id = parts[2].split(":")[1]
 
             # Separate data fields and metadata
-            data = {k: v for k, v in combined_data.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in combined_data.items() if k in cls._META_FIELDS}
+            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
 
-            associations.append({
-                f"{cls._L_prefix()}_id": left_id,
-                f"{cls._R_prefix()}_id": right_id,
-                "data": data,
-                "metadata": meta
-            })
+            association = cls(cls._key(left_id, right_id), data=data, meta=meta)
+
+            associations.append( association.to_dict() )
 
         return associations
 
     @classmethod
-    def get_left_ids_for_right(cls, right_id: str) -> list:
+    def get_lefts_for_right(cls, right_id: str) -> list:
         """Retrieve all left-side object IDs associated with a given right-side object."""
-        left_ids = []
+        lefts = []
         pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:{right_id}"
         
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            left_id = key.split("::")[1].split(":")[1]  # Extract left_id from the key
-            raw_data = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
+            id = key.split("::")[1].split(":")[1]  # Extract left_id from the key
+            raw = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
             
             # Separate fields and metadata
-            data = {k: v for k, v in raw_data.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
+            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
             
-            left_ids.append({
-                "id": left_id,
-                "data": data,
-                "metadata": meta
-            })
+            left = cls.L_CLASS(id, data=data, meta=meta)
 
-        return left_ids
+            lefts.append( left.to_dict(False) ) # Include relations: False, to avoid infinite recursion (with right) and arbitraty big chains
+
+        return lefts
 
     @classmethod
-    def get_right_ids_for_left(cls, left_id: str) -> list:
+    def get_rights_for_left(cls, left_id: str) -> list:
         """Retrieve all right-side object IDs associated with a given left-side object."""
-        right_ids = []
+        rights = []
         pattern = f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:*"
         
         for key in REDIS_CLIENT.scan_iter(pattern):
-            right_id = key.split("::")[2].split(":")[1]  # Extract right_id from the key
-            metadata = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
+
+            id = key.split("::")[2].split(":")[1]  # Extract right_id from the key
+            raw = REDIS_CLIENT.hgetall(key)  # Retrieve data and metadata
             
             # Separate fields and metadata
-            data = {k: v for k, v in metadata.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in metadata.items() if k in cls._META_FIELDS}
+            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
             
-            right_ids.append({
-                "id": right_id,
-                "data": data,
-                "metadata": meta
-            })
+            right = cls.R_CLASS(id, data=data, meta=meta)
 
-        return right_ids
+            rights.append( right.to_dict(False) ) # Include relations: False, to avoid infinite recursion (with left) and arbitraty big chains
+
+        return rights
 
     def to_dict(self):
         """Converts the association to a dictionary for JSON serialization."""
         left_id, right_id = self.key.split("::")[1].split(":")[1], self.key.split("::")[2].split(":")[1]
         return {
-            f"{self._L_prefix()}_id": left_id,
-            f"{self._R_prefix()}_id": right_id,
+            "ids": 
+            {
+                f"{self._L_prefix()}_id": left_id,
+                f"{self._R_prefix()}_id": right_id
+            },
             "data": self.data,
             "metadata": self._meta
         }
@@ -406,11 +408,11 @@ class AssociationManager:
         if isinstance(instance, self.association_class.L_CLASS):
             self.side = 'left'
             self.opposite_class = self.association_class.R_CLASS
-            self.get_associations = self.association_class.get_right_ids_for_left
+            self.get_associations = self.association_class.get_rights_for_left
         elif isinstance(instance, self.association_class.R_CLASS):
             self.side = 'right'
             self.opposite_class = self.association_class.L_CLASS
-            self.get_associations = self.association_class.get_left_ids_for_right
+            self.get_associations = self.association_class.get_lefts_for_right
         else:
             raise ValueError(f"{instance.__class__.__name__} is not valid for this association.")
 

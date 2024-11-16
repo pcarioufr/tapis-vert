@@ -117,7 +117,7 @@ def codes(code_id):
 def list_codes():
 
     codes = Code.scan_all()
-    data = [code.to_dict() for code in codes]    
+    data = [code.to_dict(True) for code in codes]    
     return flask.jsonify(data), 200
 
 
@@ -125,7 +125,7 @@ def list_codes():
 def list_users():
 
     users = User.scan_all()
-    data = [user.to_dict() for user in users]    
+    data = [user.to_dict(True) for user in users]    
     return flask.jsonify(data), 200
 
 
@@ -133,12 +133,12 @@ def list_users():
 def list_rooms():
 
     rooms = Room.scan_all()
-    data = [room.to_dict() for room in rooms]
+    data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 
 @admin_api.route("/v1/user_codes", methods=['GET'])
 def list_user_magiccode_associations():
-    associations = UserCode.list_all_associations()
+    associations = UserCode.scan_all()
     return flask.jsonify(associations), 200
 
 
