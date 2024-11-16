@@ -2,7 +2,7 @@ from app.admin import admin_api  # Import the Blueprint from __init__.py
 
 import flask 
 
-from models import Room, User, Code, UserCode
+from models import Room, User, Code, UserCodes
 
 from utils import get_logger
 log = get_logger(__name__)
@@ -15,13 +15,20 @@ def invite():
         log.warning("no name passed api/v1/invite?name=some_name, using Change Me")
         name = "Change Me"
 
-    code = Code.create()
-
     user = User.create(name=name)
-    user.codes().add(code.id, type="login")
+
+    code1 = Code.create()
+    user.codes().add(code1.id, type="login")
+
+    code2 = Code.create()
+    user.codes().add(code2.id, type="test")
+
     user.save()
 
-    return flask.jsonify(code.to_dict()), 201
+    user2 = User.create(name="test")
+    code2.user().add(user2.id, type="test2")
+
+    return flask.jsonify(code2.to_dict()), 201
 
 
 @admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'DELETE'])
@@ -53,7 +60,7 @@ def user_codes(user_id):
 
         return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>/codes"}), 400
 
-    codes = UserCode.get_right_for_left(user_id)
+    codes = UserCodes.get_right_for_left(user_id)
     return flask.jsonify(codes)
 
 
@@ -71,9 +78,6 @@ def users(user_id):
     if flask.request.method == 'DELETE':
 
         user = User.get(user_id)
-        code = Code.get(user.code_id)
-
-        code.delete()
         user.delete()
 
         return flask.jsonify(), 204
@@ -98,9 +102,6 @@ def codes(code_id):
     if flask.request.method == 'DELETE':
 
         code = Code.get(code_id)
-        user = User.get(code.user_id)
-
-        user.delete()
         code.delete()
 
         return flask.jsonify(), 204
@@ -116,29 +117,29 @@ def codes(code_id):
 @admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
-    codes = Code.scan_all()
-    data = [code.to_dict() for code in codes]    
+    codes = Code.all()
+    data = [code.to_dict(True) for code in codes]    
     return flask.jsonify(data), 200
 
 
 @admin_api.route("/v1/users", methods=['GET'])
 def list_users():
 
-    users = User.scan_all()
-    data = [user.to_dict() for user in users]    
+    users = User.all()
+    data = [user.to_dict(True) for user in users]    
     return flask.jsonify(data), 200
 
 
 @admin_api.route("/v1/rooms", methods=['GET'])
 def list_rooms():
 
-    rooms = Room.scan_all()
-    data = [room.to_dict() for room in rooms]
+    rooms = Room.all()
+    data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 
 @admin_api.route("/v1/user_codes", methods=['GET'])
 def list_user_magiccode_associations():
-    associations = UserCode.list_all_associations()
+    associations = UserCodes.all()
     return flask.jsonify(associations), 200
 
 
@@ -180,7 +181,7 @@ def search_keys():
 @admin_api.route('/users/<user_id>/codes', methods=['GET'])
 def user_to_codes(user_id=None):
 
-    codes = User.get(user_id).codes().get()
+    codes = User.get(user_id).codes().all()
 
     return flask.jsonify(codes), 200
 
@@ -188,6 +189,6 @@ def user_to_codes(user_id=None):
 @admin_api.route('/codes/<code_id>/users', methods=['GET'])
 def code_to_users(code_id=None):
 
-    users = Code.get(code_id).users().get()
+    users = Code.get(code_id).users().all()
 
     return flask.jsonify(users), 200

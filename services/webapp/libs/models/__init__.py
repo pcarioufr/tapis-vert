@@ -1,4 +1,2 @@
-from .users import User, Code, UserCode
-from .rooms import Room
-
-__all__ = ["User", "Code", "UserCode," "Room"]
+from .models import User, Code, Room
+from .models import UserCodes, UsersRooms
