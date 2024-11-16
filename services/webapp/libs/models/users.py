@@ -1,4 +1,4 @@
-from .mixins import RedisMixin, RedisAssociationMixin, AssociationManager
+from .mixins import RedisMixin, RedisAssociationMixin
 
 import os
 import utils
@@ -13,9 +13,7 @@ class User(RedisMixin):
     '''
 
     FIELDS = {"name", "status"}
-
-    def codes(self):
-        return AssociationManager(self, "models.UserCode")
+    RELATED = {"codes": "models.UserCode"}
 
 
     # TODO extend delete method to delete code along with the user
@@ -60,9 +58,7 @@ class Code(RedisMixin):
 
     FIELDS = {}
     ID_GENERATOR = utils.new_sid
-
-    def users(self):
-        return AssociationManager(self, "models.UserCode")
+    RELATED = {"users": "models.UserCode"}
 
 
 class UserCode(RedisAssociationMixin):

@@ -1,5 +1,6 @@
 import os
 import redis
+import importlib
 from datetime import datetime
 from typing import Union
 
@@ -14,11 +15,42 @@ REDIS_CLIENT = redis.Redis(
 )
 
 
-class RedisMixin:
+class RedisMixinMeta(type):
+    """Metaclass to dynamically generate association methods for RedisMixin subclasses."""
+
+    def __new__(cls, name, bases, dct):
+
+        # Create the new class
+        new_cls = super().__new__(cls, name, bases, dct)
+
+        # Add association methods based on RELATED
+        related = dct.get("RELATED", {}) or {}
+
+        log.debug(f"Processing class {name} with RELATED: {related}")
+
+        for relation_name, association_class_path in related.items():
+            def make_method(relation_name, association_class_path):
+                def association_method(self):
+                    return AssociationManager(self, association_class_path)
+                association_method.__name__ = relation_name
+                association_method.__doc__ = f"Returns a manager for the {relation_name} association."
+                return association_method
+
+            # Add the generated method to the class
+            setattr(new_cls, relation_name, make_method(relation_name, association_class_path))
+
+        return new_cls
+
+
+
+class RedisMixin(metaclass=RedisMixinMeta):
     """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
 
+    # To be defined in subclasses
     ID_GENERATOR    = new_id    # The ID generator to use for the class
-    FIELDS          = None      # An allowlist of fields to consider in the hash map values
+    FIELDS          = {}        # An allowlist of fields to consider in the hash map values
+    RELATED         = {}        # {"relation_name": "association_class_path", ...}
+
 
     _META_FIELDS = {"last_edited"}  # Known metadata fields
 
@@ -132,14 +164,19 @@ class RedisMixin:
 
         return True
 
+
     def to_dict(self):
         """Converts the object to a dictionary for JSON serialization."""
-        return {
+        result = {
             "id": self.id,
             **self.data,
-            "metadata": self._meta
+            "metadata": self._meta,
         }
-    
+
+
+        return result
+
+
     @classmethod
     def scan_all(cls) -> list:
         """Scans and lists all objects. """
@@ -350,7 +387,6 @@ class RedisAssociationMixin:
             "metadata": self._meta
         }
 
-import importlib
 
 class AssociationManager:
     """An abstract manager for handling associations between two RedisMixin classes."""
