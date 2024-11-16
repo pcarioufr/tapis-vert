@@ -71,9 +71,6 @@ def users(user_id):
     if flask.request.method == 'DELETE':
 
         user = User.get(user_id)
-        code = Code.get(user.code_id)
-
-        code.delete()
         user.delete()
 
         return flask.jsonify(), 204
@@ -98,9 +95,6 @@ def codes(code_id):
     if flask.request.method == 'DELETE':
 
         code = Code.get(code_id)
-        user = User.get(code.user_id)
-
-        user.delete()
         code.delete()
 
         return flask.jsonify(), 204

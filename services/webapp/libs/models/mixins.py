@@ -3,6 +3,7 @@ import redis
 import importlib
 from datetime import datetime
 from typing import Union
+from ddtrace import tracer
 
 from utils import get_logger, new_id
 log = get_logger(__name__)
@@ -90,6 +91,7 @@ class RedisMixin(metaclass=RedisMixinMeta):
         return f"{cls._prefix()}:{id}"
 
     @classmethod
+    @tracer.wrap()
     def create(cls, **kwargs) -> "RedisMixin":
         """Creates the object in Redis using keyword arguments for data fields."""
         log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
@@ -117,6 +119,7 @@ class RedisMixin(metaclass=RedisMixinMeta):
         return instance
 
     @classmethod
+    @tracer.wrap()
     def get(cls, id: str) -> Union["RedisMixin",  None]:
         """Retrieves the object from Redis, splitting data and meta."""
         key = cls._key(id)
@@ -136,7 +139,7 @@ class RedisMixin(metaclass=RedisMixinMeta):
         """Assesses whether the object exists."""
         return REDIS_CLIENT.exists(cls._key(id))
 
-
+    @tracer.wrap()
     def save(self) -> "RedisMixin":
         """Saves the object current state into Redis."""
 
@@ -156,12 +159,25 @@ class RedisMixin(metaclass=RedisMixinMeta):
         return self
 
 
+
+    @tracer.wrap()
     def delete(self) -> bool:
-        """Deletes the object from Redis."""
+        """Deletes the object and all its related associations from Redis using a pipeline."""
+
+
+        # Delete all related associations
+        if self.RELATED:
+
+            log.info(f"Deleting associations for {self.__class__.__name__} with ID {self.id}")
+            for relation_name, association_class in self.RELATED.items():
+
+                manager = AssociationManager(self, association_class)
+                manager.remove_all()
+
+        # Delete the object itself
         REDIS_CLIENT.delete(self._key(self.id))
 
-        log.info(f"{self.__class__.__name__} with ID {self.id} deleted.")
-
+        log.info(f"{self.__class__.__name__} with ID {self.id} and all related associations deleted.")
         return True
 
 
@@ -183,6 +199,7 @@ class RedisMixin(metaclass=RedisMixinMeta):
 
 
     @classmethod
+    @tracer.wrap()
     def scan_all(cls) -> list:
         """Scans and lists all objects. """
 
@@ -257,6 +274,7 @@ class RedisAssociationMixin:
             log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     @classmethod
+    @tracer.wrap()
     def create(cls, left_id: str, right_id: str, **kwargs) -> "RedisAssociationMixin":
         """Creates an association instance using keyword arguments for data fields."""
         log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
@@ -279,6 +297,7 @@ class RedisAssociationMixin:
         return instance
 
     @classmethod
+    @tracer.wrap()
     def get(cls, left_id: str, right_id: str) -> Union["RedisAssociationMixin", None]:
         """Retrieves the association, splitting fields and metadata."""
         key = cls._key(left_id, right_id)
@@ -291,8 +310,9 @@ class RedisAssociationMixin:
         data = {k: v for k, v in raw.items() if k in cls.FIELDS}
         meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
 
-        return cls(key=key, data=data, metadata=meta)
+        return cls(key=key, data=data, meta=meta)
 
+    @tracer.wrap()
     def save(self):
 
         """Saves the association's data fields and metadata to Redis."""
@@ -305,7 +325,7 @@ class RedisAssociationMixin:
         log.info(f"Association with key {self.key} saved with data {self.data} and metadata {self._meta}")
         return self
 
-
+    @tracer.wrap()
     def delete(self) -> bool:
         """Deletes the association from Redis."""
         REDIS_CLIENT.delete(self.key)
@@ -313,6 +333,7 @@ class RedisAssociationMixin:
         return True
 
     @classmethod
+    @tracer.wrap()
     def scan_all(cls) -> list:
         """Lists all associations with data fields and metadata as JSON-serializable dictionaries."""
         associations = []
@@ -424,6 +445,7 @@ class AssociationManager:
             return getattr(module, class_name)
         return class_ref
 
+    @tracer.wrap()
     def add(self, opposite_id: str, **data):
         """Adds an association between the instance and an opposite-side object."""
 
@@ -432,6 +454,7 @@ class AssociationManager:
         else:
             self.association_class.create(opposite_id, self.instance.id, **data)
 
+    @tracer.wrap()
     def remove(self, opposite_id: str):
         """Removes the association between the left instance and an opposite-side object."""
         if self.side == 'left':
@@ -442,6 +465,20 @@ class AssociationManager:
         if association:
             association.delete()
 
+    @tracer.wrap()
+    def remove_all(self):
+        """
+        Removes all associations for the instance.
+        """
+
+        log.info(f"Removing all associations for {self.instance.__class__.__name__} with ID {self.instance.id}")
+        associations = self.get()
+
+        for related in associations:
+            self.remove(related["id"])
+
+
+    @tracer.wrap()
     def get(self) -> list:
         """Retrieves all associations for the left instance."""
         return self.get_associations(self.instance.id)
