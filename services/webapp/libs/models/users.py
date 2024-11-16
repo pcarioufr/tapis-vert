@@ -1,4 +1,4 @@
-from .mixins import RedisMixin, RedisAssociationMixin
+from .mixins import RedisMixin, OneToManyAssociationMixin
 
 import os
 from utils import get_logger, new_sid
@@ -60,18 +60,18 @@ class User(RedisMixin):
 class Code(RedisMixin):
     '''
     Code: Magic Code for users to login in
-    * user_id: reference to user
+    * user: reference to user
     '''
 
     FIELDS = {}
     ID_GENERATOR = new_sid
-    RELATED = {"users": "models.UserCode"}
+    RELATED = {"user": "models.UserCode"}
 
 
-class UserCode(RedisAssociationMixin):
+class UserCode(OneToManyAssociationMixin):
     '''
     Association
-    User owns Code
+    User owns Codes
     '''
 
     FIELDS = {"type"}

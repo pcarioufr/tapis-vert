@@ -224,7 +224,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class RedisAssociationMixin:
+class ManyToManyAssociationMixin:
     """A class for managing n:m relationships with data fields and metadata in Redis."""
 
     L_CLASS = None   # Left-side class (e.g., Room)
@@ -275,30 +275,31 @@ class RedisAssociationMixin:
 
     @classmethod
     @tracer.wrap()
-    def create(cls, left_id: str, right_id: str, **kwargs) -> "RedisAssociationMixin":
-        """Creates an association instance using keyword arguments for data fields."""
+    def create(cls, left_id: str, right_id: str, **kwargs) -> "ManyToManyAssociationMixin":
+        """Creates an association instance."""
         log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
 
         # Separate valid and invalid fields
         data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
         invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
 
-        # Log a warning for invalid fields
         if invalid_fields:
             log.warning(
                 f"Invalid fields for association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id}: {invalid_fields}. "
                 f"Allowed fields are: {cls.FIELDS}"
             )
 
-        # Initialize the instance and save it
-        instance = cls(cls._key(left_id, right_id), data=data)
+        # Create the association
+        key = cls._key(left_id, right_id)
+        instance = cls(key, data=data)
         instance.save()
 
         return instance
 
+
     @classmethod
     @tracer.wrap()
-    def get(cls, left_id: str, right_id: str) -> Union["RedisAssociationMixin", None]:
+    def get(cls, left_id: str, right_id: str) -> Union["ManyToManyAssociationMixin", None]:
         """Retrieves the association, splitting fields and metadata."""
         key = cls._key(left_id, right_id)
         raw = REDIS_CLIENT.hgetall(key)
@@ -357,24 +358,24 @@ class RedisAssociationMixin:
 
     @classmethod
     def get_lefts_for_right(cls, right_id: str) -> list:
-        """Retrieve all left-side object IDs associated with a given right-side object."""
+        """Retrieve all left-side objects associated with a given right-side object."""
+
         lefts = []
-        pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:{right_id}"
-        
+
+        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"        
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            id = key.split("::")[1].split(":")[1]  # Extract left_id from the key
-            raw = REDIS_CLIENT.hgetall(key)  # Retrieve metadata and fields
-            
-            # Separate fields and metadata
+            id = key.split("::")[1].split(":")[1]
+
+            raw = REDIS_CLIENT.hgetall(key)
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
             meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
-            
             left = cls.L_CLASS(id, data=data, meta=meta)
 
-            lefts.append( left.to_dict(False) ) # Include relations: False, to avoid infinite recursion (with right) and arbitraty big chains
+            lefts.append(left.to_dict(False))
 
         return lefts
+
 
     @classmethod
     def get_rights_for_left(cls, left_id: str) -> list:
@@ -410,6 +411,48 @@ class RedisAssociationMixin:
             "metadata": self._meta
         }
 
+
+class OneToManyAssociationMixin(ManyToManyAssociationMixin):
+    """Adds logic to handle 1(left):many(right) associations"""
+
+    @classmethod
+    def get_lefts_for_right(cls, right_id: str) -> list:
+        """Retrieve all left-side objects associated with a given right-side object."""
+
+        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
+
+        # Expecting at most one left-side object
+        keys = list(REDIS_CLIENT.scan_iter(pattern))
+
+        if not keys:
+            return []
+
+        key = keys[0] 
+
+        id = key.split("::")[1].split(":")[1]
+
+        raw = REDIS_CLIENT.hgetall(key)
+        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+        left = cls.L_CLASS(id, data=data, meta=meta)
+
+        return [left.to_dict(False)]
+
+    @classmethod
+    @tracer.wrap()
+    def create(cls, left_id: str, right_id: str, **kwargs) -> "ManyToManyAssociationMixin":
+        """Creates an association instance."""
+        log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
+
+        # Enforce 1:n relationship if specified
+
+        existing = cls.get_lefts_for_right(right_id)
+        if existing:
+            raise ValueError(f"{cls.R_CLASS.__name__} with ID {right_id} is already associated with {cls.L_CLASS.__name__} with ID {existing[0]['id']}.")
+
+        return super().create(left_id, right_id, **kwargs)
+
+        
 
 class AssociationManager:
     """An abstract manager for handling associations between two RedisMixin classes."""

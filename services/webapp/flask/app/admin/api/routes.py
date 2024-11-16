@@ -15,13 +15,20 @@ def invite():
         log.warning("no name passed api/v1/invite?name=some_name, using Change Me")
         name = "Change Me"
 
-    code = Code.create()
-
     user = User.create(name=name)
-    user.codes().add(code.id, type="login")
+
+    code1 = Code.create()
+    user.codes().add(code1.id, type="login")
+
+    code2 = Code.create()
+    user.codes().add(code2.id, type="test")
+
     user.save()
 
-    return flask.jsonify(code.to_dict()), 201
+    user2 = User.create(name="test")
+    code2.user().add(user2.id, type="test2")
+
+    return flask.jsonify(code2.to_dict()), 201
 
 
 @admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'DELETE'])
