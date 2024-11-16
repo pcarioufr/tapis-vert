@@ -32,7 +32,9 @@ class RedisMixin:
 
         if name in self.FIELDS:
             return self.data.get(name, None)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            return None
 
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS."""
@@ -42,7 +44,7 @@ class RedisMixin:
         elif name in self.FIELDS:
             self.data[name] = value
         else:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
         
     @classmethod
@@ -56,10 +58,22 @@ class RedisMixin:
         return f"{cls._prefix()}:{id}"
 
     @classmethod
-    def create(cls, data: dict) -> "RedisMixin":
-        """Creates the object in Redis."""
-        log.info(f"Creating {cls.__name__} with ID {id}")
+    def create(cls, **kwargs) -> "RedisMixin":
+        """Creates the object in Redis using keyword arguments for data fields."""
+        log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
 
+        # Separate valid and invalid fields
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
+
+        # Log a warning for invalid fields
+        if invalid_fields:
+            log.warning(
+                f"Invalid fields for {cls.__name__}: {invalid_fields}. "
+                f"Allowed fields are: {cls.FIELDS}"
+            )
+
+        # Generate a unique ID and create the instance
         while True:
             id = str(cls.ID_GENERATOR())
             if not REDIS_CLIENT.exists(cls._key(id)):
@@ -67,7 +81,6 @@ class RedisMixin:
 
         instance = cls(id=id, data=data)
         instance.save()
-
 
         return instance
 
@@ -151,6 +164,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 class RedisAssociationMixin:
     """A class for managing n:m relationships with data fields and metadata in Redis."""
 
@@ -181,15 +195,42 @@ class RedisAssociationMixin:
         """Generate the Redis key for an association between two objects."""
         return f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:{right_id}"
 
+    def __getattr__(self, name):
+        """Intercepts attribute access for keys in FIELDS."""
+
+        if name in self.FIELDS:
+            return self.data.get(name, None)
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            return None
+
+    def __setattr__(self, name, value):
+        """Intercepts attribute setting for keys in FIELDS."""
+
+        if name in {"key", "data", "_meta", "FIELDS", "_META_FIELDS"}:
+            super().__setattr__(name, value)
+        elif name in self.FIELDS:
+            self.data[name] = value
+        else:
+            log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
     @classmethod
-    def create(cls, left_id: str, right_id: str, data: dict = None) -> "RedisAssociationMixin":
-        """Creates an association instance and saves it, returning the updated instance."""
+    def create(cls, left_id: str, right_id: str, **kwargs) -> "RedisAssociationMixin":
+        """Creates an association instance using keyword arguments for data fields."""
+        log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
 
-        log.info(f"Creating Association: {cls._L_prefix()} {left_id} <-> {cls._R_prefix()} {right_id} with data {data} and metadata {instance._meta}")
+        # Separate valid and invalid fields
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
 
-        data = {k: v for k, v in (data or {}).items() if k in cls.FIELDS}
+        # Log a warning for invalid fields
+        if invalid_fields:
+            log.warning(
+                f"Invalid fields for association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id}: {invalid_fields}. "
+                f"Allowed fields are: {cls.FIELDS}"
+            )
 
-        # Initialize the instance with data and metadata, then call save to handle Redis storage
+        # Initialize the instance and save it
         instance = cls(cls._key(left_id, right_id), data=data)
         instance.save()
 
@@ -270,7 +311,7 @@ class RedisAssociationMixin:
             meta = {k: v for k, v in raw_data.items() if k in cls._META_FIELDS}
             
             left_ids.append({
-                f"{cls._L_prefix()}_id": left_id,
+                "id": left_id,
                 "data": data,
                 "metadata": meta
             })
@@ -292,7 +333,7 @@ class RedisAssociationMixin:
             meta = {k: v for k, v in metadata.items() if k in cls._META_FIELDS}
             
             right_ids.append({
-                f"{cls._R_prefix()}_id": right_id,
+                "id": right_id,
                 "data": data,
                 "metadata": meta
             })
@@ -308,3 +349,61 @@ class RedisAssociationMixin:
             "data": self.data,
             "metadata": self._meta
         }
+
+import importlib
+
+class AssociationManager:
+    """An abstract manager for handling associations between two RedisMixin classes."""
+
+    def __init__(self, instance, association_class):
+        """
+        Initializes the manager for handling associations.
+
+        Args:
+            instance: The instance of the calling object (e.g., User or Code).
+            association_class: The association class that defines the relationship (e.g., UserCode).
+        """
+        self.instance = instance
+        self.association_class = self._resolve_class(association_class)
+
+        # Determine the opposite class based on _L_CLASS and _R_CLASS
+        if isinstance(instance, self.association_class.L_CLASS):
+            self.side = 'left'
+            self.opposite_class = self.association_class.R_CLASS
+            self.get_associations = self.association_class.get_right_ids_for_left
+        elif isinstance(instance, self.association_class.R_CLASS):
+            self.side = 'right'
+            self.opposite_class = self.association_class.L_CLASS
+            self.get_associations = self.association_class.get_left_ids_for_right
+        else:
+            raise ValueError(f"{instance.__class__.__name__} is not valid for this association.")
+
+    def _resolve_class(self, class_ref):
+        """Resolve a class reference given as a string or class object."""
+        if isinstance(class_ref, str):
+            module_name, class_name = class_ref.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+        return class_ref
+
+    def add(self, opposite_id: str, **data):
+        """Adds an association between the instance and an opposite-side object."""
+
+        if self.side == 'left':
+            self.association_class.create(self.instance.id, opposite_id, **data)
+        else:
+            self.association_class.create(opposite_id, self.instance.id, **data)
+
+    def remove(self, opposite_id: str):
+        """Removes the association between the left instance and an opposite-side object."""
+        if self.side == 'left':
+            association = self.association_class.get(self.instance.id, opposite_id)
+        else:
+            association = self.association_class.get(opposite_id, self.instance.id)
+
+        if association:
+            association.delete()
+
+    def get(self) -> list:
+        """Retrieves all associations for the left instance."""
+        return self.get_associations(self.instance.id)

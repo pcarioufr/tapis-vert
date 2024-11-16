@@ -12,18 +12,16 @@ def invite():
 
     name = flask.request.args.get("name")
     if name is None: 
+        log.warning("no name passed api/v1/invite?name=some_name, using Change Me")
         name = "Change Me"
 
-    user = User.create({ "name": name })
+    code = Code.create()
 
-    code = Code.create({ "user_id": user.id })
-    user.code_id = code.id
+    user = User.create(name=name)
+    user.codes().add(code.id, type="login")
     user.save()
 
-    UserCode.create(user.id, code.id)
-
     return flask.jsonify(code.to_dict()), 201
-
 
 
 @admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'DELETE'])
@@ -182,7 +180,7 @@ def search_keys():
 @admin_api.route('/users/<user_id>/codes', methods=['GET'])
 def user_to_codes(user_id=None):
 
-    codes = UserCode.get_right_ids_for_left(user_id)
+    codes = User.get(user_id).codes().get()
 
     return flask.jsonify(codes), 200
 
@@ -190,6 +188,6 @@ def user_to_codes(user_id=None):
 @admin_api.route('/codes/<code_id>/users', methods=['GET'])
 def code_to_users(code_id=None):
 
-    users = UserCode.get_left_ids_for_right(code_id)
+    users = Code.get(code_id).users().get()
 
     return flask.jsonify(users), 200

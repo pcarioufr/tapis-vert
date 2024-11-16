@@ -1,4 +1,4 @@
-from .mixins import RedisMixin, RedisAssociationMixin
+from .mixins import RedisMixin, RedisAssociationMixin, AssociationManager
 
 import os
 import utils
@@ -12,7 +12,10 @@ class User(RedisMixin):
     * rooms: an array of room_id that the user owns or co-owns
     '''
 
-    FIELDS = {"name", "status", "code_id"}
+    FIELDS = {"name", "status"}
+
+    def codes(self):
+        return AssociationManager(self, "models.UserCode")
 
 
     # TODO extend delete method to delete code along with the user
@@ -56,9 +59,10 @@ class Code(RedisMixin):
     '''
 
     FIELDS = {}
-
     ID_GENERATOR = utils.new_sid
 
+    def users(self):
+        return AssociationManager(self, "models.UserCode")
 
 
 class UserCode(RedisAssociationMixin):
@@ -67,7 +71,7 @@ class UserCode(RedisAssociationMixin):
     User owns Code
     '''
 
-    FIELDS = {}
+    FIELDS = {"type"}
 
     L_CLASS = User
     R_CLASS = Code
