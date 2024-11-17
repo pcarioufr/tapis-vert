@@ -2,6 +2,7 @@ import os
 import redis
 import importlib
 from datetime import datetime
+
 from typing import Union
 from ddtrace import tracer
 
@@ -30,18 +31,17 @@ class RedisMixinMeta(type):
         log.debug(f"Processing class {name} with RELATED: {related}")
 
         for relation_name, association_class_path in related.items():
-            def make_method(relation_name, association_class_path):
-                def association_method(self):
+            def make_named_manager(relation_name, association_class_path):
+                def named_manager(self):
                     return AssociationManager(self, association_class_path)
-                association_method.__name__ = relation_name
-                association_method.__doc__ = f"Returns a manager for the {relation_name} association."
-                return association_method
+                named_manager.__name__ = relation_name
+                named_manager.__doc__ = f"Returns a manager for the {relation_name} association."
+                return named_manager
 
             # Add the generated method to the class
-            setattr(new_cls, relation_name, make_method(relation_name, association_class_path))
+            setattr(new_cls, relation_name, make_named_manager(relation_name, association_class_path))
 
         return new_cls
-
 
 
 class RedisMixin(metaclass=RedisMixinMeta):
@@ -51,7 +51,6 @@ class RedisMixin(metaclass=RedisMixinMeta):
     ID_GENERATOR    = new_id    # The ID generator to use for the class
     FIELDS          = {}        # An allowlist of fields to consider in the hash map values
     RELATED         = {}        # {"relation_name": "association_class_path", ...}
-
 
     _META_FIELDS = {"last_edited"}  # Known metadata fields
 
@@ -79,7 +78,6 @@ class RedisMixin(metaclass=RedisMixinMeta):
         else:
             log.warning(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
-        
     @classmethod
     def _prefix(cls):
         """Returns the lowercased class name to use as key prefix."""
@@ -158,12 +156,9 @@ class RedisMixin(metaclass=RedisMixinMeta):
         log.info(f"{self.__class__.__name__} with ID {self.id} updated: {data} (metadata {self._meta})")
         return self
 
-
-
     @tracer.wrap()
     def delete(self) -> bool:
         """Deletes the object and all its related associations from Redis using a pipeline."""
-
 
         # Delete all related associations
         if self.RELATED:
@@ -179,7 +174,6 @@ class RedisMixin(metaclass=RedisMixinMeta):
 
         log.info(f"{self.__class__.__name__} with ID {self.id} and all related associations deleted.")
         return True
-
 
     def to_dict(self, include_related=False):
         """Converts the object to a dictionary for JSON serialization."""
@@ -197,10 +191,9 @@ class RedisMixin(metaclass=RedisMixinMeta):
 
         return result
 
-
     @classmethod
     @tracer.wrap()
-    def scan_all(cls) -> list:
+    def all(cls) -> list:
         """Scans and lists all objects. """
 
         instances = []
@@ -216,12 +209,6 @@ class RedisMixin(metaclass=RedisMixinMeta):
             instances.append(cls(id=id, data=data, meta=meta))
 
         return instances
-
-
-from datetime import datetime
-import logging
-
-log = logging.getLogger(__name__)
 
 
 class ManyToManyAssociationMixin:
@@ -335,7 +322,7 @@ class ManyToManyAssociationMixin:
 
     @classmethod
     @tracer.wrap()
-    def scan_all(cls) -> list:
+    def all(cls) -> list:
         """Lists all associations with data fields and metadata as JSON-serializable dictionaries."""
         associations = []
         pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:*"
@@ -357,7 +344,7 @@ class ManyToManyAssociationMixin:
         return associations
 
     @classmethod
-    def get_lefts_for_right(cls, right_id: str) -> list:
+    def all_lefts(cls, right_id: str) -> list:
         """Retrieve all left-side objects associated with a given right-side object."""
 
         lefts = {}
@@ -383,9 +370,8 @@ class ManyToManyAssociationMixin:
 
         return lefts
 
-
     @classmethod
-    def get_rights_for_left(cls, left_id: str) -> list:
+    def all_rights(cls, left_id: str) -> list:
         """Retrieve all right-side object IDs associated with a given left-side object."""
 
         rights = {}
@@ -433,7 +419,7 @@ class OneToManyAssociationMixin(ManyToManyAssociationMixin):
     def create(cls, left_id: str, right_id: str, **kwargs) -> "ManyToManyAssociationMixin":
         """Creates an association instance, enforcing 1:n relationship"""
 
-        existing = cls.get_lefts_for_right(right_id)
+        existing = cls.all_lefts(right_id)
         if existing:
             raise ValueError(f"{cls.R_CLASS.__name__} with ID {right_id} is already associated with {cls.L_CLASS.__name__} with ID {existing[0]['id']}.")
 
@@ -454,15 +440,15 @@ class AssociationManager:
         self.instance = instance
         self.association_class = self._resolve_class(association_class)
 
-        # Determine the opposite class based on _L_CLASS and _R_CLASS
+        # Determine the related class based on _L_CLASS and _R_CLASS
         if isinstance(instance, self.association_class.L_CLASS):
             self.side = 'left'
-            self.opposite_class = self.association_class.R_CLASS
-            self.get_associations = self.association_class.get_rights_for_left
+            self.related_class = self.association_class.R_CLASS
+            self.all_related = self.association_class.all_rights
         elif isinstance(instance, self.association_class.R_CLASS):
             self.side = 'right'
-            self.opposite_class = self.association_class.L_CLASS
-            self.get_associations = self.association_class.get_lefts_for_right
+            self.related_class = self.association_class.L_CLASS
+            self.all_related = self.association_class.all_lefts
         else:
             raise ValueError(f"{instance.__class__.__name__} is not valid for this association.")
 
@@ -475,23 +461,23 @@ class AssociationManager:
         return class_ref
 
     @tracer.wrap()
-    def add(self, opposite_id: str, **data):
-        """Adds an association between the instance and an opposite-side object."""
+    def add(self, related_id: str, **data):
+        """Adds an association between the instance and a related object."""
 
         if self.side == 'left':
-            self.association_class.create(self.instance.id, opposite_id, **data)
+            self.association_class.create(self.instance.id, related_id, **data)
         else:
-            self.association_class.create(opposite_id, self.instance.id, **data)
+            self.association_class.create(related_id, self.instance.id, **data)
         
         return self.instance
 
     @tracer.wrap()
-    def remove(self, opposite_id: str):
-        """Removes the association between the left instance and an opposite-side object."""
+    def remove(self, related_id: str):
+        """Removes the association between the left instance and an related object."""
         if self.side == 'left':
-            association = self.association_class.get(self.instance.id, opposite_id)
+            association = self.association_class.get(self.instance.id, related_id)
         else:
-            association = self.association_class.get(opposite_id, self.instance.id)
+            association = self.association_class.get(related_id, self.instance.id)
 
         if association:
             association.delete()
@@ -512,12 +498,11 @@ class AssociationManager:
 
         return self.instance
 
-
     @tracer.wrap()
     def all(self) -> list:
         """Retrieves all associations for the left instance."""
 
-        return self.get_associations(self.instance.id)
+        return self.all_related(self.instance.id)
 
     @tracer.wrap()
     def get(self, key):
@@ -532,12 +517,12 @@ class AssociationManager:
             A tuple (object, association) if found, or the default value if not.
         """
 
-        all = self.all()
+        associations = self.all()
         try:
-            return self.opposite_class.get(key), all[key]
+            return self.related_class.get(key), associations[key]
         except KeyError:
             log.debug(
                 f"Key {key} not found in associations for {self.instance.id}. "
-                f"Available keys: {list(all.keys())}"
+                f"Available keys: {list(associations.keys())}"
             )
             return None, None
