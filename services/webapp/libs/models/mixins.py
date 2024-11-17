@@ -360,9 +360,11 @@ class ManyToManyAssociationMixin:
     def get_lefts_for_right(cls, right_id: str) -> list:
         """Retrieve all left-side objects associated with a given right-side object."""
 
-        lefts = []
+        lefts = {}
+        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
+        
+        log.debug(f"Pattern {pattern}")
 
-        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"        
         for key in REDIS_CLIENT.scan_iter(pattern):
 
             id = key.split("::")[1].split(":")[1]
@@ -370,9 +372,10 @@ class ManyToManyAssociationMixin:
             raw = REDIS_CLIENT.hgetall(key)
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
             meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+
             left = cls.L_CLASS(id, data=data, meta=meta)
 
-            lefts.append(left.to_dict(False))
+            lefts[id] = left  # Store the object indexed by its ID
 
         return lefts
 
@@ -380,21 +383,21 @@ class ManyToManyAssociationMixin:
     @classmethod
     def get_rights_for_left(cls, left_id: str) -> list:
         """Retrieve all right-side object IDs associated with a given left-side object."""
-        rights = []
+
+        rights = {}
         pattern = f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:*"
         
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            id = key.split("::")[2].split(":")[1]  # Extract right_id from the key
-            raw = REDIS_CLIENT.hgetall(key)  # Retrieve data and metadata
-            
-            # Separate fields and metadata
+            id = key.split("::")[2].split(":")[1]
+
+            raw = REDIS_CLIENT.hgetall(key)
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
             meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
             
             right = cls.R_CLASS(id, data=data, meta=meta)
 
-            rights.append( right.to_dict(False) ) # Include relations: False, to avoid infinite recursion (with left) and arbitraty big chains
+            rights[id] = right
 
         return rights
 
@@ -416,35 +419,10 @@ class OneToManyAssociationMixin(ManyToManyAssociationMixin):
     """Adds logic to handle 1(left):many(right) associations"""
 
     @classmethod
-    def get_lefts_for_right(cls, right_id: str) -> list:
-        """Retrieve all left-side objects associated with a given right-side object."""
-
-        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
-
-        # Expecting at most one left-side object
-        keys = list(REDIS_CLIENT.scan_iter(pattern))
-
-        if not keys:
-            return []
-
-        key = keys[0] 
-
-        id = key.split("::")[1].split(":")[1]
-
-        raw = REDIS_CLIENT.hgetall(key)
-        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
-        left = cls.L_CLASS(id, data=data, meta=meta)
-
-        return [left.to_dict(False)]
-
-    @classmethod
     @tracer.wrap()
     def create(cls, left_id: str, right_id: str, **kwargs) -> "ManyToManyAssociationMixin":
-        """Creates an association instance."""
+        """Creates an association instance, enforcing 1:n relationship"""
         log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
-
-        # Enforce 1:n relationship if specified
 
         existing = cls.get_lefts_for_right(right_id)
         if existing:
@@ -452,7 +430,6 @@ class OneToManyAssociationMixin(ManyToManyAssociationMixin):
 
         return super().create(left_id, right_id, **kwargs)
 
-        
 
 class AssociationManager:
     """An abstract manager for handling associations between two RedisMixin classes."""
@@ -496,6 +473,8 @@ class AssociationManager:
             self.association_class.create(self.instance.id, opposite_id, **data)
         else:
             self.association_class.create(opposite_id, self.instance.id, **data)
+        
+        return self.instance
 
     @tracer.wrap()
     def remove(self, opposite_id: str):
@@ -507,6 +486,8 @@ class AssociationManager:
 
         if association:
             association.delete()
+
+        return self.instance
 
     @tracer.wrap()
     def remove_all(self):
@@ -520,8 +501,28 @@ class AssociationManager:
         for related in associations:
             self.remove(related["id"])
 
+        return self.instance
+
 
     @tracer.wrap()
-    def get(self) -> list:
+    def all(self) -> list:
         """Retrieves all associations for the left instance."""
+
         return self.get_associations(self.instance.id)
+
+    @tracer.wrap()
+    def get(self, key):
+        """
+        Retrieves an associated object by ID.
+
+        Args:
+            key: The ID of the associated object to retrieve.
+
+        Returns:
+            The associated object if found, or None if the key doesn't exist.
+        """
+        try:
+            return self.all()[key]
+        except KeyError:
+            log.debug(f"Key {key} not found in associations for {self.instance.id}.")
+            return None
