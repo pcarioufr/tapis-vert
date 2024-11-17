@@ -363,19 +363,23 @@ class ManyToManyAssociationMixin:
         lefts = {}
         pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
         
-        log.debug(f"Pattern {pattern}")
-
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            id = key.split("::")[1].split(":")[1]
+            left_id = key.split("::")[1].split(":")[1]
 
-            raw = REDIS_CLIENT.hgetall(key)
-            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+            # Fetch raw data from Redis
+            raw_a = REDIS_CLIENT.hgetall(key)
+            if not raw_a:
+                log.warning(f"No data found for key {key}")
+                continue
 
-            left = cls.L_CLASS(id, data=data, meta=meta)
+            # Extract association attributes
+            data   = {k: v for k, v in raw_a.items() if k in cls.FIELDS}
+            meta   = {k: v for k, v in raw_a.items() if k in cls._META_FIELDS}
+            association = cls(key, data=data, meta=meta)
 
-            lefts[id] = left  # Store the object indexed by its ID
+            # Store left-side object along with association attributes
+            lefts[left_id] = association
 
         return lefts
 
@@ -389,15 +393,21 @@ class ManyToManyAssociationMixin:
         
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            id = key.split("::")[2].split(":")[1]
+            right_id = key.split("::")[2].split(":")[1]
 
+            # Fetch raw data from Redis
             raw = REDIS_CLIENT.hgetall(key)
-            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
-            
-            right = cls.R_CLASS(id, data=data, meta=meta)
+            if not raw:
+                log.warning(f"No data found for key {key}")
+                continue
 
-            rights[id] = right
+            # Extract association attributes
+            data    = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta    = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+            association  = cls(key, data=data, meta=meta)
+
+            # Store left-side object along with association attributes
+            rights[right_id] = association
 
         return rights
 
@@ -422,7 +432,6 @@ class OneToManyAssociationMixin(ManyToManyAssociationMixin):
     @tracer.wrap()
     def create(cls, left_id: str, right_id: str, **kwargs) -> "ManyToManyAssociationMixin":
         """Creates an association instance, enforcing 1:n relationship"""
-        log.info(f"Creating association between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
 
         existing = cls.get_lefts_for_right(right_id)
         if existing:
@@ -496,10 +505,10 @@ class AssociationManager:
         """
 
         log.info(f"Removing all associations for {self.instance.__class__.__name__} with ID {self.instance.id}")
-        associations = self.get()
+        associations = self.all()
 
-        for related in associations:
-            self.remove(related["id"])
+        for related_id in associations:
+            self.remove(related_id)
 
         return self.instance
 
@@ -517,12 +526,18 @@ class AssociationManager:
 
         Args:
             key: The ID of the associated object to retrieve.
+            default: The value to return if the key doesn't exist.
 
         Returns:
-            The associated object if found, or None if the key doesn't exist.
+            A tuple (object, association) if found, or the default value if not.
         """
+
+        all = self.all()
         try:
-            return self.all()[key]
+            return self.opposite_class.get(key), all[key]
         except KeyError:
-            log.debug(f"Key {key} not found in associations for {self.instance.id}.")
-            return None
+            log.debug(
+                f"Key {key} not found in associations for {self.instance.id}. "
+                f"Available keys: {list(all.keys())}"
+            )
+            return None, None

@@ -23,14 +23,14 @@ class User(RedisMixin):
         log.info(f"Deleting all codes associated with User ID {self.id}")
 
         # Iterate over codes associated with this user
-        for code in self.codes().get():
+        for code_id, association in self.codes().all().items():
             try:
-                code_instance = Code.get(code["id"])
+                code_instance = Code.get(code_id)
                 if code_instance:
                     code_instance.delete()
-                    log.info(f"Deleted Code with ID {code['id']} associated with User ID {self.id}")
+                    log.info(f"Deleted Code with ID {code_id} associated with User ID {self.id}")
             except Exception as e:
-                log.error(f"Failed to delete Code with ID {code['id']} for User ID {self.id}: {e}")
+                log.error(f"Failed to delete Code with ID {code_id} for User ID {self.id}: {e}")
 
         # Delete the user and its associations
         super().delete()
@@ -63,7 +63,7 @@ class Code(RedisMixin):
     * user: reference to user
     '''
 
-    FIELDS = {}
+    FIELDS = {"test"}
     ID_GENERATOR = new_sid
     RELATED = {"user": "models.UserCode"}
 
