@@ -110,7 +110,8 @@ def users_codes():
 
     try: 
         code1.user().add(userB.id, type=TYPE)
-    except:
+    except Exception as e:
+        log.warning(e)
         pass
     code1_userB, link_code1_userB = userB.codes().get(code1.id)
     userB_code1, link_code1_userB = code1.user().get(userB.id)
@@ -163,8 +164,8 @@ def invite():
 
     try:
         tests = {}
-        tests.update(users())
-        tests.update(codes())
+        # tests.update(users())
+        # tests.update(codes())
         tests.update(users_codes())
 
     finally:

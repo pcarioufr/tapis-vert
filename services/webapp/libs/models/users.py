@@ -80,3 +80,4 @@ class UserCode(RelationMixin):
     R_CLASS = Code
 
     NAME    = "user_code_ownership"
+    RELATION_TYPE = "one_to_many"

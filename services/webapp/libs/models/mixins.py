@@ -79,7 +79,8 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
             super().__setattr__(name, value)
         elif name in self.FIELDS:
             self.data[name] = value
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        else:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     @classmethod
     def _prefix(cls):
@@ -263,6 +264,8 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
 class RelationMixin:
     """A class for managing n:m relationships with data fields and metadata in Redis."""
 
+    RELATION_TYPE = "many_to_many"  # or "one_to_many"
+
     L_CLASS = None   # Left-side class (e.g., Room)
     R_CLASS = None   # Right-side class (e.g., User)
     NAME = "left:linksto:right"  # Name of the relation for key generation
@@ -271,9 +274,29 @@ class RelationMixin:
     _META_FIELDS = {"last_edited"}  # Metadata fields only
 
     def __init__(self, key: str, data: dict, meta: dict = None):
-        self.key = key
-        self.data = data
-        self._meta = meta or {}
+
+        self.key        = key
+        self.data       = data
+        self._meta      = meta or {}
+
+    def __getattr__(self, name):
+        """Intercepts attribute access for keys in FIELDS."""
+
+        if name in self.FIELDS:
+            return self.data.get(name, None)
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        """Intercepts attribute setting for keys in FIELDS."""
+
+        if name in {"key", "left_id", "right_id", "data", "_meta", "FIELDS", "_META_FIELDS"}:
+            super().__setattr__(name, value)
+        elif name in self.FIELDS:
+            self.data[name] = value
+        else:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+
+    ## HELPERS ##### ##### ##### ##### ##### 
 
     @classmethod
     def _L_prefix(cls):
@@ -287,28 +310,26 @@ class RelationMixin:
 
     @classmethod
     def _key(cls, left_id: str, right_id: str) -> str:
-        """Generate the Redis key for a relation between two objects."""
+        """Generate the Redis key for a relation between two objects (used in one-to-many)."""
         return f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:{right_id}"
+    
+    @classmethod
+    def _exist_parent(cls, right_id: str) -> "RelationMixin":
+        """Retrieve the relation for a given right-side object (used in one-to-many)."""
+        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
 
-    def __getattr__(self, name):
-        """Intercepts attribute access for keys in FIELDS."""
+        for key in REDIS_CLIENT.scan_iter(pattern):
+            raw = REDIS_CLIENT.hgetall(key)
+            if raw:
+                return True
+        return False
 
-        if name in self.FIELDS:
-            return self.data.get(name, None)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, name, value):
-        """Intercepts attribute setting for keys in FIELDS."""
-
-        if name in {"key", "data", "_meta", "FIELDS", "_META_FIELDS"}:
-            super().__setattr__(name, value)
-        elif name in self.FIELDS:
-            self.data[name] = value
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    ## ##### ##### ##### ##### ##### #####
 
     @classmethod
     @tracer.wrap("RelationMixin.create")
     def create(cls, left_id: str, right_id: str, **kwargs) -> "RelationMixin":
+
         """Creates a relation instance."""
         log.info(f"Creating relation between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
 
@@ -317,6 +338,15 @@ class RelationMixin:
         
         if cls.R_CLASS.get(right_id) is None:
             raise ValueError(f"{cls.L_CLASS}:{left_id} does not exist.")
+
+        # Enforce cardinality constraints
+        if cls.RELATION_TYPE == "one_to_many":
+            # Ensure the right-side object is not already linked
+
+            if cls._exist_parent(right_id):
+                raise ValueError(
+                    f"{cls.R_CLASS.__name__}:{right_id} is already linked to a {cls.L_CLASS.__name__} - skipping association"
+                )
 
         # Separate valid and invalid fields
         data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
