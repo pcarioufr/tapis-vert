@@ -117,7 +117,7 @@ def codes(code_id):
 @admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
-    codes = Code.scan_all()
+    codes = Code.all()
     data = [code.to_dict(True) for code in codes]    
     return flask.jsonify(data), 200
 
@@ -125,7 +125,7 @@ def list_codes():
 @admin_api.route("/v1/users", methods=['GET'])
 def list_users():
 
-    users = User.scan_all()
+    users = User.all()
     data = [user.to_dict(True) for user in users]    
     return flask.jsonify(data), 200
 
@@ -133,13 +133,13 @@ def list_users():
 @admin_api.route("/v1/rooms", methods=['GET'])
 def list_rooms():
 
-    rooms = Room.scan_all()
+    rooms = Room.all()
     data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 
 @admin_api.route("/v1/user_codes", methods=['GET'])
 def list_user_magiccode_associations():
-    associations = UserCode.scan_all()
+    associations = UserCode.all()
     return flask.jsonify(associations), 200
 
 
@@ -181,7 +181,7 @@ def search_keys():
 @admin_api.route('/users/<user_id>/codes', methods=['GET'])
 def user_to_codes(user_id=None):
 
-    codes = User.get(user_id).codes().get()
+    codes = User.get(user_id).codes().all()
 
     return flask.jsonify(codes), 200
 
@@ -189,6 +189,6 @@ def user_to_codes(user_id=None):
 @admin_api.route('/codes/<code_id>/users', methods=['GET'])
 def code_to_users(code_id=None):
 
-    users = Code.get(code_id).users().get()
+    users = Code.get(code_id).users().all()
 
     return flask.jsonify(users), 200

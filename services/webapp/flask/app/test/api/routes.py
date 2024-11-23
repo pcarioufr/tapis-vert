@@ -9,21 +9,15 @@ from utils import get_logger
 log = get_logger(__name__)
 
 
-OK = "success"
-KO = "failed"
-SK = "skipped"
+OK = "SUCCESS"
+KO = "FAILED"
+SK = "SKIPPED"
 
 REDIS_CLIENT = redis.Redis(
     host=os.environ.get("REDIS_HOST"),
     db=os.environ.get("REDIS_DATA_DB"),
     decode_responses=True
 )
-
-def setup_test_data():
-    REDIS_CLIENT.flushdb()
-
-def teardown_test_data():
-    REDIS_CLIENT.flushdb()
 
 
 def users():
@@ -97,17 +91,9 @@ def users_codes():
     code1 = Code.create(test=TEST)
     code1_id = code1.id
     userA.codes().add(code1.id, type=TYPE)
+
     code1_userA, link_code1_userA = userA.codes().get(code1.id)
     userA_code1, link_userA_code1 = code1.user().get(userA.id)
-
-    log.debug(f"userA: {userA.to_dict()}")
-    log.debug(f"userA_code1: {userA_code1.to_dict()}")
-
-    log.debug(f"code1: {code1.to_dict()}")
-    log.debug(f"code1_userA: {code1_userA.to_dict()}")
-
-    log.debug(f"link_code1_userA: {link_code1_userA.to_dict()}")
-    log.debug(f"link_userA_code1: {link_userA_code1.to_dict()}")
 
     # Assert whether a second code can be added for Alice
     # adds it from Code
@@ -166,15 +152,15 @@ def users_codes():
         "user_code:del-u4":  OK if not association          else KO
     }
 
-
     return tests
 
 
-
-@test_api.route("/user", methods=['POST'])
+@test_api.route("/invite", methods=['POST'])
 def invite():
 
-    setup_test_data()
+    TYPE = "login"
+    TEST = "hello"
+
     try:
         tests = {}
         tests.update(users())
@@ -187,3 +173,44 @@ def invite():
 
     return flask.jsonify(tests)
 
+
+
+@test_api.route("/format/user", methods=['POST'])
+def format_user():
+
+    user = User.create(name="Alice")
+
+    code1 = Code.create()
+    user.codes().add(code1.id)
+
+    code2 = Code.create()
+    user.codes().add(code2.id)
+
+    retrieved_user = User.get(user.id)
+    
+    return flask.jsonify(retrieved_user.to_dict())
+
+
+@test_api.route("/format/code", methods=['POST'])
+def format_code():
+
+    user = User.create(name="Alice")
+
+    code1 = Code.create()
+    user.codes().add(code1.id)
+
+    code2 = Code.create()
+    user.codes().add(code2.id)
+
+    retrieved_code = Code.get(code1.id)
+
+    return flask.jsonify(retrieved_code.to_dict())
+
+
+@test_api.route("/db", methods=['DELETE'])
+def flush():
+
+    REDIS_CLIENT.flushdb()
+    log.info("Redis DB flushed")
+
+    return flask.jsonify(), 204

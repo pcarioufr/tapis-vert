@@ -1,4 +1,4 @@
-from .mixins import RedisMixin, OneToManyAssociationMixin
+from .mixins import ObjectMixin, RelationMixin
 
 import os
 from utils import get_logger, new_sid
@@ -6,7 +6,7 @@ from ddtrace import tracer
 
 log = get_logger(__name__)
 
-class User(RedisMixin):
+class User(ObjectMixin):
     '''
     Users:
     * name: public name - appearing in app
@@ -15,7 +15,7 @@ class User(RedisMixin):
     '''
 
     FIELDS = {"name", "status"}
-    RELATED = {"codes": "models.UserCode"}
+    RIGHTS = {"codes": "models.UserCode"}
 
     @tracer.wrap()
     def delete(self) -> bool:
@@ -57,7 +57,7 @@ class User(RedisMixin):
 
 
 
-class Code(RedisMixin):
+class Code(ObjectMixin):
     '''
     Code: Magic Code for users to login in
     * user: reference to user
@@ -65,10 +65,10 @@ class Code(RedisMixin):
 
     FIELDS = {"test"}
     ID_GENERATOR = new_sid
-    RELATED = {"user": "models.UserCode"}
+    LEFTS = {"user": "models.UserCode"}
 
 
-class UserCode(OneToManyAssociationMixin):
+class UserCode(RelationMixin):
     '''
     Association
     User owns Codes
