@@ -1,6 +1,6 @@
 import flask, flask_login
 
-from . import auth  # Import the Blueprint from __init__.py
+from . import auth, code_auth  # Import the Blueprint from __init__.py
 
 from models import User, Code
 import utils
@@ -15,23 +15,9 @@ def auth_login():
     if code_id is None: 
         return flask.jsonify({"success": False}), 404
 
-    code = Code.get(code_id)
-    if code is None:
-        return flask.jsonify({"success": False}), 403
-    
-    log.info(f'{code}')
+    user = code_auth(code_id)
 
-    user_id = code.user_id
-    user = User.get(user_id)
-    user_name = user.name
-
-    if user is not None:
-        flask_login.login_user(user)
-        log.info(f"user {user_id}:{user_name} logged in")
-        return flask.jsonify({"success": True, "user": user.to_dict() })
-    else:
-        log.warning(f"login with code for invalid user_id {user_id}")
-        return flask.jsonify({"success": False}), 403
+    return flask.jsonify({"success": True, "user": user.to_dict(True) })
 
 
 @auth.route("/logout", methods=["POST"])
