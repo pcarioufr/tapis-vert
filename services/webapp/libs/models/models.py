@@ -126,6 +126,15 @@ class Room(ObjectMixin):
         self.save()
 
 
+    @tracer.wrap("Room.to_dict")
+    def to_dict(self, include_related=False):
+
+        result = super().to_dict(include_related)
+        result["round"] = json.loads(result["round"])
+
+        return result
+
+
 class UsersRooms(RelationMixin):
     '''
     '''
