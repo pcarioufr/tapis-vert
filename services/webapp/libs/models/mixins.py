@@ -199,8 +199,6 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
         }
 
         if include_related:
-
-            result["relations"] = {}
             
             if self.LEFTS:
 
@@ -208,10 +206,10 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                     manager = LeftwardsRelationManager(self, relation_class)
                     
                     lefts = manager.all()
-                    result["relations"][relation_name] = []
+                    result[relation_name] = []
 
                     for object_id, relation in lefts.items():
-                        result["relations"][relation_name].append(relation.left_to_dict())
+                        result[relation_name].append(relation.left_to_dict())
 
 
             if self.RIGHTS:
@@ -219,10 +217,10 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                     manager = RightwardsRelationManager(self, relation_class)
 
                     rights = manager.all()
-                    result["relations"][relation_name] = []
+                    result[relation_name] = []
 
                     for object_id, relation in rights.items():
-                        result["relations"][relation_name].append(relation.right_to_dict())
+                        result[relation_name].append(relation.right_to_dict())
 
         return result
 
@@ -473,11 +471,8 @@ class RelationMixin():
 
         left_id = self.key.split("::")[1].split(":")[1]
 
-        result = {
-            f"{self._L_prefix()}": self.L_CLASS.get(left_id).to_dict(False),
-            **self.meta,
-            **self.data
-        }
+        result = self.L_CLASS.get(left_id).to_dict(False)
+        result ["relation"] = self.meta | self.data
     
         return result
 
@@ -494,11 +489,8 @@ class RelationMixin():
 
         right_id = self.key.split("::")[2].split(":")[1]
 
-        result = {
-            f"{self._R_prefix()}": self.R_CLASS.get(right_id).to_dict(False),
-            **self.meta,
-            **self.data
-        }
+        result = self.R_CLASS.get(right_id).to_dict(False)
+        result ["relation"] = self.meta | self.data
     
         return result
 
