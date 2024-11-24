@@ -1,4 +1,4 @@
-from models import Room
+from models import User
 
 from ddtrace import tracer
 from ddtrace.contrib.asyncio import context_provider
@@ -29,12 +29,16 @@ socket_manager = WebSocketManager()
 async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
 
     
-    room = Room(room_id)
-
     await socket_manager.add_user_to_room(room_id, websocket)
 
-    log.info("websocket opened for user {} in room {}".format(user_id, room_id))
-    room.set_user(user_id, online=1)
+    log.info(f"websocket opened for user {user_id} in room {room_id}")
+
+    try:
+        User.get(user_id).status = "online"
+        log.info(f"user {user_id} online")
+    except:
+        # visitor
+        pass
 
     try:
         while True:
@@ -49,4 +53,10 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
     except WebSocketDisconnect:
 
         await socket_manager.remove_user_from_room(room_id, websocket)
-        room.set_user(user_id, online=0)
+
+        try:
+            User.get(user_id).status = "offline"
+            log.info(f"user {user_id} offline")
+        except:
+            # visitor
+            pass
