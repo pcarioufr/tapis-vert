@@ -221,7 +221,7 @@
 
         // Process Users
 
-        u = r["room"]["users"] ;
+        u = r["users"] ;
 
         let user_id, props
         for ( [user_id, props] of Object.entries(u) ) {
@@ -236,26 +236,27 @@
 
         // Process Cards
         
-        c = r["room"]["cards"] ;
+        c = r["round"] ;
         
-        let value
-        for ( [value, props] of Object.entries(c) ) {
+        let player
+        for ( [player, props] of Object.entries(c) ) {
 
-            owner = props["player"]
+            cards = props["cards"]
 
-            DECKS.add(owner) ;
-            CARDS.add(value, owner) ;
+            value = cards["value"]
+            DECKS.add(player) ;
+            CARDS.add(value, player) ;
 
-            DECKS.get(owner).moveCard(CARDS.get(value)) ;
+            DECKS.get(player).moveCard(CARDS.get(value)) ;
 
-            if ("{{user_id}}" == owner)  
+            if ("{{user_id}}" == player)  
                 CARDS.get(value).peeked(value, true) ; 
 
             CARDS.get(value).flipped(true) ;
 
-            USERS.get(owner) ?
-                DECKS.get(owner).movePawn(USERS.get(owner).eUserPawn) :
-                console.warn(`User ${owner} not in room, can't move pawn to deck`) ;
+            USERS.get(player) ?
+                DECKS.get(player).movePawn(USERS.get(player).eUserPawn) :
+                console.warn(`User ${player} not in room, can't move pawn to deck`) ;
 
         } 
 

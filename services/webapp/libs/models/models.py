@@ -111,18 +111,19 @@ class Room(ObjectMixin):
             raise Exception("too many users ({}): max 10".format(len(players)))
 
         # Define Round
+        round = {}
 
-        values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-        random.shuffle(values)
+        cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        random.shuffle(cards)
 
-        cards = {}
 
         i = 0
-        for x in players:
-            cards[x] = values[i]
+        for player in players:
+             
+            round[player] = { "cards": {"value": cards[i], "flipped": 0} } 
             i = i+1
 
-        self.round = json.dumps( {"cards": cards} )
+        self.round = json.dumps( round )
         self.save()
 
 

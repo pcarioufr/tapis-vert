@@ -6,12 +6,12 @@ import flask, flask_login
 from models import Room, User, Code
 
 import utils
-from utils import get_logger
-log = get_logger(__name__)
+log = utils.get_logger(__name__)
 
 
 @main_api.route("/v1/rooms/<room_id>", methods=['GET'])
 def room_get(room_id=None):
+    '''Access rooms details'''
 
     if room_id is None:
         return flask.jsonify(), 400
@@ -20,12 +20,13 @@ def room_get(room_id=None):
     if room is None:
         return flask.jsonify(), 404
 
-    return flask.jsonify(room=room.to_dict()), 200
+    return flask.jsonify(room.to_dict(True)), 200
 
 
 @main_api.route("/v1/rooms/<room_id>/round", methods=['POST'])
 # @flask_login.login_required
 def round_new(room_id=None):
+    '''Start a new round in room'''
 
     if room_id is None:
         return flask.jsonify(), 400
@@ -45,21 +46,28 @@ def round_new(room_id=None):
 @main_api.route("/v1/rooms/<room_id>/join", methods=['POST'])
 @flask_login.login_required
 def room_join(room_id=None):
+    '''Join a room'''
 
     if room_id is None:
         return flask.jsonify(), 400
 
     room = Room.get(room_id)
+    if room_id is None:
+        return flask.jsonify(), 404
 
     user_id = flask_login.current_user.id
 
-    utils.publish(room_id, "joined", user_id)
+    room.users().add(user_id, role="viewer")
+    utils.publish(room_id, "viewer", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
 
 
+
 @main_api.route('/v1/qrcode', methods=['GET'])
+@flask_login.login_required
 def qr_code():
+    '''QR code generator'''
 
     link = flask.request.args.get("link")
     if link is None:
