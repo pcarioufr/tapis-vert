@@ -215,7 +215,7 @@
     websocket.wsend("hello") ;
 
     // Initializes the Room
-    call('GET', '/api/v1/r/{{room_id}}')
+    call('GET', '/api/v1/rooms/{{room_id}}')
     .then( r => r.json() )
     .then( r => {
 

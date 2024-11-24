@@ -5,63 +5,57 @@ import flask, flask_login
 
 from models import Room, User, Code
 
+import utils
 from utils import get_logger
 log = get_logger(__name__)
 
 
-@main_api.route("/v1/r/<room_id>", methods=['GET', 'DELETE'])
-def room_api(room_id=None):
+@main_api.route("/v1/rooms/<room_id>", methods=['GET'])
+def room_get(room_id=None):
 
     if room_id is None:
-        log.warning("missing room_id in url")
         return flask.jsonify(), 400
 
-    room = Room(room_id)
+    room = Room.get(room_id)
+    if room is None:
+        return flask.jsonify(), 404
 
-    if flask.request.method == 'DELETE':
-
-        room.delete()
-        return flask.jsonify(), 204
-
-    if flask.request.method == 'GET':
-
-        return flask.jsonify(room=room.get()), 200
+    return flask.jsonify(room=room.to_dict()), 200
 
 
+@main_api.route("/v1/rooms/<room_id>/round", methods=['POST'])
+# @flask_login.login_required
+def round_new(room_id=None):
+
+    if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    PLAYERS = [ "Alice", "Bob", "Charlie", "Dan", "Eve" ]
+    room.new_round(PLAYERS)
+
+    utils.publish(room_id, "round", "new")
+
+    return flask.jsonify(room=room.to_dict()), 200
 
 
+@main_api.route("/v1/rooms/<room_id>/join", methods=['POST'])
 @flask_login.login_required
-@main_api.route("/v1/users/<user_id>", methods=['DELETE', 'GET', 'PUT'])
-def user_api(user_id=None):
+def room_join(room_id=None):
 
-    if user_id is None:
-        log.warning("missing user_id in url")
+    if room_id is None:
         return flask.jsonify(), 400
 
-    if user_id != flask_login.current_user.id:
-        return flask.jsonify(), 403
+    room = Room.get(room_id)
 
-    user = User.get(user_id)
+    user_id = flask_login.current_user.id
 
-    if flask.request.method == 'GET':
-        return flask.jsonify(user=user.to_dict()), 200
+    utils.publish(room_id, "joined", user_id)
 
-    if flask.request.method == 'PUT':
-        user.data = flask.request.args
-        user.save()
-        user = User.get(user_id)
-        return flask.jsonify(user=user.to_dict()), 200
-
-    if flask.request.method == 'DELETE':
-
-        code = Code.get(user.code_id)
-        code.delete()
-
-        user.delete()
-
-        return flask.jsonify(), 204
-
-
+    return flask.jsonify(room=room.to_dict()), 200
 
 
 @main_api.route('/v1/qrcode', methods=['GET'])

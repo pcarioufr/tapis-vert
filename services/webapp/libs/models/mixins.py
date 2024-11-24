@@ -257,11 +257,10 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
         return instances, cursor
 
 
-
 ## ASSOCIATIONS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
 
-class RelationMixin:
+class RelationMixin():
     """A class for managing n:m relationships with data fields and metadata in Redis."""
 
     RELATION_TYPE = "many_to_many"  # or "one_to_many"
@@ -556,7 +555,6 @@ class RelationMixin:
             rights[right_id] = relation
 
         return rights
-
 
 
 class RelationManager():

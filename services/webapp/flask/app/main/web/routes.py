@@ -21,16 +21,3 @@ def room_app(room_id=None):
         room_id=room_id
     )
 
-    # return flask.render_template(
-    #     "r.jinja",
-    #     user_id=flask.session.get("user_id"),        
-    #     is_anonymous=False,
-    #     host=app.config["HOST"],
-    #     room_id=room_id,
-    #     clientToken=app.config["DD_CLIENT_TOKEN"],
-    #     applicationId=app.config["DD_APPLICATION_ID"],
-    #     dd_version=app.config["DD_VERSION"],
-    #     dd_env=app.config["DD_ENV"],
-    #     dd_site=app.config["DD_SITE"],
-    # )
-

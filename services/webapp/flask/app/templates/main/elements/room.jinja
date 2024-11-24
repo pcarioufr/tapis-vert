@@ -13,6 +13,9 @@
             <div class="users" id="footer-users">
                 <!-- Array of [ UserFooter ] -->
             </div>
+            <div class="c-round" id="footer-round">
+                <!-- Button ofr New Round -->
+            </div>
         </div>
     </template>
     <script>
@@ -30,6 +33,22 @@
             this.icon = "group-2-line"
             this.name = "{{room_id}}"
 
+
+            this.newRound = new Button()
+
+            this.footerPanel.select(".c-round").append(this.newRound.e)
+            this.newRound.name = "new round"
+            this.newRound.icon = "refresh-line"
+            this.newRound.color = "green"
+
+            this.newRound.callback = ( _ => {
+
+                    call('POST', '/api/v1/rooms/{{room_id}}/round')
+                    .then( r => r.json() )
+                    .then( r => { } )
+
+                })
+
         }
 
     }
@@ -41,14 +60,17 @@
     <template id=t-user>
         <div class="user">
             <span class=name></span>
-            <div class=status rounded embossed></div>
+            <div class=status rounded></div>
         </div>
     </template>
     <script>
     class UserFooter extends Element {
 
         constructor(){
+
             super( build("t-user"), document.getElementById("footer-users"))
+
+
         }
 
         set name(text)      { this.select(".name").innerText = text ; this.id = text}
