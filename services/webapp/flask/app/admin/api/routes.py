@@ -2,7 +2,7 @@ from app.admin import admin_api  # Import the Blueprint from __init__.py
 
 import flask 
 
-from models import Room, User, Code, UserCode
+from models import Room, User, Code, UserCodes
 
 from utils import get_logger
 log = get_logger(__name__)
@@ -60,7 +60,7 @@ def user_codes(user_id):
 
         return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>/codes"}), 400
 
-    codes = UserCode.get_right_for_left(user_id)
+    codes = UserCodes.get_right_for_left(user_id)
     return flask.jsonify(codes)
 
 
@@ -139,7 +139,7 @@ def list_rooms():
 
 @admin_api.route("/v1/user_codes", methods=['GET'])
 def list_user_magiccode_associations():
-    associations = UserCode.all()
+    associations = UserCodes.all()
     return flask.jsonify(associations), 200
 
 
