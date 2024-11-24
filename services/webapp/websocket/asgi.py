@@ -8,9 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from managers import WebSocketManager
 
-
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 app = FastAPI()
 

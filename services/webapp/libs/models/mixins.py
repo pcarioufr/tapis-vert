@@ -5,8 +5,8 @@ from datetime import datetime
 
 from ddtrace import tracer
 
-from utils import get_logger, new_id
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 
 REDIS_CLIENT = redis.Redis(
@@ -53,10 +53,10 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
     """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
 
     # To be defined in subclasses
-    ID_GENERATOR    = new_id    # The ID generator to use for the class
-    FIELDS          = {}        # An allowlist of fields to consider in the hash map values
-    LEFTS           = {}        # Leftwards relations {"relation_name": "relation_class_path", ...}
-    RIGHTS          = {}        # Rightwards relations {"relation_name": "relation_class_path", ...}
+    ID_GENERATOR    = utils.new_id  # The ID generator to use for the class
+    FIELDS          = {}            # An allowlist of fields to consider in the hash map values
+    LEFTS           = {}            # Leftwards relations {"relation_name": "relation_class_path", ...}
+    RIGHTS          = {}            # Rightwards relations {"relation_name": "relation_class_path", ...}
 
     _META_FIELDS = {"last_edited"}  # Known metadata fields
 

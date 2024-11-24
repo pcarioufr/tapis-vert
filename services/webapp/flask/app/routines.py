@@ -4,10 +4,8 @@ import flask
 
 import datetime
 
-from utils import new_id
-
-from utils import get_logger, LOG_LEVEL
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 
 from flask_login import current_user
@@ -27,7 +25,7 @@ def render_template(template, **kwargs):
     return flask.render_template(
         template,
         user=current_user,
-        level=LOG_LEVEL,
+        level=utils.LOG_LEVEL,
         host=app.config["HOST"],
         clientToken=app.config["DD_CLIENT_TOKEN"],
         applicationId=app.config["DD_APPLICATION_ID"],

@@ -1,9 +1,9 @@
-from utils import get_logger
-log = get_logger(__name__)
 
 import redis
 import os, json
 
+import utils
+log = utils.get_logger(__name__)
 
 redis_pubsub = redis.Redis(
             host=os.environ.get("REDIS_HOST"),

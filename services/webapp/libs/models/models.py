@@ -1,12 +1,10 @@
 from .mixins import ObjectMixin, RelationMixin
 
-import os
-from utils import get_logger, new_sid
+import random, json
 from ddtrace import tracer
 
-import random, json
-
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 class User(ObjectMixin):
     '''
@@ -71,7 +69,7 @@ class Code(ObjectMixin):
     '''
 
     FIELDS = {"test"}
-    ID_GENERATOR = new_sid
+    ID_GENERATOR = utils.new_sid
 
     LEFTS = {
         "user": "models.UserCodes"

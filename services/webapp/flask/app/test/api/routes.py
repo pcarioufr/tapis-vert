@@ -3,10 +3,10 @@ from app.test import test_api  # Import the Blueprint from __init__.py
 import flask 
 import os, redis
 
-from models import Room, User, Code, UserCode
+from models import Room, User, Code, UserCodes
 
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 
 OK = "SUCCESS"
@@ -132,7 +132,7 @@ def users_codes():
     retrieved_code2 = Code.get(code2_id)
     code2_userA, link_code2_userA = userA.codes().get(code2.id)
 
-    association = UserCode.get(userA_id, code2_id)
+    association = UserCodes.get(userA_id, code2_id)
 
     tests = tests | {
         "user_code:del-c1":  OK if not retrieved_code2      else KO,
@@ -206,6 +206,20 @@ def format_code():
     retrieved_code = Code.get(code1.id)
 
     return flask.jsonify(retrieved_code.to_dict())
+
+
+@test_api.route("/format/room", methods=['POST'])
+def format_room():
+
+    PLAYERS = ["Alice", "Bob", "Charlie", "Dan", "Eve"]
+
+    room = Room.create(name="groscons")
+    room.new_round(PLAYERS)
+
+    retrieved_room = Room.get(room.id)
+    
+    return flask.jsonify(retrieved_room.to_dict())
+
 
 
 @test_api.route("/db", methods=['DELETE'])

@@ -1,8 +1,8 @@
 import flask
 from flask import current_app as app
 
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 @app.route("/ping")
 def ping():

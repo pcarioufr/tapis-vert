@@ -2,8 +2,8 @@ from app.admin import admin_web  # Import the Blueprint from __init__.py
 
 import flask
 
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 
 @admin_web.route("/list", methods=['GET'])

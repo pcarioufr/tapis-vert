@@ -5,8 +5,8 @@ import flask
 from app.routines import render_template
 
 from models import Room
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 
 @main_web.route("/r/<room_id>", methods=['GET'])
