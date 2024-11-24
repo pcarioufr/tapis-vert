@@ -4,6 +4,8 @@ import os
 from utils import get_logger, new_sid
 from ddtrace import tracer
 
+import random, json
+
 log = get_logger(__name__)
 
 class User(ObjectMixin):
@@ -14,8 +16,13 @@ class User(ObjectMixin):
     * codes: the Magic Links that the user can log in with
     '''
 
-    FIELDS = {"name", "status"}
-    RIGHTS = {"codes": "models.UserCode"}
+    FIELDS  = {"name", "status"}
+
+    RIGHTS  = {
+        "codes": "models.UserCodes",
+        "rooms": "models.UsersRooms"
+    }
+    LEFTS   = {}
 
     @tracer.wrap()
     def delete(self) -> bool:
@@ -65,10 +72,13 @@ class Code(ObjectMixin):
 
     FIELDS = {"test"}
     ID_GENERATOR = new_sid
-    LEFTS = {"user": "models.UserCode"}
+
+    LEFTS = {
+        "user": "models.UserCodes"
+    }
 
 
-class UserCode(RelationMixin):
+class UserCodes(RelationMixin):
     '''
     Association
     User owns Codes
@@ -81,3 +91,51 @@ class UserCode(RelationMixin):
 
     NAME    = "user_code_ownership"
     RELATION_TYPE = "one_to_many"
+
+
+
+class Room(ObjectMixin):
+    '''
+    '''
+
+    FIELDS = {"name", "round"}
+
+    RIGHTS = {} 
+    LEFTS = {
+        "users": "models.UsersRooms"
+    }
+
+
+    @tracer.wrap("Room.new_round")
+    def new_round(self, players: list[str]):
+
+        if len(players) > 10:
+            raise Exception("too many users ({}): max 10".format(len(players)))
+
+        # Define Round
+
+        values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        random.shuffle(values)
+
+        cards = {}
+
+        i = 0
+        for x in players:
+            cards[x] = values[i]
+            i = i+1
+
+        self.round = json.dumps( {"cards": cards} )
+        self.save()
+
+
+class UsersRooms(RelationMixin):
+    '''
+    '''
+
+    FIELDS = {"role"}
+
+    L_CLASS = User
+    R_CLASS = Room
+
+    NAME    = "round_room"
+    RELATION_TYPE = "many_to_many"
