@@ -1,12 +1,10 @@
 from .mixins import ObjectMixin, RelationMixin
 
-import os
-from utils import get_logger, new_sid
+import random, json
 from ddtrace import tracer
 
-import random, json
-
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
 class User(ObjectMixin):
     '''
@@ -71,7 +69,7 @@ class Code(ObjectMixin):
     '''
 
     FIELDS = {"test"}
-    ID_GENERATOR = new_sid
+    ID_GENERATOR = utils.new_sid
 
     LEFTS = {
         "user": "models.UserCodes"
@@ -113,19 +111,29 @@ class Room(ObjectMixin):
             raise Exception("too many users ({}): max 10".format(len(players)))
 
         # Define Round
+        round = {}
 
-        values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-        random.shuffle(values)
+        cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        random.shuffle(cards)
 
-        cards = {}
 
         i = 0
-        for x in players:
-            cards[x] = values[i]
+        for player in players:
+             
+            round[player] = { "cards": {"value": cards[i], "flipped": 0} } 
             i = i+1
 
-        self.round = json.dumps( {"cards": cards} )
+        self.round = json.dumps( round )
         self.save()
+
+
+    @tracer.wrap("Room.to_dict")
+    def to_dict(self, include_related=False):
+
+        result = super().to_dict(include_related)
+        result["round"] = json.loads(result["round"])
+
+        return result
 
 
 class UsersRooms(RelationMixin):

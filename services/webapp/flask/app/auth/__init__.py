@@ -21,16 +21,14 @@ class AnonymousWebUser(flask_login.AnonymousUserMixin):
     def name(self):
         return new_name(self.id)
 
-
 login.anonymous_user = AnonymousWebUser
-
-
-# Import routes to register them with the Blueprint
-from . import api 
-
 
 @login.user_loader
 def user_loader(user_id):
 
     return User.get(user_id)
-    
+
+
+# Import routes to register them with the Blueprint
+from .routines import code_auth
+from . import api 

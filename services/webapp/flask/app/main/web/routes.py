@@ -1,10 +1,12 @@
 from app.main import main_web
 
-import flask
+import flask, flask_login
 
 from app.routines import render_template
-from utils import get_logger
-log = get_logger(__name__)
+
+from models import Room
+import utils
+log = utils.get_logger(__name__)
 
 
 @main_web.route("/r/<room_id>", methods=['GET'])
@@ -13,24 +15,16 @@ def room_app(room_id=None):
 
     # Checks if the room exists
     if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get(room_id)
+    if room is None:
         return flask.jsonify(), 404
 
 
     return render_template (
         "main/r.jinja",
-        room_id=room_id
+        user=flask_login.current_user,
+        room=room
     )
-
-    # return flask.render_template(
-    #     "r.jinja",
-    #     user_id=flask.session.get("user_id"),        
-    #     is_anonymous=False,
-    #     host=app.config["HOST"],
-    #     room_id=room_id,
-    #     clientToken=app.config["DD_CLIENT_TOKEN"],
-    #     applicationId=app.config["DD_APPLICATION_ID"],
-    #     dd_version=app.config["DD_VERSION"],
-    #     dd_env=app.config["DD_ENV"],
-    #     dd_site=app.config["DD_SITE"],
-    # )
 
