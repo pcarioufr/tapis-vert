@@ -26,10 +26,7 @@ def render_template(template, **kwargs):
 
     return flask.render_template(
         template,
-        user_id=current_user.id, # returns visitor_id if anonymous
-        user_name=current_user.name,
-        is_authenticated=current_user.is_authenticated,
-        is_anonymous=current_user.is_anonymous,
+        user=current_user,
         level=LOG_LEVEL,
         host=app.config["HOST"],
         clientToken=app.config["DD_CLIENT_TOKEN"],

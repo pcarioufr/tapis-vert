@@ -28,10 +28,10 @@
             this.panel = build("t-room-footer-panel")
             
             let qr = new QRCode(this.footerPanel.select(".c-qrcode"))
-            qr.link = "https://{{host}}/r/{{room_id}}"
+            qr.link = "https://{{host}}/r/{{room.id}}"
 
             this.icon = "group-2-line"
-            this.name = "{{room_id}}"
+            this.name = "{{room.name}}"
 
 
             this.newRound = new Button()
@@ -43,7 +43,7 @@
 
             this.newRound.callback = ( _ => {
 
-                    call('POST', '/api/v1/rooms/{{room_id}}/round')
+                    call('POST', '/api/v1/rooms/{{room.id}}/round')
                     .then( r => r.json() )
                     .then( r => { } )
 

@@ -29,7 +29,7 @@
             super( "left-entries" )
 
             this.icon = "account-circle-line"
-            this.name = "{{user_name}}"
+            this.name = "{{user.name}}"
 
             this.panel = build("t-self-footer-panel")
 
@@ -49,7 +49,7 @@
 
 
 
-            {% if current_user.is_authenticated %}
+            {% if user.is_authenticated %}
 
             // Authent Section - Logged in option
 
@@ -68,7 +68,7 @@
 
             this.logout.callback = ( _ => {
 
-                call('POST', '/auth/logout', { user_id: "{{user_id}}" })
+                call('POST', '/auth/logout', { user_id: "{{user.id}}" })
                 .then( r => r.json() )
                 .then( r => {                        
                     this.footerPanel.untag("logged")

@@ -2,7 +2,7 @@
 
 {% block head %}
 
-    <title>Tapis Vert::{{room_id}}</title>
+    <title>Tapis Vert::{{room.id}}</title>
 
     {% include 'main/elements/room.jinja' %}
 
@@ -184,7 +184,7 @@
     <script>
 
     // Room's websocket
-    let websocket = new EventWebSocket("/ws/{{room_id}}/{{user_id}}") ;
+    let websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") ;
 
     // Listens when a new user joins the room
     listen( "window", "room:user.joined", (throwerId, user_id) =>
@@ -215,7 +215,7 @@
     websocket.wsend("hello") ;
 
     // Initializes the Room
-    call('GET', '/api/v1/rooms/{{room_id}}')
+    call('GET', '/api/v1/rooms/{{room.id}}')
     .then( r => r.json() )
     .then( r => {
 
