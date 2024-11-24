@@ -1,7 +1,6 @@
 import os
 import redis
 import importlib
-from datetime import datetime
 
 from ddtrace import tracer
 
@@ -58,12 +57,12 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
     LEFTS           = {}            # Leftwards relations {"relation_name": "relation_class_path", ...}
     RIGHTS          = {}            # Rightwards relations {"relation_name": "relation_class_path", ...}
 
-    _META_FIELDS = {"last_edited"}  # Known metadata fields
+    META_FIELDS = {"_created", "_edited"}  # Known metadata fields
 
     def __init__(self, id: str, data: dict, meta: dict = None):
         self.id = id
         self.data = data  # Object data (allowed fields)
-        self._meta = meta or {}  # Object metadata (private attribute)
+        self.meta = meta or {}  # Object metadata (private attribute)
 
     def __getattr__(self, name):
         """Intercepts attribute access for keys in FIELDS."""
@@ -75,7 +74,7 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS."""
 
-        if name in {"id", "data", "_meta", "_relation_managers", "FIELDS", "_META_FIELDS"}:
+        if name in {"id", "data", "meta", "_relation_managers", "FIELDS", "META_FIELDS"}:
             super().__setattr__(name, value)
         elif name in self.FIELDS:
             self.data[name] = value
@@ -116,6 +115,7 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                 break  # Unique ID found
 
         instance = cls(id=id, data=data)
+        instance.meta["_created"] = utils.now()
         instance.save()
 
         return instance
@@ -137,7 +137,7 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
 
         # Separate data and meta based on known fields and metadata fields
         data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+        meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
 
         return cls(id=id, data=data, meta=meta)
     
@@ -151,13 +151,13 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
         data = {k: v for k, v in self.data.items() if k in self.FIELDS}
         
         # Update metadata (e.g., timestamp for 'last_edited')
-        self._meta["last_edited"] = datetime.utcnow().isoformat()
+        self.meta["_edited"] = utils.now()
 
         # Combine data and metadata for saving in Redis
-        combined_data = {**data, **self._meta}
+        combined_data = {**data, **self.meta}
         REDIS_CLIENT.hset(key, mapping=combined_data)
 
-        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {data} (metadata {self._meta})")
+        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {data} (metadata {self.meta})")
         return self
 
     @tracer.wrap("ObjectMixin.delete")
@@ -194,8 +194,8 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
         """Converts the object to a dictionary for JSON serialization."""
         result = {
             "id": self.id,
-            "data": self.data,
-            "metadata": self._meta,
+            **self.meta,
+            **self.data
         }
 
         if include_related:
@@ -250,7 +250,7 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
 
             # Separate data and metadata
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
 
             instances.append(cls(id=id, data=data, meta=meta))
 
@@ -270,13 +270,13 @@ class RelationMixin():
     NAME = "left:linksto:right"  # Name of the relation for key generation
 
     FIELDS = None    # Relation-specific data fields (e.g., "role")
-    _META_FIELDS = {"last_edited"}  # Metadata fields only
+    META_FIELDS = {"_created", "_edited"}  # Metadata fields only
 
     def __init__(self, key: str, data: dict, meta: dict = None):
 
         self.key        = key
         self.data       = data
-        self._meta      = meta or {}
+        self.meta      = meta or {}
 
     def __getattr__(self, name):
         """Intercepts attribute access for keys in FIELDS."""
@@ -288,7 +288,7 @@ class RelationMixin():
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS."""
 
-        if name in {"key", "left_id", "right_id", "data", "_meta", "FIELDS", "_META_FIELDS"}:
+        if name in {"key", "left_id", "right_id", "data", "meta", "FIELDS", "META_FIELDS"}:
             super().__setattr__(name, value)
         elif name in self.FIELDS:
             self.data[name] = value
@@ -360,6 +360,8 @@ class RelationMixin():
         # Create the relation
         key = cls._key(left_id, right_id)
         relation = cls(key, data=data)
+
+        relation.meta["_created"] = utils.now()
         relation.save()
 
         return relation
@@ -384,7 +386,7 @@ class RelationMixin():
 
         # Split combined_data into fields and metadata
         data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+        meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
 
         return cls(key=key, data=data, meta=meta)
     
@@ -392,13 +394,13 @@ class RelationMixin():
     @tracer.wrap("RelationMixin.save")
     def save(self) -> "RelationMixin":
         """Saves the relation's data fields and metadata to Redis."""
-        self._meta["last_edited"] = datetime.utcnow().isoformat()
+        self.meta["_edited"] = utils.now()
 
         # Combine data and metadata for storage
-        combined_data = {**self.data, **self._meta}
+        combined_data = {**self.data, **self.meta}
         REDIS_CLIENT.hset(self.key, mapping=combined_data)
 
-        log.info(f"Relation with key {self.key} saved with data {self.data} and metadata {self._meta}")
+        log.info(f"Relation with key {self.key} saved with data {self.data} and metadata {self.meta}")
         return self
 
     @tracer.wrap("RelationMixin.delete")
@@ -435,7 +437,7 @@ class RelationMixin():
 
             # Separate data fields and metadata
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
 
             relation = cls(cls._key(left_id, right_id), data=data, meta=meta)
 
@@ -452,8 +454,8 @@ class RelationMixin():
         result = {
             f"{self._L_prefix()}": self.L_CLASS.get(left_id).to_dict(False),
             f"{self._R_prefix()}": self.R_CLASS.get(right_id).to_dict(False),
-            "data": self.data,
-            "metadata": self._meta
+            **self.meta,
+            **self.data
         }
     
         return result
@@ -473,8 +475,8 @@ class RelationMixin():
 
         result = {
             f"{self._L_prefix()}": self.L_CLASS.get(left_id).to_dict(False),
-            "data": self.data,
-            "metadata": self._meta
+            **self.meta,
+            **self.data
         }
     
         return result
@@ -494,8 +496,8 @@ class RelationMixin():
 
         result = {
             f"{self._R_prefix()}": self.R_CLASS.get(right_id).to_dict(False),
-            "data": self.data,
-            "metadata": self._meta
+            **self.meta,
+            **self.data
         }
     
         return result
@@ -520,7 +522,7 @@ class RelationMixin():
 
             # Extract relation attributes
             data   = {k: v for k, v in raw_a.items() if k in cls.FIELDS}
-            meta   = {k: v for k, v in raw_a.items() if k in cls._META_FIELDS}
+            meta   = {k: v for k, v in raw_a.items() if k in cls.META_FIELDS}
             relation = cls(key, data=data, meta=meta)
 
             # Store left-side object along with relation attributes
@@ -548,7 +550,7 @@ class RelationMixin():
 
             # Extract relation attributes
             data    = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta    = {k: v for k, v in raw.items() if k in cls._META_FIELDS}
+            meta    = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
             relation  = cls(key, data=data, meta=meta)
 
             # Store left-side object along with relation attributes
