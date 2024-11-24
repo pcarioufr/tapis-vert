@@ -4,113 +4,87 @@ import flask
 
 from models import Room, User, Code, UserCodes
 
-from utils import get_logger
-log = get_logger(__name__)
+import utils
+log = utils.get_logger(__name__)
 
-@admin_api.route("/v1/invite", methods=['POST'])
-def invite():
-
-    name = flask.request.args.get("name")
-    if name is None: 
-        log.warning("no name passed api/v1/invite?name=some_name, using Change Me")
-        name = "Change Me"
-
-    user = User.create(name=name)
-
-    code1 = Code.create()
-    user.codes().add(code1.id, type="login")
-
-    code2 = Code.create()
-    user.codes().add(code2.id, type="test")
-
-    user.save()
-
-    user2 = User.create(name="test")
-    code2.user().add(user2.id, type="test2")
-
-    return flask.jsonify(code2.to_dict()), 201
+import redis, os
+redis_client = redis.Redis(
+    host=os.environ.get("REDIS_HOST"),
+    db=os.environ.get("REDIS_DATA_DB"),
+    decode_responses=True
+)
 
 
-@admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'DELETE'])
-def rooms(room_id):
+@admin_api.route("/v1/rooms", methods=['POST'])
+@admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'PATCH', 'DELETE'])
+def rooms(room_id=None):
+
+    if flask.request.method == 'POST':
+
+        name = flask.request.args.get("name")
+        if name is None: 
+            log.warning("no name passed, using Change Me")
+            name = "Change Me"
+
+        room = Room.create(name=name)
+        return flask.jsonify(room.to_dict()), 201
 
     if room_id is None:
+        return flask.jsonify(), 400
 
-        return flask.jsonify({"error": "missing code_id: /api/v1/rooms/<room_id>"}), 400
-
+    room = Room.get(room_id)
+    if room is None:
+        return flask.jsonify(), 404
 
     if flask.request.method == 'DELETE':
-
-        room = Room.get(room_id)
         room.delete()
-
         return flask.jsonify(), 204
 
-
     if flask.request.method == 'GET':
-
-        room = User.get(room_id)
         return flask.jsonify(room.to_dict()), 200
 
+    if flask.request.method == 'PATCH':
+        # TODO
+        return flask.jsonify(room.to_dict()), 405
 
-@admin_api.route("/v1/user_codes/<user_id>", methods=['GET'])
-def user_codes(user_id):
+
+@admin_api.route("/v1/users", methods=['POST'])
+@admin_api.route("/v1/users/<user_id>", methods=['GET', 'DELETE', 'PATCH'])
+def users(user_id=None):
+
+    if flask.request.method == 'POST':
+
+        name = flask.request.args.get("name")
+        if name is None: 
+            log.warning("no name passed, using Change Me")
+            name = "Change Me"
+
+        user = User.create(name=name)
+        code = Code.create()
+        user.codes().add(code.id, type="login")
+
+        user.save()
+
+        return flask.jsonify(user.to_dict(True)), 201
 
     if user_id is None:
+        return flask.jsonify(), 400
 
-        return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>/codes"}), 400
-
-    codes = UserCodes.get_right_for_left(user_id)
-    return flask.jsonify(codes)
-
-
-
-
-@admin_api.route("/v1/users/<user_id>", methods=['GET', 'DELETE'])
-def users(user_id):
-
-
-    if user_id is None:
-
-        return flask.jsonify({"error": "missing code_id: /api/v1/users/<user_id>"}), 400
-
-
-    if flask.request.method == 'DELETE':
-
-        user = User.get(user_id)
-        user.delete()
-
-        return flask.jsonify(), 204
-
+    user = User.get(user_id)
+    if user is None:
+        return flask.jsonify(), 404
 
     if flask.request.method == 'GET':
-
         user = User.get(user_id)
         return flask.jsonify(user.to_dict()), 200
 
-
-
-@admin_api.route("/v1/codes/<code_id>", methods=['GET', 'DELETE'])
-def codes(code_id):
-
-
-    if code_id is None:
-
-        return flask.jsonify({"error": "missing code_id: /api/v1/codes/<code_id>"}), 400
-
-
     if flask.request.method == 'DELETE':
-
-        code = Code.get(code_id)
-        code.delete()
-
+        user.delete()
         return flask.jsonify(), 204
 
-
-    if flask.request.method == 'GET':
-
-        code = Code.get(code_id)
-        return flask.jsonify(code.to_dict()), 200
+    if flask.request.method == 'PATCH':
+        # TODO
+        return flask.jsonify(user.to_dict()), 405
 
 
 
@@ -137,21 +111,6 @@ def list_rooms():
     data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 
-@admin_api.route("/v1/user_codes", methods=['GET'])
-def list_user_magiccode_associations():
-    associations = UserCodes.all()
-    return flask.jsonify(associations), 200
-
-
-
-import redis, os
-
-redis_client = redis.Redis(
-    host=os.environ.get("REDIS_HOST"),
-    db=os.environ.get("REDIS_DATA_DB"),
-    decode_responses=True
-)
-    
 
 @admin_api.route('/search', methods=['GET'])
 def search_keys():
@@ -175,20 +134,3 @@ def search_keys():
             break
 
     return flask.jsonify(results), 200
-
-
-
-@admin_api.route('/users/<user_id>/codes', methods=['GET'])
-def user_to_codes(user_id=None):
-
-    codes = User.get(user_id).codes().all()
-
-    return flask.jsonify(codes), 200
-
-
-@admin_api.route('/codes/<code_id>/users', methods=['GET'])
-def code_to_users(code_id=None):
-
-    users = Code.get(code_id).users().all()
-
-    return flask.jsonify(users), 200
