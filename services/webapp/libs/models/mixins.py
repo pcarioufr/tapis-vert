@@ -611,6 +611,14 @@ class RelationManager():
             raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
 
 
+    @tracer.wrap("RelationManager.first")
+    def first(self) -> tuple[ObjectMixin, RelationMixin] :
+        """ Retrieves the first related object and its relation to the instance by its ID."""
+
+        if type(self) is RelationManager:
+            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+
+
 class RightwardsRelationManager(RelationManager):
     """Manages relations where the instance is the left-side object."""
 
@@ -635,9 +643,8 @@ class RightwardsRelationManager(RelationManager):
             relation.delete()
         return self.instance
 
-
     @tracer.wrap("RightwardsRelationManager.get")
-    def get(self, related_id: str) -> tuple[ObjectMixin, RelationMixin] :
+    def get(self, related_id) :
         
         relations = self.all()
         try:
@@ -647,7 +654,13 @@ class RightwardsRelationManager(RelationManager):
                 f"ID {related_id} not found in {self.relation_class} for {self.instance.id}. "
                 f"Available keys: {list(relations.keys())}"
             )
-            return None, None        
+            return None, None
+
+    @tracer.wrap("RightwardsRelationManager.first")
+    def first(self) :
+        
+        for related_id, relation in self.all().items():
+            return relation.right(), relation
 
 
 class LeftwardsRelationManager(RelationManager):
@@ -675,8 +688,7 @@ class LeftwardsRelationManager(RelationManager):
         return self.instance
 
     @tracer.wrap("LeftwardsRelationManager.get")
-    def get(self, related_id: str) -> tuple[ObjectMixin, RelationMixin] :
-        """ Retrieves a related object and its relation to the instance by its ID."""
+    def get(self, related_id) :
 
         relations = self.all()
         try:
@@ -687,3 +699,9 @@ class LeftwardsRelationManager(RelationManager):
                 f"Available keys: {list(relations.keys())}"
             )
             return None, None
+
+    @tracer.wrap("LeftwardsRelationManager.first")
+    def first(self):
+        
+        for related_id, relation in self.all().items():
+            return relation.left(), relation
