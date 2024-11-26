@@ -1,10 +1,35 @@
 {% extends 'layout.jinja' %}
 
+{% block debug %}
+
+    <!-- {% if level == "DEBUG" %} -->
+    <!-- DEBUG INFO -->
+    
+    <!-- user.id: {{user.id}} -->
+    <!-- user.name: {{user.name}} -->
+    <!-- is_authenticated: {{user.is_authenticated}} -->
+    <!-- is_anonymous: {{user.is_anonymous}} -->
+
+    <!-- Session Cookies -->
+    {% for key, value in request_cookies.items() %}
+    <!-- {{ key }}: {{ value }} -->
+    {% endfor %}
+
+    <!-- Session -->
+    {% for key, value in session.items() %}
+    <!-- {{ key }}: {{ value }} -->
+    {% endfor %}
+
+    <!-- {% endif %} -->
+
+{% endblock %}
+
 {% block head %}
 
     <title>Tapis Vert::{{room.id}}</title>
 
     {% include 'main/elements/room.jinja' %}
+    {% include 'auth/self.jinja' %}
 
 {% endblock %}
 
@@ -261,6 +286,9 @@
         } 
 
     })
+
+
+    const SELF = new SelfFooterEntry()
 
     </script>
 

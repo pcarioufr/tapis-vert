@@ -1,29 +1,10 @@
+{% block debug %}{% endblock %}
+
 <!DOCTYPE html>
 
 <html lang="fr">
 
 <head>
-
-    <!-- {% if level == "DEBUG" %} -->
-    <!-- DEBUG INFO -->
-    
-    <!-- user.id: {{user.id}} -->
-    <!-- user.name: {{user.name}} -->
-    <!-- is_authenticated: {{user.is_authenticated}} -->
-    <!-- is_anonymous: {{user.is_anonymous}} -->
-
-    <!-- Session Cookies -->
-    {% for key, value in request_cookies.items() %}
-    <!-- {{ key }}: {{ value }} -->
-    {% endfor %}
-
-    <!-- Session -->
-    {% for key, value in session.items() %}
-    <!-- {{ key }}: {{ value }} -->
-    {% endfor %}
-
-
-    <!-- {% endif %} -->
 
     <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="copyright"content="pcariou.fr">
@@ -33,22 +14,19 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
 
-    {# COMMONS/LIBS  #}
+    {# COMMONS/LIBS #}
     {% include 'common/libs/http.jinja' %}
     {% include 'common/libs/events.jinja' %}
     {% include 'common/libs/datadog.jinja' %}
     {% include 'common/libs/cookies.jinja' %}
     {% include 'common/libs/misc.jinja' %}
 
-    {# COMMONS/ELEMENTS  #}
+    {# COMMONS/ELEMENTS #}
     {% include 'common/elements/elements.jinja' %}
     {% include 'common/elements/buttons.jinja' %}
     {% include 'common/elements/qrcode.jinja' %}
     {% include 'common/elements/footer.jinja' %}
     {% include 'common/elements/input.jinja' %}
-
-    {# AUTH #}
-    {% include 'auth/self.jinja' %}
 
     {% block head %}{% endblock %}
 
@@ -74,11 +52,6 @@
     <div class="page"> 
     
     {% block body %}{% endblock %}
-    
-
-    <script>
-        const SELF = new SelfFooterEntry()
-    </script>
 
     </div> 
 
