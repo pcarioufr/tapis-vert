@@ -1,6 +1,6 @@
 from app.main import main_web
 
-import flask
+import flask, flask_login
 
 from app.routines import render_template
 
@@ -24,6 +24,7 @@ def room_app(room_id=None):
 
     return render_template (
         "main/r.jinja",
+        user=flask_login.current_user,
         room=room
     )
 

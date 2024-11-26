@@ -8,8 +8,6 @@ import utils
 log = utils.get_logger(__name__)
 
 
-from flask_login import current_user
-
 from app.auth import login
 
 
@@ -24,7 +22,6 @@ def render_template(template, **kwargs):
 
     return flask.render_template(
         template,
-        user=current_user,
         level=utils.LOG_LEVEL,
         host=app.config["HOST"],
         clientToken=app.config["DD_CLIENT_TOKEN"],
