@@ -30,7 +30,7 @@ class User(ObjectMixin):
         # Iterate over codes associated with this user
         for code_id, association in self.codes().all().items():
             try:
-                code_instance = Code.get(code_id)
+                code_instance = Code.get_by_id(code_id)
                 if code_instance:
                     code_instance.delete()
                     log.info(f"Deleted Code with ID {code_id} associated with User ID {self.id}")
@@ -105,22 +105,22 @@ class Room(ObjectMixin):
 
 
     @tracer.wrap("Room.new_round")
-    def new_round(self, players: list[str]):
+    def new_round(self):
 
-        if len(players) > 10:
-            raise Exception("too many users ({}): max 10".format(len(players)))
+        users = self.users().all()
 
-        # Define Round
         round = {}
 
         cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
         random.shuffle(cards)
 
-
         i = 0
-        for player in players:
-             
-            round[player] = { "cards": {"value": cards[i], "flipped": 0} } 
+        for user_id, relation in users.items():
+
+            player = User.get_by_id(user_id)
+            
+            if relation.role == "player":
+                round[player.name] = { "cards": {"value": cards[i], "flipped": 0} } 
             i = i+1
 
         self.round = json.dumps( round )
@@ -131,7 +131,7 @@ class Room(ObjectMixin):
     def to_dict(self, include_related=False):
 
         result = super().to_dict(include_related)
-        result["round"] = json.loads(result["round"])
+        result["round"] = json.loads(result["round"]) if result.get("round") else {}
 
         return result
 
@@ -140,7 +140,7 @@ class UsersRooms(RelationMixin):
     '''
     '''
 
-    FIELDS = {"role"}
+    FIELDS = {"role", "status"}
 
     L_CLASS = User
     R_CLASS = Room

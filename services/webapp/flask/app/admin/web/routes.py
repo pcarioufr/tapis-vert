@@ -1,4 +1,5 @@
 from app.admin import admin_web  # Import the Blueprint from __init__.py
+from app.routines import render_template
 
 import flask
 
@@ -9,10 +10,10 @@ log = utils.get_logger(__name__)
 @admin_web.route("/list", methods=['GET'])
 def list():
     
-    return flask.render_template("admin/list.jinja")
+    return render_template("admin/list.jinja")
 
 
 @admin_web.route("/redis", methods=['GET'])
 def search():
     
-    return flask.render_template("admin/redis.jinja")
+    return render_template("admin/redis.jinja")

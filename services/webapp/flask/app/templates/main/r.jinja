@@ -65,6 +65,7 @@
             // User's state, for reference
             this._name = null ;
             this._online = false ;
+            this._role = "watcher"
 
             // Representation of the User in the page footer
             this.eUserFooter = new UserFooter() ;
@@ -90,6 +91,14 @@
                 this._online = bool ;
                 this.eUserFooter.online = bool ;
                 this.eUserPawn.online = bool ;
+            };
+
+            // Sets User's role
+            this.role = function(role) {
+                this._role = role ;
+                this.eUserFooter.role = role ;
+                this.eUserPawn.role = role ;
+                console.log(`set role ${role} for user ${this._name}`)
             };
 
         },
@@ -257,6 +266,8 @@
                 USERS.get(user_id).online(true) :
                 USERS.get(user_id).online(false) ;
 
+            USERS.get(user_id).role(props["relation"]["role"]) ;
+
         } 
 
         // Process Cards
@@ -287,8 +298,13 @@
 
     })
 
-
     const SELF = new SelfFooterEntry()
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        call('POST', '/api/v1/rooms/{{room.id}}/join')
+
+    });
 
     </script>
 

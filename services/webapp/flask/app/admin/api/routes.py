@@ -32,7 +32,7 @@ def rooms(room_id=None):
     if room_id is None:
         return flask.jsonify(), 400
 
-    room = Room.get(room_id)
+    room = Room.get_by_id(room_id)
     if room is None:
         return flask.jsonify(), 404
 
@@ -70,12 +70,12 @@ def users(user_id=None):
     if user_id is None:
         return flask.jsonify(), 400
 
-    user = User.get(user_id)
+    user = User.get_by_id(user_id)
     if user is None:
         return flask.jsonify(), 404
 
     if flask.request.method == 'GET':
-        user = User.get(user_id)
+        user = User.get_by_id(user_id)
         return flask.jsonify(user.to_dict()), 200
 
     if flask.request.method == 'DELETE':
@@ -91,7 +91,7 @@ def users(user_id=None):
 @admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
-    codes = Code.all()
+    codes, cursor = Code.search()
     data = [code.to_dict(True) for code in codes]    
     return flask.jsonify(data), 200
 
@@ -99,7 +99,7 @@ def list_codes():
 @admin_api.route("/v1/users", methods=['GET'])
 def list_users():
 
-    users = User.all()
+    users, cursor = User.search()
     data = [user.to_dict(True) for user in users]    
     return flask.jsonify(data), 200
 
@@ -107,7 +107,7 @@ def list_users():
 @admin_api.route("/v1/rooms", methods=['GET'])
 def list_rooms():
 
-    rooms = Room.all()
+    rooms, cursor = Room.search()
     data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 

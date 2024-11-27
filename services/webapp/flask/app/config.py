@@ -22,3 +22,6 @@ class Config:
     DD_VERSION = os.environ.get("DD_VERSION")
     DD_ENV = os.environ.get("DD_ENV")
     DD_SITE = os.environ.get("DD_SITE")
+
+    # MIXPANEL ###############
+    MP_TOKEN = os.environ.get("MP_TOKEN")
