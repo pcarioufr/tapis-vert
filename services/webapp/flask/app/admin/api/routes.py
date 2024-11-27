@@ -91,7 +91,7 @@ def users(user_id=None):
 @admin_api.route("/v1/codes", methods=['GET'])
 def list_codes():
 
-    codes = Code.all()
+    codes, cursor = Code.all()
     data = [code.to_dict(True) for code in codes]    
     return flask.jsonify(data), 200
 
@@ -99,7 +99,7 @@ def list_codes():
 @admin_api.route("/v1/users", methods=['GET'])
 def list_users():
 
-    users = User.all()
+    users, cursor = User.all()
     data = [user.to_dict(True) for user in users]    
     return flask.jsonify(data), 200
 
@@ -107,7 +107,7 @@ def list_users():
 @admin_api.route("/v1/rooms", methods=['GET'])
 def list_rooms():
 
-    rooms = Room.all()
+    rooms, cursor = Room.all()
     data = [room.to_dict(True) for room in rooms]
     return flask.jsonify(data), 200
 

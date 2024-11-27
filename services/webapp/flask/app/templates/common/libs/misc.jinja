@@ -14,6 +14,24 @@
         return result;
     }
 
+    // converts a ISO 8601 timestamp string into a human friendly format
+    function date(isostring) {
+
+        const date = new Date(isostring);
+
+        const formattedDate = new Intl.DateTimeFormat('fr-FR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+        }).format(date);
+
+        return formattedDate ;
+
+    } 
 
     class Test {
 

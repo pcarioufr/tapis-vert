@@ -1,198 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Tables</title>
+{% extends 'layout.jinja' %}
+
+{% block head %}
+
+    <title>Tapis Vert::Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/admin/list.css') }}" />
-</head>
-<body>
 
-    <div class="containers">
-        <!-- User Table -->
-        <div class="container">
-            <h1>User List</h1>
-            <table id="userTable">
-                <thead>
-                    <tr id="userHeaders"></tr>
-                </thead>
-                <tbody id="userTableBody">
-                    <!-- User data will be populated here -->
-                </tbody>
-            </table>
-            <div id="userErrorMessage" class="error"></div>
-        </div>
+{% endblock %}
 
-        <!-- Code Table -->
-        <div class="container">
-            <h1>Code List</h1>
-            <table id="codeTable">
-                <thead>
-                    <tr id="codeHeaders"></tr>
-                </thead>
-                <tbody id="codeTableBody">
-                    <!-- Code data will be populated here -->
-                </tbody>
-            </table>
-            <div id="codeErrorMessage" class="error"></div>
-        </div>
+{% block body %}
 
-        <!-- UserCode Table -->
-        <div class="container">
-            <h1>User<>Code List</h1>
-            <table id="user_codeTable">
-                <thead>
-                    <tr id="user_codeHeaders"></tr>
-                </thead>
-                <tbody id="user_codeTableBody">
-                    <!-- UserCode data will be populated here -->
-                </tbody>
-            </table>
-            <div id="user_codeErrorMessage" class="error"></div>
-        </div>
-
-
+    <div class="tables" id=tables>
+        <!-- [ <div class="container"></div> ] -->
     </div>
 
+    <template id=t-table>
+        <div class="table">
+            <h1></h1>
+            <table>
+                <thead> <tr> <!-- [ <th></th> ]--> </tr>    </thead>
+                <tbody> <!-- [ <tr> [ <td></td> ] </tr> --> </tbody>                
+            </table>
+        </div>
+    </template>
+
     <script>
-        class TableConfig {
-            constructor(apiEndpoint, tableId, errorId, headersId, headers, keys) {
-                this.apiEndpoint = apiEndpoint;
-                this.tableId = tableId;
-                this.errorId = errorId;
-                this.headersId = headersId;
-                this.headers = headers;
-                this.keys = keys;
-            }
 
-            // Initialize table headers
-            initializeTableHeaders() {
-                const headersRow = document.getElementById(this.headersId);
-                headersRow.innerHTML = ''; // Clear existing headers
-                this.headers.forEach(header => {
+        class Table extends Element {
+
+            constructor(name, items){
+
+                super( build("t-table"), document.getElementById("tables"))
+
+                this.select("h1").textContent = name;
+                items.forEach(item => {
                     const th = document.createElement('th');
-                    th.textContent = header;
-                    headersRow.appendChild(th);
+                    th.textContent = item;
+                    this.select("thead tr").append(th);
                 });
             }
 
-            // Fetch data from API
-            async fetchData() {
-                try {
-                    const response = await fetch(this.apiEndpoint);
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch data');
-                    }
-                    const data = await response.json();
-                    this.populateTable(data);
-                } catch (error) {
-                    document.getElementById(this.errorId).textContent = 'Error: ' + error.message;
-                }
-            }
-
-            // Populate the table with data
-            populateTable(data) {
-                const tableBody = document.getElementById(this.tableId);
-                tableBody.innerHTML = ''; // Clear existing rows
-
-                data.forEach(item => {
-                    const row = document.createElement('tr');
-                    
-                    // Populate data cells based on config keys
-                    this.keys.forEach(key => {
-                        const cell = document.createElement('td');
-                        cell.textContent = item[key] || 'N/A';
-                        row.appendChild(cell);
-                    });
-
-                    // Add delete button
-                    const actionCell = document.createElement('td');
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Delete';
-                    deleteButton.onclick = () => this.deleteEntry(item.id);
-                    actionCell.appendChild(deleteButton);
-                    row.appendChild(actionCell);
-
-                    tableBody.appendChild(row);
+            add(items) { 
+                const tr = document.createElement('tr');
+                this.select("tbody").append(tr);
+                items.forEach(item => {
+                    const th = document.createElement('td');
+                    th.textContent = item;
+                    tr.append(th);
                 });
             }
-
-            // Function to delete an entry by ID
-            async deleteEntry(id) {
-                try {
-                    const response = await fetch(`${this.apiEndpoint}/${id}`, { method: 'DELETE' });
-                    if (!response.ok) {
-                        throw new Error('Failed to delete entry');
-                    }
-                    // Refresh data after deletion
-                    this.fetchData();
-                } catch (error) {
-                    document.getElementById(this.errorId).textContent = 'Error: ' + error.message;
-                }
-            }
         }
 
-        // Subclass for the User table
-        class UserTable extends TableConfig {
+        class UserTable extends Table {
+        
             constructor() {
-                super(
-                    '/admin/api/v1/users',
-                    'userTableBody',
-                    'userErrorMessage',
-                    'userHeaders',
-                    ['id', 'name', 'status', 'code_id', 'Actions'],
-                    ['id', 'name', 'status', 'code_id']
-                );
+                super("Users", [ "id", "name", "code_id", "created at"])
             }
+
+            fill() { 
+                call('GET', '/admin/api/v1/users')
+                .then( resp => resp.json() )
+                .then( resp => {
+                    for ( let u of resp ) {
+                        const code_id = u.codes.length > 0 ? u.codes[0].id : null ;
+                        this.add([u.id, u.name, code_id, date(u._created)]);
+                    } 
+                })
+            }        
         }
 
-        // Subclass for the Code table
-        class CodeTable extends TableConfig {
+        class RoomTable extends Table {
+        
             constructor() {
-                super(
-                    '/admin/api/v1/codes',
-                    'codeTableBody',
-                    'codeErrorMessage',
-                    'codeHeaders',
-                    ['id', 'user_id', 'Actions'],
-                    ['id', 'user_id']
-                );
+                super("Rooms", [ "id", "name", "users", "created at"])
+            }
+
+            fill() { 
+                call('GET', '/admin/api/v1/rooms')
+                .then( resp => resp.json() )
+                .then( resp => {
+                    for ( let r of resp ) {
+                        const user_ids = r.users.map(user => user.id).join(', '); 
+                        this.add([r.id, r.name, user_ids, date(r._created)]);
+                    } 
+                })
             }
         }
 
-        // Subclass for the User->Code table
-        class UserCodeTable extends TableConfig {
-            constructor() {
-                super(
-                    '/admin/api/v1/user_codes',
-                    'user_codeTableBody',
-                    'user_codeErrorMessage',
-                    'user_codeHeaders',
-                    ['user_id', 'code_id', 'Actions'],
-                    ['user_id', 'code_id']
-                );
-            }
-        }
 
-        // Instantiate and initialize tables
+        const userTable = new UserTable();
+        const roomTable = new RoomTable();
+
         document.addEventListener('DOMContentLoaded', () => {
 
-            const userTable = new UserTable();
-            const codeTable = new CodeTable();
-            const user_codeTable = new UserCodeTable();
-
-            userTable.initializeTableHeaders();
-            userTable.fetchData();
-
-            codeTable.initializeTableHeaders();
-            codeTable.fetchData();
-
-            user_codeTable.initializeTableHeaders();
-            user_codeTable.fetchData();
-
+            userTable.fill()
+            roomTable.fill()
 
         });
     </script>
 
-</body>
-</html>
+{% endblock %}
+
