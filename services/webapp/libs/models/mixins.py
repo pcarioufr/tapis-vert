@@ -259,7 +259,10 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
 
 
 class RelationMixin():
-    """A class for managing n:m relationships with data fields and metadata in Redis."""
+    """
+    A class for managing n:m relationships with data fields and metadata in Redis.
+    Assumes no more than one relation can exist between 2 instances
+    """
 
     RELATION_TYPE = "many_to_many"  # or "one_to_many"
 
@@ -597,13 +600,17 @@ class RelationManager():
 
         return self.instance
 
-    @tracer.wrap("RelationManager.get")
     def get(self, related_id: str) -> tuple[ObjectMixin, RelationMixin] :
         """ Retrieves a related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
             raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
 
+    def exists(self, related_id: str) -> bool :
+        """ Retrieves if a relation exists between instance with related object"""
+
+        if type(self) is RelationManager:
+            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
 
     @tracer.wrap("RelationManager.first")
     def first(self) -> tuple[ObjectMixin, RelationMixin] :
@@ -640,15 +647,19 @@ class RightwardsRelationManager(RelationManager):
     @tracer.wrap("RightwardsRelationManager.get")
     def get(self, related_id) :
         
-        relations = self.all()
-        try:
-            return relations[related_id].right(), relations[related_id]
-        except KeyError:
-            log.debug(
-                f"ID {related_id} not found in {self.relation_class} for {self.instance.id}. "
-                f"Available keys: {list(relations.keys())}"
-            )
+        bool = self.relation_class.exist(self.instance.id, related_id)
+        if bool:
+            rel = self.relation_class.get(self.instance.id, related_id)
+            obj = self.relation_class.R_CLASS.get(related_id)
+            return obj, rel
+        else: 
             return None, None
+
+    @tracer.wrap("RightwardsRelationManager.exist")
+    def exist(self, related_id: str, **data):
+
+        bool = self.relation_class.exist(self.instance.id, related_id)
+        return bool
 
     @tracer.wrap("RightwardsRelationManager.first")
     def first(self) :
@@ -683,16 +694,20 @@ class LeftwardsRelationManager(RelationManager):
 
     @tracer.wrap("LeftwardsRelationManager.get")
     def get(self, related_id) :
-
-        relations = self.all()
-        try:
-            return relations[related_id].left(), relations[related_id]
-        except KeyError:
-            log.debug(
-                f"ID {related_id} not found in {self.relation_class} for {self.instance.id}. "
-                f"Available keys: {list(relations.keys())}"
-            )
+        
+        bool = self.relation_class.exist(related_id, self.instance.id)
+        if bool:
+            rel = self.relation_class.get(related_id, self.instance.id)
+            obj = self.relation_class.L_CLASS.get(related_id)
+            return obj, rel
+        else: 
             return None, None
+
+    @tracer.wrap("RightwardsRelationManager.exist")
+    def exist(self, related_id: str, **data):
+
+        bool = self.relation_class.exist(related_id, self.instance.id)
+        return bool
 
     @tracer.wrap("LeftwardsRelationManager.first")
     def first(self):
