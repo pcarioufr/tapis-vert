@@ -287,8 +287,13 @@
 
     })
 
-
     const SELF = new SelfFooterEntry()
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        call('POST', '/api/v1/rooms/{{room.id}}/join')
+
+    });
 
     </script>
 

@@ -57,11 +57,14 @@ def room_join(room_id=None):
 
     user_id = flask_login.current_user.id
 
-    room.users().add(user_id, role="viewer")
-    utils.publish(room_id, "viewer", user_id)
+    if room.users().exist(user_id):
+        log.debug(f'user {user_id} already member of room {room_id}')
+    else:
+        log.info(f'adding user {user_id} to room {room_id}')
+        room.users().add(user_id, role="viewer")
+        utils.publish(room_id, "viewer", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
-
 
 
 @main_api.route('/v1/qrcode', methods=['GET'])
