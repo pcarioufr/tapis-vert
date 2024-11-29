@@ -604,20 +604,31 @@ class RelationManager():
         """ Retrieves a related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.get() is abstract. Use subclass it instead.")
 
     def exists(self, related_id: str) -> bool :
         """ Retrieves if a relation exists between instance with related object"""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.exists() is abstract. Use subclass it instead.")
 
-    @tracer.wrap("RelationManager.first")
     def first(self) -> tuple[ObjectMixin, RelationMixin] :
         """ Retrieves the first related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
             raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+
+    @tracer.wrap("RelationManager.set")
+    def set(self, related_id: str, **kwargs) -> tuple[ObjectMixin, RelationMixin] :
+        """ Sets properties of the relation of with related object."""
+
+        obj, rel = self.get(related_id)
+        if rel:
+            for key, value in kwargs.items():
+                rel.__setattr__(key, value)
+                rel.save()
+
+        return obj, rel            
 
 
 class RightwardsRelationManager(RelationManager):
