@@ -166,15 +166,15 @@
     display: flex;
     align-items: center;
     background: var(--beige);
-    height: 20px;
-    width: 80px ;
+    height: 2.5vw;
+    width: 10vw ;
     position: relative;
     border-radius: 0.5vw
 }
 
 .room-footer-panel .user span.name {
     color: var(--dblue);
-    font-size: 12px;
+    font-size: 1.5vw;
     text-align: right;
     margin: auto;
 }

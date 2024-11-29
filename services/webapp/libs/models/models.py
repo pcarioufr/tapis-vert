@@ -140,7 +140,7 @@ class UsersRooms(RelationMixin):
     '''
     '''
 
-    FIELDS = {"role"}
+    FIELDS = {"role", "status"}
 
     L_CLASS = User
     R_CLASS = Room

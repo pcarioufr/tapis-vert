@@ -27,14 +27,14 @@
 
         class Table extends Element {
 
-            constructor(name, items){
+            constructor(name, headers){
 
                 super( build("t-table"), document.getElementById("tables"))
 
                 this.select("h1").textContent = name;
-                items.forEach(item => {
+                headers.forEach(header => {
                     const th = document.createElement('th');
-                    th.textContent = item;
+                    th.textContent = header;
                     this.select("thead tr").append(th);
                 });
             }
@@ -44,7 +44,7 @@
                 this.select("tbody").append(tr);
                 items.forEach(item => {
                     const th = document.createElement('td');
-                    th.textContent = item;
+                    th.innerHTML = item;
                     tr.append(th);
                 });
             }
@@ -79,8 +79,8 @@
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let r of resp ) {
-                        const user_ids = r.users.map(user => user.id).join(', '); 
-                        this.add([r.id, r.name, user_ids, date(r._created)]);
+                        const user_ids = r.users.map(user => `${user.id}:${user.relation.role}`).join('<br>'); 
+                        this.add([r.id, r.name, `<pre>${user_ids}</pre>`, date(r._created)]);
                     } 
                 })
             }

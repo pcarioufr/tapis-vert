@@ -9,8 +9,16 @@
         <div class="room-footer-panel">
             <span class="title">invite</span>
             <div class="c-qrcode"></div>
+            <span class="title">masters</span>
+            <div class="masters" id="footer-masters">
+                <!-- Array of [ UserFooter ] -->
+            </div>
             <span class="title">players</span>
-            <div class="users" id="footer-users">
+            <div class="users" id="footer-players">
+                <!-- Array of [ UserFooter ] -->
+            </div>
+            <span class="title">watchers</span>
+            <div class="users" id="footer-watchers">
                 <!-- Array of [ UserFooter ] -->
             </div>
             <div class="c-round" id="footer-round">
@@ -68,8 +76,7 @@
 
         constructor(){
 
-            super( build("t-user"), document.getElementById("footer-users"))
-
+            super( build("t-user") )
 
         }
 
@@ -79,6 +86,20 @@
                                 this.select(".status").setAttribute("online", "") : 
                                 this.select(".status").removeAttribute("online") 
                             }
+
+        set role(role)          {
+            let parent 
+            switch(role) {
+                case "master":  parent = document.getElementById("footer-masters")  ; break ;
+                case "player":  parent = document.getElementById("footer-players")  ; break ;
+                case "watcher": parent = document.getElementById("footer-watchers") ; break ;
+                default:
+                    console.error(`Role "${role}" isn't supported option for user`);
+                    return
+            }
+            console.log(`User ${this.select(".name").innerText} moved to "${role}s"`);
+            parent.append(this.e)
+        }
 
         remove()            { this.e.remove() }
 
@@ -111,6 +132,8 @@
         }
 
         set name(text)      { this.select(".name").innerText = text ; this.id = text}
+
+        set role(role)      { console.warn("Pawn.role() method not implemented")}
 
         set online(bool)    { bool ? 
                                 this.select(".status").setAttribute("online", "") : 

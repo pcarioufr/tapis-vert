@@ -52,7 +52,7 @@ def room_join(room_id=None):
         return flask.jsonify(), 400
 
     room = Room.get(room_id)
-    if room_id is None:
+    if room is None:
         return flask.jsonify(), 404
 
     user_id = flask_login.current_user.id
@@ -61,11 +61,42 @@ def room_join(room_id=None):
         log.debug(f'user {user_id} already member of room {room_id}')
     else:
         log.info(f'adding user {user_id} to room {room_id}')
-        room.users().add(user_id, role="viewer")
-        utils.publish(room_id, "viewer", user_id)
+        room.users().add(user_id, role="watcher")
+        utils.publish(room_id, "watcher", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
 
+
+@main_api.route("/v1/rooms/<room_id>/user/<user_id>", methods=['PATCH'])
+@flask_login.login_required
+def room_user(room_id=None, user_id=None):
+    '''Changes properties of user in a room'''
+
+    if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    if user_id is None:
+        return flask.jsonify(), 400
+
+    user = User.get(user_id)
+    if user is None:
+        return flask.jsonify(), 404
+
+    users = room.users().all()
+
+    if user_id not in users:
+        return flask.jsonify(), 404
+
+    if flask_login.current_user.id not in users:
+        return flask.jsonify(), 403
+
+    room.users().set(user_id, **flask.request.args)
+
+    return flask.jsonify(room=room.to_dict()), 200
 
 @main_api.route('/v1/qrcode', methods=['GET'])
 @flask_login.login_required
