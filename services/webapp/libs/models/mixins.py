@@ -14,6 +14,13 @@ REDIS_CLIENT = redis.Redis(
     decode_responses=True
 )
 
+# After how many seconds objects set for deletion actually get deleted
+DEL_EXPIRE = 60 # 1 min
+
+class ConflictError(Exception):
+    """Exception raised when a concurrent modification is detected during save."""
+    pass
+
 
 ## OBJECTS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
@@ -53,11 +60,11 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
 
     # To be defined in subclasses
     ID_GENERATOR    = utils.new_id  # The ID generator to use for the class
+
     FIELDS          = {}            # An allowlist of fields to consider in the hash map values
     LEFTS           = {}            # Leftwards relations {"relation_name": "relation_class_path", ...}
     RIGHTS          = {}            # Rightwards relations {"relation_name": "relation_class_path", ...}
-
-    META_FIELDS = {"_created", "_edited"}  # Known metadata fields
+    META_FIELDS     = {"_created", "_edited", "_version"}  # Known metadata fields
 
     def __init__(self, id: str, data: dict, meta: dict = None):
         self.id = id
@@ -123,16 +130,33 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
     @classmethod
     def exist(cls, id: str) -> bool:
         """Assesses whether the object exists."""
-        return REDIS_CLIENT.exists(cls._key(id))
+
+        key = cls._key(id)
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.exists(key)
+            pipe.hget(key, "_deleted")
+
+            test_exists, test_deleted = pipe.execute()
+
+        return bool(test_exists) and not test_deleted
+
 
     @classmethod
     @tracer.wrap("ObjectMixin.get")
     def get(cls, id: str) -> "ObjectMixin":
-        """Retrieves the object from Redis, splitting data and meta."""
+        """Retrieves the object from Redis."""
+
         key = cls._key(id)
         raw = REDIS_CLIENT.hgetall(key)
         
         if not raw:
+            log.warning(f"No match for relation {cls.__name__} with key {key}")
+            return None
+
+        if raw.get("_deleted"):
+            log.warning(f"trying to get object {cls.__name__} with key {key} marked for deletion")
             return None
 
         # Separate data and meta based on known fields and metadata fields
@@ -143,21 +167,41 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
     
     @tracer.wrap("ObjectMixin.save")
     def save(self) -> "ObjectMixin":
-        """Saves the object current state into Redis."""
+        """
+        Saves the object's data fields and metadata to Redis.
+        Raises an exception if concurrent edits have been (version change) or are being made (watch) 
+        """
 
-        key = self._key(self.id)
+        try:
 
-        # Prepare data and metadata for storage
-        data = {k: v for k, v in self.data.items() if k in self.FIELDS}
-        
-        # Update metadata (e.g., timestamp for 'last_edited')
-        self.meta["_edited"] = utils.now()
+            with REDIS_CLIENT.pipeline() as pipe:
 
-        # Combine data and metadata for saving in Redis
-        combined_data = {**data, **self.meta}
-        REDIS_CLIENT.hset(key, mapping=combined_data)
+                key = self._key(self.id)
 
-        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {data} (metadata {self.meta})")
+                pipe.watch(key)
+
+                # Fetch current version within the pipeline
+                version_ref = pipe.hget(key, "_version")
+                version_ref = int(version_ref or 0)
+                version_self = int(self.meta.get("_version", 0))
+                log.error(f"version_ref:{version_ref} - version_self:{version_self}" )
+
+                if version_ref != version_self:
+                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
+
+                pipe.multi()
+                self.meta["_edited"] = utils.now()
+                pipe.hset(key, mapping={**self.data, **self.meta})
+                pipe.hincrby(key, "_version", 1)
+
+                pipe.execute()
+
+            self.meta['_version']  = REDIS_CLIENT.hget(key, "_version")
+
+        except redis.WatchError as e:
+            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
+
+        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {self.data} (metadata {self.meta})")
         return self
 
     @tracer.wrap("ObjectMixin.delete")
@@ -182,11 +226,44 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                 manager = RightwardsRelationManager(self, relation_class)
                 manager.remove_all()
 
-
-        # Delete the object itself
-        REDIS_CLIENT.delete(self._key(self.id))
+        key = self._key(self.id)
+        with REDIS_CLIENT.pipeline() as pipe:
+            pipe.expire(key, DEL_EXPIRE)
+            pipe.hset(key, "_deleted", utils.now())
+            pipe.execute()
 
         log.info(f"{self.__class__.__name__} with ID {self.id} and all related relations deleted.")
+        return True
+
+    @classmethod
+    @tracer.wrap("ObjectMixin.patch")
+    def patch(cls, id: str, **kwargs) -> bool:
+        """
+        Accelerated update, 
+        Pushes the information regardless of conflicts, but wouldn't revive an object marked for deletion.
+        """
+
+        key = cls._key(id)
+
+        if not cls.exist(id):
+            log.warning("object deleted, skipping patch") 
+            return False
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.multi()
+
+            for field, value in kwargs.items():
+                if field in cls.FIELDS:
+                    pipe.hset(key, field, value)
+                else:
+                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
+
+            pipe.hincrby(key, "_version", 1)
+            pipe.hset(key, "_edited", utils.now())
+            pipe.execute()
+            log.info(f"Patched {field}:{value} for {key}")
+
         return True
 
     @tracer.wrap("ObjectMixin.to_dict")
@@ -270,14 +347,14 @@ class RelationMixin():
     R_CLASS = None   # Right-side class (e.g., User)
     NAME = "left:linksto:right"  # Name of the relation for key generation
 
-    FIELDS = None    # Relation-specific data fields (e.g., "role")
-    META_FIELDS = {"_created", "_edited"}  # Metadata fields only
+    FIELDS      = None    # Relation-specific data fields (e.g., "role")
+    META_FIELDS = {"_created", "_edited", "_version", "_deleted"}  # Metadata fields only
 
     def __init__(self, key: str, data: dict, meta: dict = None):
 
         self.key        = key
         self.data       = data
-        self.meta      = meta or {}
+        self.meta       = meta or {}
 
     def __getattr__(self, name):
         """Intercepts attribute access for keys in FIELDS."""
@@ -337,7 +414,7 @@ class RelationMixin():
             raise ValueError(f"{cls.L_CLASS}:{left_id} does not exist.")
         
         if cls.R_CLASS.get(right_id) is None:
-            raise ValueError(f"{cls.L_CLASS}:{left_id} does not exist.")
+            raise ValueError(f"{cls.R_CLASS}:{right_id} does not exist.")
 
         # Enforce cardinality constraints
         if cls.RELATION_TYPE == "one_to_many":
@@ -371,18 +448,31 @@ class RelationMixin():
     def exist(cls, left_id: str, right_id: str) -> bool:
         """Assesses whether the relation exists."""
 
-        return REDIS_CLIENT.exists(cls._key(left_id, right_id))
+        key = cls._key(left_id, right_id)
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.exists(key)
+            pipe.hget(key, "_deleted")
+
+            test_exists, test_deleted = pipe.execute()
+
+        return bool(test_exists) and not test_deleted
 
     @classmethod
     @tracer.wrap("RelationMixin.get")
     def get(cls, left_id: str, right_id: str) -> "RelationMixin":
-        """Retrieves the relation, splitting fields and metadata."""
+        """Retrieves the relation."""
 
         key = cls._key(left_id, right_id)
         raw = REDIS_CLIENT.hgetall(key)
 
         if not raw:
-            log.info(f"No match for relation {cls.__name__} with key {key}")
+            log.warning(f"No match for relation {cls.__name__} with key {key}")
+            return None
+
+        if raw.get("_deleted"):
+            log.warning(f"trying to get relation {cls.__name__} with key {key} marked for deletion")
             return None
 
         # Split combined_data into fields and metadata
@@ -391,15 +481,39 @@ class RelationMixin():
 
         return cls(key=key, data=data, meta=meta)
     
-
     @tracer.wrap("RelationMixin.save")
     def save(self) -> "RelationMixin":
-        """Saves the relation's data fields and metadata to Redis."""
-        self.meta["_edited"] = utils.now()
+        """
+        Saves the relation's data fields and metadata to Redis.
+        Raises an exception if concurrent edits have been (version change) or are being made (watch) 
+        """
 
-        # Combine data and metadata for storage
-        combined_data = {**self.data, **self.meta}
-        REDIS_CLIENT.hset(self.key, mapping=combined_data)
+        try:
+
+            with REDIS_CLIENT.pipeline() as pipe:
+
+                pipe.watch(self.key)
+
+                # Fetch current version within the pipeline
+                version_ref = pipe.hget(self.key, "_version")
+                version_ref = int(version_ref or 0)
+                version_self = int(self.meta.get("_version", 0))
+                log.error(f"version_ref:{version_ref} - version_self:{version_self}" )
+
+                if version_ref != version_self:
+                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
+
+                pipe.multi()
+                self.meta['_edited']  = utils.now()
+                pipe.hset(self.key, mapping={**self.data, **self.meta})
+                pipe.hincrby(self.key, "_version", 1)
+                
+                pipe.execute()
+            
+            self.meta['_version']  = REDIS_CLIENT.hget(self.key, "_version")
+
+        except redis.WatchError as e:
+            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
 
         log.info(f"Relation with key {self.key} saved with data {self.data} and metadata {self.meta}")
         return self
@@ -407,8 +521,44 @@ class RelationMixin():
     @tracer.wrap("RelationMixin.delete")
     def delete(self) -> bool:
         """Deletes the relation from Redis."""
-        REDIS_CLIENT.delete(self.key)
-        log.info(f"Relation removed: {self.key}")
+
+        with REDIS_CLIENT.pipeline() as pipe:
+            pipe.expire(self.key, DEL_EXPIRE)
+            pipe.hset(self.key, "_deleted", utils.now())
+            pipe.execute()
+
+        log.info(f"Relation marked as deleted: {self.key}")
+        return True
+
+    @classmethod
+    @tracer.wrap("RelationMixin.patch")
+    def patch(cls, left_id: str, right_id: str, **kwargs) -> bool:
+        """
+        Accelerated update, 
+        Pushes the information regardless of conflicts, but wouldn't revive an object marked for deletion.
+        """
+
+        key = cls._key(left_id, right_id)
+
+        if not cls.exist(left_id, right_id):
+            log.warning("object deleted, skipping patch") 
+            return False
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.multi()
+
+            for field, value in kwargs.items():
+                if field in cls.FIELDS:
+                    pipe.hset(key, field, value)
+                else:
+                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
+
+            pipe.hincrby(key, "_version", 1)
+            pipe.hset(key, "_edited", utils.now())
+            pipe.execute()
+            log.info(f"Patched {field}:{value} for {key}")
+
         return True
 
     @classmethod
