@@ -22,6 +22,257 @@ class ConflictError(Exception):
     pass
 
 
+class RedisMixin():
+    """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
+
+    FIELDS          = {}
+    META_FIELDS     = {"_created", "_edited", "_version"}  # metadata fields
+
+    def __init__(self, key: str, data: dict, meta: dict):
+
+        if type(self) is ObjectMixin:
+            raise TypeError("ObjectMixin.__init__() is abstract. Call subclass' instead.")
+
+        self.key = key
+        self.data = data or {} # Instance data (FIELDS)
+        self.meta = meta or {} # Instance metadata (META_FIELDS)
+
+    def __getattr__(self, name):
+        """Intercepts attribute access for keys in FIELDS & META_FIELDS."""
+
+        if name in self.FIELDS :
+            log.debug(f"getting data {name}:{self.data.get(name)}")
+            return self.data.get(name)
+        
+        elif name in self.META_FIELDS :
+            log.debug(f"getting meta {name}:{self.meta.get(name)}")
+            return self.meta.get(name)
+        else:
+            raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
+            # super().__getattr__(name)
+
+    def __setattr__(self, name, value):
+        """Intercepts attribute setting for keys in FIELDS & META_FIELDS."""
+
+        if name in self.FIELDS :
+            self.data[name] = value
+            log.debug(f"setting data {name}:{value}")
+        elif name in self.META_FIELDS :
+            self.meta[name] = value
+            log.debug(f"setting meta {name}:{value}")
+        else:
+            super().__setattr__(name, value)
+
+    @classmethod
+    @tracer.wrap("RedisMixin.create")
+    def create(cls, key, **kwargs) -> "RedisMixin":
+        """
+        Creates a new instance in Redis using keyword arguments for data fields.
+        Args:
+            - key: The Redis key to use - should not already exist
+            - kwargs: field (withing FIELDS) to update with their values
+        Returns:
+            - The created object
+        """
+
+        log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
+
+        # Separate valid and invalid fields
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS }
+        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS )
+
+        # Log a warning for invalid fields
+        if invalid_fields:
+            log.warning(
+                f"Ignoring invalid fields for {cls.__name__}: {invalid_fields}. "
+                f"Allowed fields are: {cls.FIELDS}"
+            )
+
+        instance = cls(key=key, data=data, meta={})
+        instance._created = utils.now()
+        instance._version = -1
+
+        if REDIS_CLIENT.exists(key):
+            raise ConflictError("{cls.__name__}.create: {key} already exists}")
+
+        instance.save()
+
+        return instance
+
+    @classmethod
+    @tracer.wrap("ObjectMixin.exist")
+    def exist(cls, key: str) -> bool:
+        """Assesses whether the instance with key exists, or isn't mark for deletion."""
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.exists(key)
+            pipe.hget(key, "_deleted")
+
+            test_exists, test_deleted = pipe.execute()
+
+        return bool(test_exists) and not test_deleted
+
+    @classmethod
+    @tracer.wrap("RedisMixin.get")
+    def get(cls, key: str) -> "RedisMixin":
+        """
+        Retrieves the object from Redis.
+        Args
+            - key: The Redis key of the object to retrive
+        Returns:
+            - The created object, or None
+        """
+
+        raw = REDIS_CLIENT.hgetall(key)
+        
+        if not raw:
+            log.warning(f"No match for {cls.__name__} with key {key}")
+            return None
+
+        if raw.get("_deleted"):
+            log.warning(f"{cls.__name__} with key {key} marked for deletion. Returning None")
+            return None
+
+        # Separate data and meta based on known fields and metadata fields
+        data = {k: v for k, v in raw.items() if k in cls.FIELDS }
+        meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS }
+
+        return cls(key=key, data=data, meta=meta)
+    
+    @tracer.wrap("RedisMixin.save")
+    def save(self) -> "RedisMixin":
+        """
+        Saves the instance (data and metadata fields) to Redis using optimistic locking.
+        Raises an exception if concurrent edits have been made (version change), or are being made (watch) 
+        """
+
+        # TODO reinforce checks on save if object does not exist
+        # the _version in the object should be trusted
+
+        try:
+
+            with REDIS_CLIENT.pipeline() as pipe:
+
+                pipe.watch(self.key)
+
+                # Fetch current version within the pipeline
+                version_ref = pipe.hget(self.key, "_version")
+                version_ref = int(version_ref) if version_ref else -1
+                version_self = self._version
+
+                if version_ref != version_self:
+                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
+
+                # edit metadata
+                self._edited = utils.now()
+                self._version = int(self._version) + 1
+
+                # save
+                pipe.hset(self.key, mapping={**self.data, **self.meta})
+
+        except redis.WatchError as e:
+            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
+
+        log.info(f"{self.__class__.__name__} with key {self.key} saved: {self.data} (metadata {self.meta})")
+        return self.get(self.key)
+
+    @tracer.wrap("RedisMixin.delete")
+    def delete(self) -> bool:
+        """
+        Deletes the object and all its related relations from Redis using a pipeline.
+        Soft delete, to absorb concurrent changes (that would revive they Redis key otherwise)
+        Hard delete after a buffer period of time (through Redis Expire), when no concurrent changes may happen anymore 
+        """
+
+        with REDIS_CLIENT.pipeline() as pipe:
+            pipe.expire(self.key, DEL_EXPIRE)
+            pipe.hset(self.key, "_deleted", utils.now())
+            pipe.execute()
+
+        log.info(f"{self.__class__.__name__} with key {self.key} and all related relations deleted.")
+        return True
+
+    @classmethod
+    @tracer.wrap("RedisMixin.patch")
+    def patch(cls, key: str, **kwargs) -> bool:
+        """
+        Low-latency update of FIELDS values.
+        Pushes the information regardless of conflicts, but in any case wouldn't revive a deleted instance.
+        Args:
+            - key: The Redis key of the object to patch
+            - kwargs: field (withing FIELDS) to update with their values
+        Returns:
+            - The created object
+        """
+
+        if not cls.exist(key):
+            log.warning("object deleted, skipping patch") 
+            return False
+
+        with REDIS_CLIENT.pipeline() as pipe:
+
+            pipe.multi()
+
+            for field, value in kwargs.items():
+                if field in cls.FIELDS:
+                    pipe.hset(key, field, value)
+                else:
+                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
+
+            pipe.hincrby(key, "_version", 1)
+            pipe.hset(key, "_edited", utils.now())
+            pipe.execute()
+            log.info(f"Patched {field}:{value} for {key}")
+
+        # TODO: return object instead
+        return True
+
+    @tracer.wrap("RedisMixin.to_dict")
+    def to_dict(self):
+        """Converts the object to a dictionary for JSON serialization."""
+
+        result = {
+            "key": self.key,
+            **self.data, 
+            **self.meta
+        }
+
+        return result
+
+    @classmethod
+    @tracer.wrap("ObjectMixin.all")
+    def search(cls, pattern="*", cursor=0, count=1000) -> tuple[list["ObjectMixin"], int]:
+        """
+        Retrieves a batch of objects matching key pattern, using pagination.
+        Args:
+            - pattern: The search pattern for Redis keys
+            - cursor: The starting cursor for the SCAN operation. Pass 0 to start from the beginning.
+            - count: How many results to retrieve in search
+        Returns:
+            - A list of ObjectMixins in the current batch.
+            - The cursor for the next batch (0 if all results have been retrieved).
+        """
+
+        if type(cls) is ObjectMixin:
+            raise TypeError("ObjectMixin.search() is abstract. Call subclass' instead.")
+
+        instances = []
+
+        cursor, keys = REDIS_CLIENT.scan(cursor=cursor, match=pattern, count=1000)
+
+        for key in keys:
+            raw = REDIS_CLIENT.hgetall(key)
+            
+            # Separate data and metadata
+            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
+
+            instances.append(cls(key, data, meta))
+
+        return instances, cursor
+
+
 ## OBJECTS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
 class ObjectMixinMeta(type):
@@ -55,160 +306,66 @@ class ObjectMixinMeta(type):
         return named_manager
 
 
-class ObjectMixin(metaclass=ObjectMixinMeta):
-    """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
+class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
+    """
+    An extension of RedisMixin which 
+        - introduces relationships (left objects, and right objects) through RelationManagers
+        - wraps Redis keys in the form of simple object IDs - see _key() method
+    """
 
     # To be defined in subclasses
     ID_GENERATOR    = utils.new_id  # The ID generator to use for the class
 
-    FIELDS          = {}            # An allowlist of fields to consider in the hash map values
     LEFTS           = {}            # Leftwards relations {"relation_name": "relation_class_path", ...}
     RIGHTS          = {}            # Rightwards relations {"relation_name": "relation_class_path", ...}
-    META_FIELDS     = {"_created", "_edited", "_version"}  # Known metadata fields
 
-    def __init__(self, id: str, data: dict, meta: dict = None):
-        self.id = id
-        self.data = data  # Object data (allowed fields)
-        self.meta = meta or {}  # Object metadata (private attribute)
-
-    def __getattr__(self, name):
-        """Intercepts attribute access for keys in FIELDS."""
-
-        if name in self.FIELDS:
-            return self.data.get(name, None)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, name, value):
-        """Intercepts attribute setting for keys in FIELDS."""
-
-        if name in {"id", "data", "meta", "_relation_managers", "FIELDS", "META_FIELDS"}:
-            super().__setattr__(name, value)
-        elif name in self.FIELDS:
-            self.data[name] = value
-        else:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    ## HELPERS ##### ##### ##### ##### ##### 
 
     @classmethod
-    def _prefix(cls):
-        """Returns the lowercased class name to use as key prefix."""
-        return cls.__name__.lower()
-
+    def _prefix(cls) -> str:
+        """Returns the Redis key of an object given its id"""
+        return f"{cls.__name__.lower()}:"
+    
     @classmethod
     def _key(cls, id: str) -> str:
-        """Returns the Redis key of an object"""
-        return f"{cls._prefix()}:{id}"
+        """Returns the Redis key of an object given its id"""
+        return f"{cls._prefix()}{id}"
+
+    def __getattr__(self, name):
+        """Intercepts attribute access for id."""
+
+        if name == "id":
+            log.info(f"getting ID: {self.key[len(self._prefix()):]}")
+            return self.key[len(self._prefix()):]
+        else:
+            return super().__getattr__(name)
 
     @classmethod
     @tracer.wrap("ObjectMixin.create")
     def create(cls, **kwargs) -> "ObjectMixin":
-        """Creates the object in Redis using keyword arguments for data fields."""
-        log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
-
-        # Separate valid and invalid fields
-        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
-        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
-
-        # Log a warning for invalid fields
-        if invalid_fields:
-            log.warning(
-                f"Invalid fields for {cls.__name__}: {invalid_fields}. "
-                f"Allowed fields are: {cls.FIELDS}"
-            )
 
         # Generate a unique ID and create the instance
         while True:
-            id = str(cls.ID_GENERATOR())
+            id = cls.ID_GENERATOR()
             if not REDIS_CLIENT.exists(cls._key(id)):
                 break  # Unique ID found
 
-        instance = cls(id=id, data=data)
-        instance.meta["_created"] = utils.now()
-        instance.save()
-
-        return instance
+        return super().create(cls._key(id), **kwargs)
 
     @classmethod
     def exist(cls, id: str) -> bool:
-        """Assesses whether the object exists."""
-
-        key = cls._key(id)
-
-        with REDIS_CLIENT.pipeline() as pipe:
-
-            pipe.exists(key)
-            pipe.hget(key, "_deleted")
-
-            test_exists, test_deleted = pipe.execute()
-
-        return bool(test_exists) and not test_deleted
-
+        return super().exist( cls._key(id) )
 
     @classmethod
-    @tracer.wrap("ObjectMixin.get")
     def get(cls, id: str) -> "ObjectMixin":
-        """Retrieves the object from Redis."""
-
-        key = cls._key(id)
-        raw = REDIS_CLIENT.hgetall(key)
-        
-        if not raw:
-            log.warning(f"No match for relation {cls.__name__} with key {key}")
-            return None
-
-        if raw.get("_deleted"):
-            log.warning(f"trying to get object {cls.__name__} with key {key} marked for deletion")
-            return None
-
-        # Separate data and meta based on known fields and metadata fields
-        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
-
-        return cls(id=id, data=data, meta=meta)
-    
-    @tracer.wrap("ObjectMixin.save")
-    def save(self) -> "ObjectMixin":
-        """
-        Saves the object's data fields and metadata to Redis.
-        Raises an exception if concurrent edits have been (version change) or are being made (watch) 
-        """
-
-        try:
-
-            with REDIS_CLIENT.pipeline() as pipe:
-
-                key = self._key(self.id)
-
-                pipe.watch(key)
-
-                # Fetch current version within the pipeline
-                version_ref = pipe.hget(key, "_version")
-                version_ref = int(version_ref or 0)
-                version_self = int(self.meta.get("_version", 0))
-                log.error(f"version_ref:{version_ref} - version_self:{version_self}" )
-
-                if version_ref != version_self:
-                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
-
-                pipe.multi()
-                self.meta["_edited"] = utils.now()
-                pipe.hset(key, mapping={**self.data, **self.meta})
-                pipe.hincrby(key, "_version", 1)
-
-                pipe.execute()
-
-            self.meta['_version']  = REDIS_CLIENT.hget(key, "_version")
-
-        except redis.WatchError as e:
-            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
-
-        log.info(f"{self.__class__.__name__} with ID {self.id} updated: {self.data} (metadata {self.meta})")
-        return self
+        return super().get( cls._key(id) )
 
     @tracer.wrap("ObjectMixin.delete")
     def delete(self) -> bool:
         """Deletes the object and all its related relations from Redis using a pipeline."""
+        # TODO delete relations and objects in the same Redis transaction
 
-        # Delete all related relations
+        # Delete all left-relations
         if self.LEFTS:
 
             log.info(f"Deleting relations for {self.__class__.__name__} with ID {self.id}")
@@ -217,7 +374,7 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                 manager =LeftwardsRelationManager(self, relation_class)
                 manager.remove_all()
 
-        # Delete all related relations
+        # Delete all right-relations
         if self.RIGHTS:
 
             log.info(f"Deleting relations for {self.__class__.__name__} with ID {self.id}")
@@ -226,59 +383,24 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
                 manager = RightwardsRelationManager(self, relation_class)
                 manager.remove_all()
 
-        key = self._key(self.id)
-        with REDIS_CLIENT.pipeline() as pipe:
-            pipe.expire(key, DEL_EXPIRE)
-            pipe.hset(key, "_deleted", utils.now())
-            pipe.execute()
-
-        log.info(f"{self.__class__.__name__} with ID {self.id} and all related relations deleted.")
-        return True
+        return super().delete()
 
     @classmethod
-    @tracer.wrap("ObjectMixin.patch")
     def patch(cls, id: str, **kwargs) -> bool:
-        """
-        Accelerated update, 
-        Pushes the information regardless of conflicts, but wouldn't revive an object marked for deletion.
-        """
-
-        key = cls._key(id)
-
-        if not cls.exist(id):
-            log.warning("object deleted, skipping patch") 
-            return False
-
-        with REDIS_CLIENT.pipeline() as pipe:
-
-            pipe.multi()
-
-            for field, value in kwargs.items():
-                if field in cls.FIELDS:
-                    pipe.hset(key, field, value)
-                else:
-                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
-
-            pipe.hincrby(key, "_version", 1)
-            pipe.hset(key, "_edited", utils.now())
-            pipe.execute()
-            log.info(f"Patched {field}:{value} for {key}")
-
-        return True
+        return super().patch(cls._key(), **kwargs)
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related=False):
-        """Converts the object to a dictionary for JSON serialization."""
-        result = {
+
+        result = { 
             "id": self.id,
-            **self.meta,
-            **self.data
+            **self.data, 
+            **self.meta
         }
 
         if include_related:
             
             if self.LEFTS:
-
                 for relation_name, relation_class in self.LEFTS.items():
                     manager = LeftwardsRelationManager(self, relation_class)
                     
@@ -302,40 +424,14 @@ class ObjectMixin(metaclass=ObjectMixinMeta):
         return result
 
     @classmethod
-    @tracer.wrap("ObjectMixin.all")
-    def all(cls, cursor=0, count=1000) -> tuple[list["ObjectMixin"], int]:
-        """
-        Retrieves a batch of objects from Redis using pagination.
-
-        Args:
-            cursor: The starting cursor for the SCAN operation. Pass 0 to start from the beginning.
-
-        Returns:
-            - A list of ObjectMixins in the current batch.
-            - The cursor for the next batch (0 if all results have been retrieved).
-        """
-        instances = []
-
-        pattern = f"{cls._prefix()}:*"
-        cursor, keys = REDIS_CLIENT.scan(cursor=cursor, match=pattern, count=1000)
-
-        for key in keys:
-            raw = REDIS_CLIENT.hgetall(key)
-            id = key.split(":")[1]  # Extract the id from the key
-
-            # Separate data and metadata
-            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
-
-            instances.append(cls(id=id, data=data, meta=meta))
-
-        return instances, cursor
+    def search(cls, cursor=0, count=1000):
+        return super().search(f"{cls._prefix()}*", cursor, count)
 
 
 ## ASSOCIATIONS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
 
-class RelationMixin():
+class RelationMixin(RedisMixin):
     """
     A class for managing n:m relationships with data fields and metadata in Redis.
     Assumes no more than one relation can exist between 2 instances
@@ -347,48 +443,23 @@ class RelationMixin():
     R_CLASS = None   # Right-side class (e.g., User)
     NAME = "left:linksto:right"  # Name of the relation for key generation
 
-    FIELDS      = None    # Relation-specific data fields (e.g., "role")
-    META_FIELDS = {"_created", "_edited", "_version", "_deleted"}  # Metadata fields only
-
-    def __init__(self, key: str, data: dict, meta: dict = None):
-
-        self.key        = key
-        self.data       = data
-        self.meta       = meta or {}
-
-    def __getattr__(self, name):
-        """Intercepts attribute access for keys in FIELDS."""
-
-        if name in self.FIELDS:
-            return self.data.get(name, None)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, name, value):
-        """Intercepts attribute setting for keys in FIELDS."""
-
-        if name in {"key", "left_id", "right_id", "data", "meta", "FIELDS", "META_FIELDS"}:
-            super().__setattr__(name, value)
-        elif name in self.FIELDS:
-            self.data[name] = value
-        else:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     ## HELPERS ##### ##### ##### ##### ##### 
 
     @classmethod
     def _L_prefix(cls):
         """Returns the lowercased class name for the left-side class."""
-        return cls.L_CLASS.__name__.lower()
+        return f"{cls.L_CLASS.__name__.lower()}:"
 
     @classmethod
     def _R_prefix(cls):
         """Returns the lowercased class name for the right-side class."""
-        return cls.R_CLASS.__name__.lower()
+        return f"{cls.R_CLASS.__name__.lower()}:"
 
     @classmethod
     def _key(cls, left_id: str, right_id: str) -> str:
         """Generate the Redis key for a relation between two objects (used in one-to-many)."""
-        return f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:{right_id}"
+        return f"{cls.NAME}::{cls._L_prefix()}{left_id}::{cls._R_prefix()}{right_id}"
     
     @classmethod
     def _exist_parent(cls, right_id: str) -> "RelationMixin":
@@ -400,6 +471,26 @@ class RelationMixin():
             if raw:
                 return True
         return False
+
+    def __getattr__(self, name):
+        """Intercepts attribute access for id."""
+
+        if name == "left_id":
+
+            parts = self.key.split("::")
+            left_id = parts[1].split(":")[1]
+            log.info(f"getting Left ID: {left_id}")
+            return left_id
+
+        elif name == "right_id":
+
+            parts = self.key.split("::")
+            right_id = parts[2].split(":")[1]        
+            log.info(f"getting Right ID: {right_id}")
+            return right_id
+
+        else:
+            return super().__getattr__(name)
 
     ## ##### ##### ##### ##### ##### #####
 
@@ -425,186 +516,34 @@ class RelationMixin():
                     f"{cls.R_CLASS.__name__}:{right_id} is already linked to a {cls.L_CLASS.__name__} - skipping association"
                 )
 
-        # Separate valid and invalid fields
-        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
-        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS)
+        return super().create(cls._key(left_id, right_id), **kwargs)
 
-        if invalid_fields:
-            log.warning(
-                f"Invalid fields for relation between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id}: {invalid_fields}. "
-                f"Allowed fields are: {cls.FIELDS}"
-            )
-
-        # Create the relation
-        key = cls._key(left_id, right_id)
-        relation = cls(key, data=data)
-
-        relation.meta["_created"] = utils.now()
-        relation.save()
-
-        return relation
 
     @classmethod
     def exist(cls, left_id: str, right_id: str) -> bool:
-        """Assesses whether the relation exists."""
-
-        key = cls._key(left_id, right_id)
-
-        with REDIS_CLIENT.pipeline() as pipe:
-
-            pipe.exists(key)
-            pipe.hget(key, "_deleted")
-
-            test_exists, test_deleted = pipe.execute()
-
-        return bool(test_exists) and not test_deleted
+        return super().exist( cls._key(left_id, right_id) )
 
     @classmethod
-    @tracer.wrap("RelationMixin.get")
     def get(cls, left_id: str, right_id: str) -> "RelationMixin":
-        """Retrieves the relation."""
-
-        key = cls._key(left_id, right_id)
-        raw = REDIS_CLIENT.hgetall(key)
-
-        if not raw:
-            log.warning(f"No match for relation {cls.__name__} with key {key}")
-            return None
-
-        if raw.get("_deleted"):
-            log.warning(f"trying to get relation {cls.__name__} with key {key} marked for deletion")
-            return None
-
-        # Split combined_data into fields and metadata
-        data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-        meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
-
-        return cls(key=key, data=data, meta=meta)
+        return super().get( cls._key(left_id, right_id) )
     
-    @tracer.wrap("RelationMixin.save")
-    def save(self) -> "RelationMixin":
-        """
-        Saves the relation's data fields and metadata to Redis.
-        Raises an exception if concurrent edits have been (version change) or are being made (watch) 
-        """
-
-        try:
-
-            with REDIS_CLIENT.pipeline() as pipe:
-
-                pipe.watch(self.key)
-
-                # Fetch current version within the pipeline
-                version_ref = pipe.hget(self.key, "_version")
-                version_ref = int(version_ref or 0)
-                version_self = int(self.meta.get("_version", 0))
-                log.error(f"version_ref:{version_ref} - version_self:{version_self}" )
-
-                if version_ref != version_self:
-                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
-
-                pipe.multi()
-                self.meta['_edited']  = utils.now()
-                pipe.hset(self.key, mapping={**self.data, **self.meta})
-                pipe.hincrby(self.key, "_version", 1)
-                
-                pipe.execute()
-            
-            self.meta['_version']  = REDIS_CLIENT.hget(self.key, "_version")
-
-        except redis.WatchError as e:
-            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
-
-        log.info(f"Relation with key {self.key} saved with data {self.data} and metadata {self.meta}")
-        return self
-
-    @tracer.wrap("RelationMixin.delete")
-    def delete(self) -> bool:
-        """Deletes the relation from Redis."""
-
-        with REDIS_CLIENT.pipeline() as pipe:
-            pipe.expire(self.key, DEL_EXPIRE)
-            pipe.hset(self.key, "_deleted", utils.now())
-            pipe.execute()
-
-        log.info(f"Relation marked as deleted: {self.key}")
-        return True
-
     @classmethod
-    @tracer.wrap("RelationMixin.patch")
     def patch(cls, left_id: str, right_id: str, **kwargs) -> bool:
-        """
-        Accelerated update, 
-        Pushes the information regardless of conflicts, but wouldn't revive an object marked for deletion.
-        """
-
-        key = cls._key(left_id, right_id)
-
-        if not cls.exist(left_id, right_id):
-            log.warning("object deleted, skipping patch") 
-            return False
-
-        with REDIS_CLIENT.pipeline() as pipe:
-
-            pipe.multi()
-
-            for field, value in kwargs.items():
-                if field in cls.FIELDS:
-                    pipe.hset(key, field, value)
-                else:
-                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
-
-            pipe.hincrby(key, "_version", 1)
-            pipe.hset(key, "_edited", utils.now())
-            pipe.execute()
-            log.info(f"Patched {field}:{value} for {key}")
-
-        return True
+        return super().patch( cls._key(left_id, right_id), **kwargs)
 
     @classmethod
-    @tracer.wrap("RelationMixin.all")
-    def all(cls, cursor=0) -> list["RelationMixin"]:
-        """
-        Retrieves a batch of relations from Redis using pagination.
-
-        Args:
-            cursor: The starting cursor for the SCAN operation. Pass 0 to start from the beginning.
-
-        Returns:
-            - A list of ObjectMixins in the current batch.
-            - The cursor for the next batch (0 if all results have been retrieved).
-        """
-
-        relations = []
-        pattern = f"{cls.NAME}::{cls._L_prefix()}:*::{cls._R_prefix()}:*"
-
-        cursor, keys = REDIS_CLIENT.scan(cursor=cursor, match=pattern, count=1000)
-
-        for key in REDIS_CLIENT.scan_iter(pattern):
-            raw = REDIS_CLIENT.hgetall(key)
-            parts = key.split("::")
-            left_id = parts[1].split(":")[1]
-            right_id = parts[2].split(":")[1]
-
-            # Separate data fields and metadata
-            data = {k: v for k, v in raw.items() if k in cls.FIELDS}
-            meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
-
-            relation = cls(cls._key(left_id, right_id), data=data, meta=meta)
-
-            relations.append( relation.to_dict() )
-
-        return relations
+    def search(cls, cursor=0, count=1000):
+        pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}*"
+        return super().search(pattern, cursor, count)
+    
 
     @tracer.wrap("RelationMixin.to_dict")
     def to_dict(self):
         """Converts the relation to a dictionary for JSON serialization."""
 
-        left_id, right_id = self.key.split("::")[1].split(":")[1], self.key.split("::")[2].split(":")[1]
-
         result = {
-            f"{self._L_prefix()}": self.L_CLASS.get(left_id).to_dict(False),
-            f"{self._R_prefix()}": self.R_CLASS.get(right_id).to_dict(False),
+            f"{self._L_prefix()}": self.L_CLASS.get(self.left_id).to_dict(False),
+            f"{self._R_prefix()}": self.R_CLASS.get(self.right_id).to_dict(False),
             **self.meta,
             **self.data
         }
@@ -615,34 +554,28 @@ class RelationMixin():
     def left(self):
         """Returns the left-side object of the relation"""
 
-        left_id = self.key.split("::")[1].split(":")[1]
-        return self.L_CLASS.get(left_id)
-
-    @tracer.wrap("RelationMixin.left_to_dict")
-    def left_to_dict(self):
-        """Returns the relation alongside its left-side object for JSON serialization."""
-
-        left_id = self.key.split("::")[1].split(":")[1]
-
-        result = self.L_CLASS.get(left_id).to_dict(False)
-        result ["relation"] = self.meta | self.data
-    
-        return result
+        return self.L_CLASS.get(self.left_id)
 
     @tracer.wrap("RelationMixin.right")
     def right(self):
         """Returns the right-side object of the relation"""
 
-        right_id = self.key.split("::")[2].split(":")[1]
-        return self.R_CLASS.get(right_id)
+        return self.R_CLASS.get(self.right_id)
+    
+    @tracer.wrap("RelationMixin.left_to_dict")
+    def left_to_dict(self):
+        """Returns the relation alongside its left-side object for JSON serialization."""
+
+        result = self.L_CLASS.get(self.left_id).to_dict(False)
+        result ["relation"] = self.meta | self.data
+    
+        return result
 
     @tracer.wrap("RelationMixin.right_to_dict")
     def right_to_dict(self):
         """Returns the relation alongside its right-side object for JSON serialization."""
 
-        right_id = self.key.split("::")[2].split(":")[1]
-
-        result = self.R_CLASS.get(right_id).to_dict(False)
+        result = self.R_CLASS.get(self.right_id).to_dict(False)
         result ["relation"] = self.meta | self.data
     
         return result
@@ -653,24 +586,27 @@ class RelationMixin():
         """Retrieve all leftwards relations with a given right-side object."""
 
         lefts = {}
-        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
-        
+
+        pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}{right_id}"
         for key in REDIS_CLIENT.scan_iter(pattern):
 
-            left_id = key.split("::")[1].split(":")[1]
-
             # Fetch raw data from Redis
-            raw_a = REDIS_CLIENT.hgetall(key)
-            if not raw_a:
-                log.warning(f"No data found for key {key}")
+            raw = REDIS_CLIENT.hgetall(key)
+            if not raw:
+                log.warning(f"No match for {cls.__name__} with key {key}")
                 continue
 
+            if raw.get("_deleted"):
+                log.warning(f"{cls.__name__} with key {key} marked for deletion. Returning None")
+                return None
+
             # Extract relation attributes
-            data   = {k: v for k, v in raw_a.items() if k in cls.FIELDS}
-            meta   = {k: v for k, v in raw_a.items() if k in cls.META_FIELDS}
+            data   = {k: v for k, v in raw.items() if k in cls.FIELDS}
+            meta   = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
             relation = cls(key, data=data, meta=meta)
 
             # Store left-side object along with relation attributes
+            left_id = key.split("::")[1].split(":")[1]
             lefts[left_id] = relation
 
         return lefts
@@ -681,11 +617,9 @@ class RelationMixin():
         """Retrieve all rightwards relations with a given left-side object."""
 
         rights = {}
-        pattern = f"{cls.NAME}::{cls._L_prefix()}:{left_id}::{cls._R_prefix()}:*"
-        
-        for key in REDIS_CLIENT.scan_iter(pattern):
 
-            right_id = key.split("::")[2].split(":")[1]
+        pattern = f"{cls.NAME}::{cls._L_prefix()}{left_id}::{cls._R_prefix()}*"
+        for key in REDIS_CLIENT.scan_iter(pattern):
 
             # Fetch raw data from Redis
             raw = REDIS_CLIENT.hgetall(key)
@@ -699,6 +633,7 @@ class RelationMixin():
             relation  = cls(key, data=data, meta=meta)
 
             # Store left-side object along with relation attributes
+            right_id = key.split("::")[2].split(":")[1]
             rights[right_id] = relation
 
         return rights
@@ -710,7 +645,7 @@ class RelationManager():
     def __init__(self, instance, relation_class):
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager cannot be instantiated directly. Subclass it instead.")
+            raise TypeError("RelationManager cannot be instantiated directly. Call subclass' instead.")
 
         self.instance = instance
 
@@ -723,20 +658,20 @@ class RelationManager():
         """Retrieves all relations for the instance, indexed with their object ID"""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.all() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.all() is abstract. Call subclass' instead.")
 
 
     def add(self, related_id: str, **data) -> ObjectMixin:
         """Adds a relation between the instance and a related object."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.add() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.add() is abstract. Call subclass' instead.")
 
     def remove(self, related_id: str) -> ObjectMixin:
         """Removes the relation the instance and a related object."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.remove() is abstract. Call subclass' instead.")
 
     @tracer.wrap("RelationManager.remove_all")
     def remove_all(self) -> ObjectMixin:
@@ -754,19 +689,19 @@ class RelationManager():
         """ Retrieves a related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.get() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.get() is abstract. Call subclass' instead.")
 
     def exists(self, related_id: str) -> bool :
         """ Retrieves if a relation exists between instance with related object"""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.exists() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.exists() is abstract. Call subclass' instead.")
 
     def first(self) -> tuple[ObjectMixin, RelationMixin] :
         """ Retrieves the first related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.remove() is abstract. Use subclass it instead.")
+            raise TypeError("RelationManager.remove() is abstract. Call subclass' instead.")
 
     @tracer.wrap("RelationManager.set")
     def set(self, related_id: str, **kwargs) -> tuple[ObjectMixin, RelationMixin] :
