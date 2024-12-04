@@ -29,6 +29,7 @@ def render_template(template, **kwargs):
         dd_version=app.config["DD_VERSION"],
         dd_env=app.config["DD_ENV"],
         dd_site=app.config["DD_SITE"],
+        mp_token=app.config["MP_TOKEN"],
         session=flask.session,
         request_cookies=flask.request.cookies, # Include request cookies for debugging
         **kwargs
