@@ -30,8 +30,8 @@ class RedisMixin():
 
     def __init__(self, key: str, data: dict, meta: dict):
 
-        if type(self) is ObjectMixin:
-            raise TypeError("ObjectMixin.__init__() is abstract. Call subclass' instead.")
+        if type(self) is RedisMixin:
+            raise TypeError("RedisMixin.__init__() is abstract. Call subclass' instead.")
 
         self.key = key
         self.data = data or {} # Instance data (FIELDS)
@@ -41,27 +41,23 @@ class RedisMixin():
         """Intercepts attribute access for keys in FIELDS & META_FIELDS."""
 
         if name in self.FIELDS :
-            log.debug(f"getting data {name}:{self.data.get(name)}")
             return self.data.get(name)
-        
         elif name in self.META_FIELDS :
-            log.debug(f"getting meta {name}:{self.meta.get(name)}")
             return self.meta.get(name)
         else:
             raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
-            # super().__getattr__(name)
 
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS & META_FIELDS."""
 
         if name in self.FIELDS :
             self.data[name] = value
-            log.debug(f"setting data {name}:{value}")
         elif name in self.META_FIELDS :
             self.meta[name] = value
-            log.debug(f"setting meta {name}:{value}")
+        elif name in {"key", "data", "meta"}:
+            return super().__setattr__(name, value)
         else:
-            super().__setattr__(name, value)
+            raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
 
     @classmethod
     @tracer.wrap("RedisMixin.create")
@@ -121,7 +117,7 @@ class RedisMixin():
         Args
             - key: The Redis key of the object to retrive
         Returns:
-            - The created object, or None
+            - The object, or None
         """
 
         raw = REDIS_CLIENT.hgetall(key)
@@ -335,7 +331,6 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
         """Intercepts attribute access for id."""
 
         if name == "id":
-            log.info(f"getting ID: {self.key[len(self._prefix()):]}")
             return self.key[len(self._prefix()):]
         else:
             return super().__getattr__(name)
@@ -357,7 +352,14 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
         return super().exist( cls._key(id) )
 
     @classmethod
-    def get(cls, id: str) -> "ObjectMixin":
+    def get_by_id(cls, id: str) -> "ObjectMixin":
+        """
+        Retrieves the object from Redis.
+        Args
+            - id: The ID of the object to retrive
+        Returns:
+            - The object, or None
+        """
         return super().get( cls._key(id) )
 
     @tracer.wrap("ObjectMixin.delete")
@@ -464,7 +466,7 @@ class RelationMixin(RedisMixin):
     @classmethod
     def _exist_parent(cls, right_id: str) -> "RelationMixin":
         """Retrieve the relation for a given right-side object (used in one-to-many)."""
-        pattern = f"{cls.NAME}::*::{cls._R_prefix()}:{right_id}"
+        pattern = f"{cls.NAME}::*::{cls._R_prefix()}{right_id}"
 
         for key in REDIS_CLIENT.scan_iter(pattern):
             raw = REDIS_CLIENT.hgetall(key)
@@ -479,14 +481,12 @@ class RelationMixin(RedisMixin):
 
             parts = self.key.split("::")
             left_id = parts[1].split(":")[1]
-            log.info(f"getting Left ID: {left_id}")
             return left_id
 
         elif name == "right_id":
 
             parts = self.key.split("::")
             right_id = parts[2].split(":")[1]        
-            log.info(f"getting Right ID: {right_id}")
             return right_id
 
         else:
@@ -501,11 +501,11 @@ class RelationMixin(RedisMixin):
         """Creates a relation instance."""
         log.info(f"Creating relation between {cls.L_CLASS.__name__}:{left_id} and {cls.R_CLASS.__name__}:{right_id} with kwargs {kwargs}")
 
-        if cls.L_CLASS.get(left_id) is None:
-            raise ValueError(f"{cls.L_CLASS}:{left_id} does not exist.")
+        if cls.L_CLASS.get_by_id(left_id) is None:
+            raise ValueError(f"{cls.L_CLASS.__name__}:{left_id} does not exist.")
         
-        if cls.R_CLASS.get(right_id) is None:
-            raise ValueError(f"{cls.R_CLASS}:{right_id} does not exist.")
+        if cls.R_CLASS.get_by_id(right_id) is None:
+            raise ValueError(f"{cls.R_CLASS.__name__}:{right_id} does not exist.")
 
         # Enforce cardinality constraints
         if cls.RELATION_TYPE == "one_to_many":
@@ -524,7 +524,15 @@ class RelationMixin(RedisMixin):
         return super().exist( cls._key(left_id, right_id) )
 
     @classmethod
-    def get(cls, left_id: str, right_id: str) -> "RelationMixin":
+    def get_by_ids(cls, left_id: str, right_id: str) -> "RelationMixin":
+        """
+        Retrieves the object from Redis.
+        Args
+            - left_id: The ID of the left-hand side object of the Relation
+            - right_id: The ID of the right-hand side object of the Relation
+        Returns:
+            - The created object, or None
+        """
         return super().get( cls._key(left_id, right_id) )
     
     @classmethod
@@ -536,14 +544,13 @@ class RelationMixin(RedisMixin):
         pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}*"
         return super().search(pattern, cursor, count)
     
-
     @tracer.wrap("RelationMixin.to_dict")
     def to_dict(self):
         """Converts the relation to a dictionary for JSON serialization."""
 
         result = {
-            f"{self._L_prefix()}": self.L_CLASS.get(self.left_id).to_dict(False),
-            f"{self._R_prefix()}": self.R_CLASS.get(self.right_id).to_dict(False),
+            f"{self._L_prefix()}": self.L_CLASS.get_by_id(self.left_id).to_dict(False),
+            f"{self._R_prefix()}": self.R_CLASS.get_by_id(self.right_id).to_dict(False),
             **self.meta,
             **self.data
         }
@@ -554,19 +561,19 @@ class RelationMixin(RedisMixin):
     def left(self):
         """Returns the left-side object of the relation"""
 
-        return self.L_CLASS.get(self.left_id)
+        return self.L_CLASS.get_by_id(self.left_id)
 
     @tracer.wrap("RelationMixin.right")
     def right(self):
         """Returns the right-side object of the relation"""
 
-        return self.R_CLASS.get(self.right_id)
+        return self.R_CLASS.get_by_id(self.right_id)
     
     @tracer.wrap("RelationMixin.left_to_dict")
     def left_to_dict(self):
         """Returns the relation alongside its left-side object for JSON serialization."""
 
-        result = self.L_CLASS.get(self.left_id).to_dict(False)
+        result = self.L_CLASS.get_by_id(self.left_id).to_dict(False)
         result ["relation"] = self.meta | self.data
     
         return result
@@ -575,7 +582,7 @@ class RelationMixin(RedisMixin):
     def right_to_dict(self):
         """Returns the relation alongside its right-side object for JSON serialization."""
 
-        result = self.R_CLASS.get(self.right_id).to_dict(False)
+        result = self.R_CLASS.get_by_id(self.right_id).to_dict(False)
         result ["relation"] = self.meta | self.data
     
         return result
@@ -685,11 +692,11 @@ class RelationManager():
 
         return self.instance
 
-    def get(self, related_id: str) -> tuple[ObjectMixin, RelationMixin] :
+    def get_by_id(self, related_id: str) -> tuple[ObjectMixin, RelationMixin] :
         """ Retrieves a related object and its relation to the instance by its ID."""
 
         if type(self) is RelationManager:
-            raise TypeError("RelationManager.get() is abstract. Call subclass' instead.")
+            raise TypeError("RelationManager.get_by_id() is abstract. Call subclass' instead.")
 
     def exists(self, related_id: str) -> bool :
         """ Retrieves if a relation exists between instance with related object"""
@@ -707,7 +714,7 @@ class RelationManager():
     def set(self, related_id: str, **kwargs) -> tuple[ObjectMixin, RelationMixin] :
         """ Sets properties of the relation of with related object."""
 
-        obj, rel = self.get(related_id)
+        obj, rel = self.get_by_id(related_id)
         if rel:
             for key, value in kwargs.items():
                 rel.__setattr__(key, value)
@@ -735,18 +742,18 @@ class RightwardsRelationManager(RelationManager):
 
     @tracer.wrap("RightwardsRelationManager.remove")
     def remove(self, related_id: str):
-        relation = self.relation_class.get(self.instance.id, related_id)
+        relation = self.relation_class.get_by_ids(self.instance.id, related_id)
         if relation:
             relation.delete()
         return self.instance
 
     @tracer.wrap("RightwardsRelationManager.get")
-    def get(self, related_id) :
+    def get_by_id(self, related_id) :
         
         bool = self.relation_class.exist(self.instance.id, related_id)
         if bool:
-            rel = self.relation_class.get(self.instance.id, related_id)
-            obj = self.relation_class.R_CLASS.get(related_id)
+            rel = self.relation_class.get_by_ids(self.instance.id, related_id)
+            obj = self.relation_class.R_CLASS.get_by_id(related_id)
             return obj, rel
         else: 
             return None, None
@@ -783,18 +790,18 @@ class LeftwardsRelationManager(RelationManager):
 
     @tracer.wrap("LeftwardsRelationManager.remove")
     def remove(self, related_id: str):
-        relation = self.relation_class.get(related_id, self.instance.id)
+        relation = self.relation_class.get_by_ids(related_id, self.instance.id)
         if relation:
             relation.delete()
         return self.instance
 
     @tracer.wrap("LeftwardsRelationManager.get")
-    def get(self, related_id) :
+    def get_by_id(self, related_id) :
         
         bool = self.relation_class.exist(related_id, self.instance.id)
         if bool:
-            rel = self.relation_class.get(related_id, self.instance.id)
-            obj = self.relation_class.L_CLASS.get(related_id)
+            rel = self.relation_class.get_by_ids(related_id, self.instance.id)
+            obj = self.relation_class.L_CLASS.get_by_id(related_id)
             return obj, rel
         else: 
             return None, None

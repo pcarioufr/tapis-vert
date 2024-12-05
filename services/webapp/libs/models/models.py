@@ -30,7 +30,7 @@ class User(ObjectMixin):
         # Iterate over codes associated with this user
         for code_id, association in self.codes().all().items():
             try:
-                code_instance = Code.get(code_id)
+                code_instance = Code.get_by_id(code_id)
                 if code_instance:
                     code_instance.delete()
                     log.info(f"Deleted Code with ID {code_id} associated with User ID {self.id}")

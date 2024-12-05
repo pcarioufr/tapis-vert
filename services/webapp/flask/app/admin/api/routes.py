@@ -32,7 +32,7 @@ def rooms(room_id=None):
     if room_id is None:
         return flask.jsonify(), 400
 
-    room = Room.get(room_id)
+    room = Room.get_by_id(room_id)
     if room is None:
         return flask.jsonify(), 404
 
@@ -70,12 +70,12 @@ def users(user_id=None):
     if user_id is None:
         return flask.jsonify(), 400
 
-    user = User.get(user_id)
+    user = User.get_by_id(user_id)
     if user is None:
         return flask.jsonify(), 404
 
     if flask.request.method == 'GET':
-        user = User.get(user_id)
+        user = User.get_by_id(user_id)
         return flask.jsonify(user.to_dict()), 200
 
     if flask.request.method == 'DELETE':

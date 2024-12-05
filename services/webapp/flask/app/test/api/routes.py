@@ -27,7 +27,7 @@ def users():
     user_id = user.id
 
     # Assert User creation
-    retrieved_user = User.get(user_id)
+    retrieved_user = User.get_by_id(user_id)
     tests = {
         "user:create": OK if retrieved_user else KO,
         "user:create:name": OK if retrieved_user and retrieved_user.name == NAME else KO,
@@ -37,18 +37,32 @@ def users():
     # Assert User update
     NAME = "Alicia"
     user.name = NAME
-    user.nom  = NAME
     user.save()
 
-    retrieved_user = User.get(user_id)
-    tests = {
-        "user:update:name": OK if retrieved_user and retrieved_user.name == NAME else KO,
-        "user:update:nom": OK if retrieved_user and "nom" not in retrieved_user.data else KO,
+    retrieved_user = User.get_by_id(user_id)
+    tests = tests | {
+        "user:update-1:name": OK if retrieved_user and retrieved_user.name == NAME else KO,
+        "user:update-1:nom": OK if retrieved_user and "nom" not in retrieved_user.data else KO,
+    }
+
+    # Assert User update - should fail as a transaction 
+    NAME2 = "Alexa"
+    try:
+        user.name = NAME2
+        user.nom  = NAME2
+        user.save()
+    except:
+        pass
+
+    retrieved_user = User.get_by_id(user_id)
+    tests = tests | {
+        "user:update-2:name": OK if retrieved_user and retrieved_user.name == NAME else KO,
+        "user:update-2:nom": OK if retrieved_user and "nom" not in retrieved_user.data else KO,
     }
 
     # Assert User deletion
     user.delete()
-    retrieved_code = User.get(user_id)
+    retrieved_code = User.get_by_id(user_id)
 
     tests = tests | {
         "user:delete": OK if not retrieved_code else KO,
@@ -63,14 +77,14 @@ def codes():
     code_id = code.id
 
     # Assert Code creation
-    retrieved_code = Code.get(code_id)
+    retrieved_code = Code.get_by_id(code_id)
     tests = {
         "code:create": OK if retrieved_code else KO,
     }
 
     # Assert Code deletion
     code.delete()
-    retrieved_code = Code.get(code_id)
+    retrieved_code = Code.get_by_id(code_id)
 
     tests = tests | {
         "code:delete": OK if not retrieved_code else KO,
@@ -92,16 +106,16 @@ def users_codes():
     code1_id = code1.id
     userA.codes().add(code1.id, type=TYPE)
 
-    code1_userA, link_code1_userA = userA.codes().get(code1.id)
-    userA_code1, link_userA_code1 = code1.user().get(userA.id)
+    code1_userA, link_code1_userA = userA.codes().get_by_id(code1.id)
+    userA_code1, link_userA_code1 = code1.user().get_by_id(userA.id)
 
     # Assert whether a second code can be added for Alice
     # adds it from Code
     code2 = Code.create()
     code2_id = code2.id
     code2.user().add(userA.id, type=TYPE)
-    code2_userA, link_code2_userA = userA.codes().get(code2.id)
-    userA_code2, link_code2_userA = code2.user().get(userA.id)
+    code2_userA, link_code2_userA = userA.codes().get_by_id(code2.id)
+    userA_code2, link_code2_userA = code2.user().get_by_id(userA.id)
 
     # Assert whether a second user can not be added for a code
     # adds it from Code
@@ -113,8 +127,8 @@ def users_codes():
     except Exception as e:
         log.warning(e)
         pass
-    code1_userB, link_code1_userB = userB.codes().get(code1.id)
-    userB_code1, link_code1_userB = code1.user().get(userB.id)
+    code1_userB, link_code1_userB = userB.codes().get_by_id(code1.id)
+    userB_code1, link_code1_userB = code1.user().get_by_id(userB.id)
 
     tests = {
         "user_code:type":   OK if link_code1_userA.type == TYPE                     else KO,
@@ -129,10 +143,10 @@ def users_codes():
 
     # Assert code deletion results in corresponding association deletion
     code2.delete()
-    retrieved_code2 = Code.get(code2_id)
-    code2_userA, link_code2_userA = userA.codes().get(code2.id)
+    retrieved_code2 = Code.get_by_id(code2_id)
+    code2_userA, link_code2_userA = userA.codes().get_by_id(code2.id)
 
-    association = UserCodes.get(userA_id, code2_id)
+    association = UserCodes.get_by_ids(userA_id, code2_id)
 
     tests = tests | {
         "user_code:del-c1":  OK if not retrieved_code2      else KO,
@@ -143,15 +157,19 @@ def users_codes():
 
     # Assert user deletion results in corresponding association and code(s) deletion
     userA.delete()
-    retrieved_code1 = Code.get(code1_id)
-    code1_userA, link_code1_userA = userA.codes().get(code1_id)
+    retrieved_code1 = Code.get_by_id(code1_id)
+    code1_userA, link_code1_userA = userA.codes().get_by_id(code1_id)
+
+    association = UserCodes.get_by_ids(userA_id, code1_id)
 
     tests = tests | {
         "user_code:del-u1":  OK if not retrieved_code1      else KO,
         "user_code:del-u2":  OK if not code1_userA          else KO,
-        "user_code:del-u3":  OK if not link_code2_userA     else KO,
+        "user_code:del-u3":  OK if not link_code1_userA     else KO,
         "user_code:del-u4":  OK if not association          else KO
     }
+
+    userB.delete()
 
     return tests
 
@@ -164,8 +182,8 @@ def invite():
 
     try:
         tests = {}
-        # tests.update(users())
-        # tests.update(codes())
+        tests.update(users())
+        tests.update(codes())
         tests.update(users_codes())
 
     finally:
@@ -187,7 +205,7 @@ def format_user():
     code2 = Code.create()
     user.codes().add(code2.id)
 
-    retrieved_user = User.get(user.id)
+    retrieved_user = User.get_by_id(user.id)
     
     return flask.jsonify(retrieved_user.to_dict())
 
@@ -203,7 +221,7 @@ def format_code():
     code2 = Code.create()
     user.codes().add(code2.id)
 
-    retrieved_code = Code.get(code1.id)
+    retrieved_code = Code.get_by_id(code1.id)
 
     return flask.jsonify(retrieved_code.to_dict())
 
@@ -216,7 +234,7 @@ def format_room():
     room = Room.create(name="groscons")
     room.new_round(PLAYERS)
 
-    retrieved_room = Room.get(room.id)
+    retrieved_room = Room.get_by_id(room.id)
     
     return flask.jsonify(retrieved_room.to_dict())
 
