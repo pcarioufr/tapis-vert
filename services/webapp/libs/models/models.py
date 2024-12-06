@@ -131,7 +131,7 @@ class Room(ObjectMixin):
     def to_dict(self, include_related=False):
 
         result = super().to_dict(include_related)
-        result["round"] = json.loads(result["round"])
+        result["round"] = json.loads(result["round"]) if result.get("round") else {}
 
         return result
 
