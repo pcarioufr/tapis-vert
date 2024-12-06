@@ -259,8 +259,15 @@ class RedisMixin():
 
         for key in keys:
             raw = REDIS_CLIENT.hgetall(key)
-            
-            # Separate data and metadata
+
+            if not raw:
+                log.warning(f"No match for {cls.__name__} with key {key}")
+                continue
+
+            if raw.get("_deleted"):
+                log.warning(f"{cls.__name__} with key {key} marked for deletion. Returning None")
+                continue
+
             data = {k: v for k, v in raw.items() if k in cls.FIELDS}
             meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
 
@@ -631,7 +638,11 @@ class RelationMixin(RedisMixin):
             # Fetch raw data from Redis
             raw = REDIS_CLIENT.hgetall(key)
             if not raw:
-                log.warning(f"No data found for key {key}")
+                log.warning(f"No match for {cls.__name__} with key {key}")
+                continue
+
+            if raw.get("_deleted"):
+                log.warning(f"{cls.__name__} with key {key} marked for deletion. Returning None")
                 continue
 
             # Extract relation attributes
@@ -728,7 +739,7 @@ class RightwardsRelationManager(RelationManager):
 
     def __init__(self, instance, relation_class):
 
-        log.debug(f"Initializing RightwardsRelationManager with instance {instance} and relation_class {relation_class}")
+        log.debug(f"Initializing RightwardsRelationManager with instance {instance.key} and relation_class {relation_class}")
         super().__init__(instance, relation_class)
 
     @tracer.wrap("RightwardsRelationManager.all")
