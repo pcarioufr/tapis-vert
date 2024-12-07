@@ -17,7 +17,7 @@ def room_app(room_id=None):
     if room_id is None:
         return flask.jsonify(), 400
 
-    room = Room.get(room_id)
+    room = Room.get_by_id(room_id)
     if room is None:
         return flask.jsonify(), 404
 
