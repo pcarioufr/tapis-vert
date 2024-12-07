@@ -26,7 +26,7 @@ login.anonymous_user = AnonymousWebUser
 @login.user_loader
 def user_loader(user_id):
 
-    return User.get(user_id)
+    return User.get_by_id(user_id)
 
 
 # Import routes to register them with the Blueprint

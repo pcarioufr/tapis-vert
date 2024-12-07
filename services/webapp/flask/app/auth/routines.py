@@ -7,7 +7,7 @@ log = utils.get_logger(__name__)
 
 def code_auth(code_id):
 
-    code = models.Code.get(code_id)
+    code = models.Code.get_by_id(code_id)
     if code is None:
         return flask.jsonify({"success": False}), 403
     
