@@ -105,22 +105,22 @@ class Room(ObjectMixin):
 
 
     @tracer.wrap("Room.new_round")
-    def new_round(self, players: list[str]):
+    def new_round(self):
 
-        if len(players) > 10:
-            raise Exception("too many users ({}): max 10".format(len(players)))
+        users = self.users().all()
 
-        # Define Round
         round = {}
 
         cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
         random.shuffle(cards)
 
-
         i = 0
-        for player in players:
-             
-            round[player] = { "cards": {"value": cards[i], "flipped": 0} } 
+        for user_id, relation in users.items():
+
+            player = User.get_by_id(user_id)
+            
+            if relation.role == "player":
+                round[player.name] = { "cards": {"value": cards[i], "flipped": 0} } 
             i = i+1
 
         self.round = json.dumps( round )
