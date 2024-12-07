@@ -61,7 +61,7 @@ def room_join(room_id=None):
     else:
         log.info(f'adding user {user_id} to room {room_id}')
         room.users().add(user_id, role="watcher")
-        utils.publish(room_id, "watcher", user_id)
+        utils.publish(room_id, "user:joined", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
 
@@ -94,6 +94,11 @@ def room_user(room_id=None, user_id=None):
         return flask.jsonify(), 403
 
     room.users().set(user_id, **flask.request.args)
+
+    if "role" in flask.request.args:
+        role = flask.request.args.get("role")
+        room, rel = user.rooms().get_by_id(room_id)
+        utils.publish(room_id, f"user:{rel.role}", user_id )
 
     return flask.jsonify(room=room.to_dict()), 200
 

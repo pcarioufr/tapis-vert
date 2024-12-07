@@ -10,6 +10,9 @@ logging.basicConfig(format=FORMAT)
 # Log level, defaults to INFO
 LOG_LEVEL = os.environ.get("LEVEL", "INFO").upper()
 
+logger = logging.getLogger(__name__)
+logger.info(f"LOG LEVEL: {LOG_LEVEL}")
+
 def get_logger(name: str):
 
     logger = logging.getLogger(name)

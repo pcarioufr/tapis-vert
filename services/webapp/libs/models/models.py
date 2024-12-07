@@ -14,7 +14,7 @@ class User(ObjectMixin):
     * codes: the Magic Links that the user can log in with
     '''
 
-    FIELDS  = {"name", "status"}
+    FIELDS  = {"name"}
 
     RIGHTS  = {
         "codes": "models.UserCodes",
@@ -109,10 +109,10 @@ class Room(ObjectMixin):
 
         users = self.users().all()
 
-        round = {}
+        round = { "id": utils.new_sid(), "cards": [] }
 
-        cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-        random.shuffle(cards)
+        values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        random.shuffle(values)
 
         i = 0
         for user_id, relation in users.items():
@@ -120,7 +120,9 @@ class Room(ObjectMixin):
             player = User.get_by_id(user_id)
             
             if relation.role == "player":
-                round[player.name] = { "cards": {"value": cards[i], "flipped": 0} } 
+                card = {"value": values[i], "flipped": 0, "player_id": player.id }
+                round["cards"].append(card)
+
             i = i+1
 
         self.round = json.dumps( round )
@@ -138,6 +140,8 @@ class Room(ObjectMixin):
 
 class UsersRooms(RelationMixin):
     '''
+    role:   { watcher, player, master }
+    status: { offline, online }
     '''
 
     FIELDS = {"role", "status"}
@@ -145,5 +149,5 @@ class UsersRooms(RelationMixin):
     L_CLASS = User
     R_CLASS = Room
 
-    NAME    = "round_room"
+    NAME    = "member"
     RELATION_TYPE = "many_to_many"

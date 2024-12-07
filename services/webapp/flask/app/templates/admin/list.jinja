@@ -15,7 +15,12 @@
 
     <template id=t-table>
         <div class="table">
-            <h1></h1>
+            <div class="header">
+                <h1></h1>
+                <div class="new">
+                    <!-- <input></input> -->
+                </div>
+            </div>
             <table>
                 <thead> <tr> <!-- [ <th></th> ]--> </tr>    </thead>
                 <tbody> <!-- [ <tr> [ <td></td> ] </tr> --> </tbody>                
@@ -23,13 +28,27 @@
         </div>
     </template>
 
+    <template id=t-action-tray>
+        <div class="action-tray">
+            <!-- <button></button> -->
+        </div>
+    </template>
+
     <script>
 
         class Table extends Element {
 
-            constructor(name, headers){
+            /**
+             * Creates an instance of Table.
+                super(build("t-table"), document.getElementById("tables"))
+             * @param {Array<string>} headers - The headers of the table.
+             * @param {string} path - The API path for the table data.
+             */
+            constructor(name, headers, path){
 
                 super( build("t-table"), document.getElementById("tables"))
+
+                this.path = path
 
                 this.select("h1").textContent = name;
                 headers.forEach(header => {
@@ -37,31 +56,75 @@
                     th.textContent = header;
                     this.select("thead tr").append(th);
                 });
+
+                this.nameInput     = new TextInput()
+                this.select(".new").append(this.nameInput.e)
+                this.nameInput.title = "name"
+                this.nameInput.spellcheck = false
+                this.nameInput.autocomplete = "off"
+
+                this.addButton = new Button()
+                // this.select(".new").append(this.addButton.e)
+                this.nameInput.button = this.addButton
+                this.addButton.icon = "add-circle-line"
+                this.addButton.color = "green"
+                this.addButton.callback = ( _ => {
+                    call('POST', `${this.path}`, { name: this.nameInput.value }) 
+                    .then( _ => this.fill() )
+                })
+
+
             }
 
             add(items) { 
+
                 const tr = document.createElement('tr');
                 this.select("tbody").append(tr);
-                items.forEach(item => {
+
+                items.forEach( (item, index) => {
+                    
                     const th = document.createElement('td');
                     th.innerHTML = item;
                     tr.append(th);
+
+                    // Check if it's the last item
+                    if (index === items.length - 1) {
+                        
+                        const action = build("t-action-tray")
+                        th.append(action)
+
+                        const del = new Button()
+                        del.callback = _ => call("DELETE", `${this.path}/${items[0]}`).then( _ => this.fill() )
+                        del.color = "red"
+                        del.icon = "delete-bin-line"
+                        action.append(del.e)
+                        
+                    }
+
                 });
+
+
+
             }
         }
 
         class UserTable extends Table {
         
             constructor() {
-                super("Users", [ "id", "name", "code_id", "created at"])
+
+                super("Users", [ "id", "name", "code_id", "created at"], "/admin/api/users" )
+
             }
 
             fill() { 
-                call('GET', '/admin/api/v1/users')
+
+                this.select("tbody").replaceChildren()
+
+                call('GET', '/admin/api/users')
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let u of resp ) {
-                        const code_id = u.codes.length > 0 ? u.codes[0].id : null ;
+                        const code_id = u.codes && u.codes.length > 0 ? u.codes[0].id : null ;
                         this.add([u.id, u.name, code_id, date(u._created)]);
                     } 
                 })
@@ -71,15 +134,24 @@
         class RoomTable extends Table {
         
             constructor() {
-                super("Rooms", [ "id", "name", "users", "created at"])
+
+                super("Rooms", [ "id", "name", "users", "created at"], "/admin/api/rooms")
+
             }
 
             fill() { 
-                call('GET', '/admin/api/v1/rooms')
+
+                this.select("tbody").replaceChildren()
+
+                call('GET', '/admin/api/rooms')
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let r of resp ) {
-                        const user_ids = r.users.map(user => `${user.id}:${user.relation.role}`).join('<br>'); 
+
+                        const user_ids = r.users.map(
+                            user => 
+                            `<a href="/r/${r.id}">${user.id}:${user.relation.role}</a>`).join('<br>'
+                        );
                         this.add([r.id, r.name, `<pre>${user_ids}</pre>`, date(r._created)]);
                     } 
                 })
@@ -87,14 +159,12 @@
         }
 
 
-        const userTable = new UserTable();
-        const roomTable = new RoomTable();
-
         document.addEventListener('DOMContentLoaded', () => {
+            const userTable = new UserTable();
+            const roomTable = new RoomTable();
 
-            userTable.fill()
-            roomTable.fill()
-
+            userTable.fill();
+            roomTable.fill();
         });
     </script>
 

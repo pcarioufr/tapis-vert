@@ -73,6 +73,7 @@
 
     class EventWebSocket extends WebSocket {
 
+
         constructor(url) {
 
             super(url);  // Call the WebSocket constructor
@@ -125,6 +126,16 @@
 
         }
   
+        disconnect() {
+            if (this.readyState === WebSocket.OPEN || this.readyState === WebSocket.CONNECTING) {
+                this.close();
+                console.log("WebSocket connection closed by client.");
+            } else {
+                console.log("WebSocket is already closed.");
+            }
+        }
+
+
     }
 
     </script>

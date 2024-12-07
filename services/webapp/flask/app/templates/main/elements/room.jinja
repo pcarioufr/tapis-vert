@@ -77,12 +77,13 @@
         constructor(){
 
             super( build("t-user") )
+            console.log("UserFooter created")
 
         }
 
-        set name(text)      { this.select(".name").innerText = text ; this.id = text}
+        set name(text)      { this.select(".name").innerText = text ; }
 
-        set online(bool)    { bool ? 
+        set status(status)  { status == "online" ? 
                                 this.select(".status").setAttribute("online", "") : 
                                 this.select(".status").removeAttribute("online") 
                             }
@@ -95,20 +96,19 @@
                 case "watcher": parent = document.getElementById("footer-watchers") ; break ;
                 default:
                     console.error(`Role "${role}" isn't supported option for user`);
-                    return
+                    returnx
             }
             console.log(`User ${this.select(".name").innerText} moved to "${role}s"`);
             parent.append(this.e)
         }
 
-        remove()            { this.e.remove() }
 
     }
     </script>
 
 
 
-    <!-- Pawn -->
+    {# <!-- Pawn -->
 
     <template id=t-pawn>
         <div class="pawn">
@@ -135,13 +135,13 @@
 
         set role(role)      { console.warn("Pawn.role() method not implemented")}
 
-        set online(bool)    { bool ? 
+        set status(status)  { status == "online" ? 
                                 this.select(".status").setAttribute("online", "") : 
                                 this.select(".status").removeAttribute("online") 
                             }
 
     }
-    </script>
+    </script> #}
 
 
 
@@ -180,9 +180,9 @@
 
     <template id=t-card>
         <div class="card"> <!-- [flipped], [peeked] -->    
-            <div class="face front"></div>
-            <div class="face back"></div>
-            <div class="corner front">
+            <div class="face front" noselect></div>
+            <div class="face back" noselect></div>
+            <div class="corner front" noselect>
                 <span></span>
             </div>
             <div class="corner back"></div>
@@ -230,10 +230,10 @@
 
     <template id=t-table>
         <div class="table" id="table">
-            <div class="area" id="table-area">
+            <!-- <div class="area" id="table-area"> -->
                 <!-- SVG Crown-->
                 <!-- [ Pawns ] -->
-            </div>
+            <!-- </div> -->
             <div class="playground" id="table-playground">
                 <!-- [ Cards ] -->
             </div>
@@ -247,7 +247,7 @@
             super( build("t-table"), document.body)
 
             this.svg = new SVG("crown-line")
-            this.select(".area").append(this.svg.e)
+            // this.select(".area").append(this.svg.e)
 
         }
 

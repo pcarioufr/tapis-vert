@@ -40,9 +40,9 @@ class RedisMixin():
     def __getattr__(self, name):
         """Intercepts attribute access for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS :
+        if name in self.FIELDS:
             return self.data.get(name)
-        elif name in self.META_FIELDS :
+        elif name in self.META_FIELDS:
             return self.meta.get(name)
         else:
             raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
@@ -50,9 +50,9 @@ class RedisMixin():
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS :
+        if name in self.FIELDS:
             self.data[name] = value
-        elif name in self.META_FIELDS :
+        elif name in self.META_FIELDS:
             self.meta[name] = value
         elif name in {"key", "data", "meta"}:
             return super().__setattr__(name, value)
@@ -74,8 +74,8 @@ class RedisMixin():
         log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
 
         # Separate valid and invalid fields
-        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS }
-        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS )
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = {k for k in kwargs if k not in cls.FIELDS}
 
         # Log a warning for invalid fields
         if invalid_fields:
@@ -89,14 +89,14 @@ class RedisMixin():
         instance._version = -1
 
         if REDIS_CLIENT.exists(key):
-            raise ConflictError("{cls.__name__}.create: {key} already exists}")
+            raise ConflictError(f"{cls.__name__}.create: {key} already exists")
 
         instance.save()
 
         return instance
 
     @classmethod
-    @tracer.wrap("ObjectMixin.exist")
+    @tracer.wrap("RedisMixin.exist")
     def exist(cls, key: str) -> bool:
         """Assesses whether the instance with key exists, or isn't mark for deletion."""
 
@@ -155,10 +155,10 @@ class RedisMixin():
                 # Fetch current version within the pipeline
                 version_ref = pipe.hget(self.key, "_version")
                 version_ref = int(version_ref) if version_ref else -1
-                version_self = self._version
+                version_self = int(self._version)
 
                 if version_ref != version_self:
-                    raise ConflictError(f"Version mismatch: on server {version_ref}, found on object {version_self}.")
+                    raise ConflictError(f"Version mismatch: on server {version_ref}{type(version_ref)}, on instance {version_self}{type(version_self)}.")
 
                 # edit metadata
                 self._edited = utils.now()
@@ -167,8 +167,9 @@ class RedisMixin():
                 # save
                 pipe.hset(self.key, mapping={**self.data, **self.meta})
 
-        except redis.WatchError as e:
-            raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
+        except redis.WatchError:
+            log.error(f"Concurrent edit detected for key {self.key}, aborting.")
+            raise ConflictError("Concurrent edit detected, aborting.")
 
         log.info(f"{self.__class__.__name__} with key {self.key} saved: {self.data} (metadata {self.meta})")
         return self.get(self.key)
@@ -237,7 +238,7 @@ class RedisMixin():
         return result
 
     @classmethod
-    @tracer.wrap("ObjectMixin.all")
+    @tracer.wrap("ObjectMixin.search")
     def search(cls, pattern="*", cursor=0, count=1000) -> tuple[list["ObjectMixin"], int]:
         """
         Retrieves a batch of objects matching key pattern, using pagination.
@@ -274,7 +275,6 @@ class RedisMixin():
             instances.append(cls(key, data, meta))
 
         return instances, cursor
-
 
 ## OBJECTS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
@@ -416,8 +416,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
                     lefts = manager.all()
                     result[relation_name] = []
 
-                    for object_id, relation in lefts.items():
-                        result[relation_name].append(relation.left_to_dict())
+                    if lefts is not None:
+                        result[relation_name] = [relation.left_to_dict() for relation in lefts.values()]
 
 
             if self.RIGHTS:
@@ -427,8 +427,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
                     rights = manager.all()
                     result[relation_name] = []
 
-                    for object_id, relation in rights.items():
-                        result[relation_name].append(relation.right_to_dict())
+                    if rights is not None:
+                        result[relation_name] = [relation.right_to_dict() for relation in rights.values()]
 
         return result
 
@@ -729,7 +729,8 @@ class RelationManager():
         if rel:
             for key, value in kwargs.items():
                 rel.__setattr__(key, value)
-                rel.save()
+                log.debug(f"setting {key}:{value}")
+            rel.save()
 
         return obj, rel            
 
@@ -761,8 +762,7 @@ class RightwardsRelationManager(RelationManager):
     @tracer.wrap("RightwardsRelationManager.get")
     def get_by_id(self, related_id) :
         
-        bool = self.relation_class.exist(self.instance.id, related_id)
-        if bool:
+        if self.exist(related_id) :
             rel = self.relation_class.get_by_ids(self.instance.id, related_id)
             obj = self.relation_class.R_CLASS.get_by_id(related_id)
             return obj, rel
@@ -770,10 +770,9 @@ class RightwardsRelationManager(RelationManager):
             return None, None
 
     @tracer.wrap("RightwardsRelationManager.exist")
-    def exist(self, related_id: str, **data):
+    def exist(self, related_id: str):
 
-        bool = self.relation_class.exist(self.instance.id, related_id)
-        return bool
+        return self.relation_class.exist(self.instance.id, related_id)
 
     @tracer.wrap("RightwardsRelationManager.first")
     def first(self) :
@@ -809,8 +808,7 @@ class LeftwardsRelationManager(RelationManager):
     @tracer.wrap("LeftwardsRelationManager.get")
     def get_by_id(self, related_id) :
         
-        bool = self.relation_class.exist(related_id, self.instance.id)
-        if bool:
+        if self.exist(related_id):
             rel = self.relation_class.get_by_ids(related_id, self.instance.id)
             obj = self.relation_class.L_CLASS.get_by_id(related_id)
             return obj, rel
@@ -818,10 +816,9 @@ class LeftwardsRelationManager(RelationManager):
             return None, None
 
     @tracer.wrap("RightwardsRelationManager.exist")
-    def exist(self, related_id: str, **data):
+    def exist(self, related_id: str):
 
-        bool = self.relation_class.exist(related_id, self.instance.id)
-        return bool
+        return self.relation_class.exist(related_id, self.instance.id)
 
     @tracer.wrap("LeftwardsRelationManager.first")
     def first(self):
