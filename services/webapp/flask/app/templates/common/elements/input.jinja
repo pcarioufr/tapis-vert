@@ -55,7 +55,10 @@
 
 
     <template id=t-text-input>
-        <input/>
+        <div class="text-input">
+            <input/>
+            <!-- button goes here -->
+        </div>
     </template>
 
     <script>
@@ -89,16 +92,10 @@
                 this.e.append(svg.e) ;
 
                 svg.onclick = ( _ => {
-   
                     const e = this.select("input") ;
-                    if (e.type === 'password') {
-                        e.type = 'text'
-                        svg.icon = "eye-line" ;
-                    }
-                    else {
-                        e.type = 'password';
-                        svg.icon =  "eye-off-line" ;
-                    } 
+                    if (e.type === 'password') 
+                         { e.type = 'text'      ; svg.icon = "eye-line" ; }
+                    else { e.type = 'password'  ; svg.icon = "eye-off-line" ; } 
                 })
 
             }
@@ -115,6 +112,10 @@
 
         set placeholder(placeholder) { this.input.e.setAttribute("placeholder", placeholder) }
 
+        set button(button) { 
+            this.select(".text-input").setAttribute("button","")
+            this.select(".text-input").append(button.e) 
+        }
 
     }
 

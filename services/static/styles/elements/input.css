@@ -41,6 +41,18 @@ div.field[text] input {
     transition: border-color 0.3s ease, background 0.3s ease;
 }
 
+div.text-input[button] {
+    display: flex;
+}
+
+div.text-input[button] input {
+    border-radius: 1.5vw 0 0 1.5vw ;
+}
+div.text-input[button] button {
+    border-radius: 0 1.5vw 1.5vw 0 ;
+}
+
+
 div.field[text] input:hover {
     background: rgba(255, 255, 255, 0.5);
 }
