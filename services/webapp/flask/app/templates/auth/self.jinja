@@ -53,15 +53,15 @@
 
             // Authent Section - Logged in option
 
-            this.nameInput     = new TextInput()
-            this.footerPanel.select(".c-loggedin").append(this.nameInput.e)
+            // this.nameInput     = new TextInput()
+            // this.footerPanel.select(".c-loggedin").append(this.nameInput.e)
 
-            this.nameInput.title = "name"
-            this.nameInput.spellcheck = false
-            this.nameInput.autocomplete = "username"
+            // this.nameInput.title = "name"
+            // this.nameInput.spellcheck = false
+            // this.nameInput.autocomplete = "username"
 
             this.logout = new Button()
-            this.nameInput.e.after(this.logout.e)
+            this.footerPanel.select(".c-loggedin").append(this.logout.e)
             this.logout.name = "log out"
             this.logout.icon = "logout-circle"
             this.logout.color = "red"

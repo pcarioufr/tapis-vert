@@ -14,7 +14,7 @@ class User(ObjectMixin):
     * codes: the Magic Links that the user can log in with
     '''
 
-    FIELDS  = {"name", "status"}
+    FIELDS  = {"name"}
 
     RIGHTS  = {
         "codes": "models.UserCodes",

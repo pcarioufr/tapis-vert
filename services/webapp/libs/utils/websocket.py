@@ -23,3 +23,4 @@ def publish(room_id, key, value):
 
     # Publish the message to the Redis channel (room_id)
     redis_pubsub.publish(room_id, message)
+    log.debug(f"Publishing '{message}' to Room {room_id}")

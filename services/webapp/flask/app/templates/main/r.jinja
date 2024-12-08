@@ -76,7 +76,7 @@
             // Remove all User's representations
             this._remove = function() {
                 this.eUserFooter.remove() ;
-                this.eUserPawn.remove() ;
+                // this.eUserPawn.remove() ;
             } ;
 
             // Sets User's name
@@ -217,22 +217,21 @@
     <!-- LISTENERS ------ ------ ------ ------ -->
     <script>
 
-    // Room's websocket
-    let websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") ;
-
     // Listens when a new user joins the room
     listen( "window", "room:user.joined", (throwerId, user_id) =>
         USERS.add(user_id, user_id, true)  
     )
 
     // Listens when a room's user turns online
-    listen( "window", "room:user.online", (throwerId, user_id) =>             
+    listen( "window", "room:user.online", (throwerId, user_id) => {
+        console.log(`room:user.online:${user_id}`)
         USERS.get(user_id).online(true)
+    }   
     )
 
     // Listens when a room's user turns offline
     listen( "window", "room:user.offline", (throwerId, user_id) =>
-        USERS.get(user_id).online(false) 
+        USERS.get(user_id).online(false)
     )
 
     // Listens when a new user leaves the room
@@ -240,69 +239,70 @@
         USERS.remove(user_id)  
     )
 
-    </script>
-
-
-    <script>
-
-    // Sends a hello world
-    websocket.wsend("hello") ;
-
-    // Initializes the Room
-    call('GET', '/api/v1/rooms/{{room.id}}')
-    .then( r => r.json() )
-    .then( r => {
-
-        // Process Users
-
-        u = r["users"] ;
-
-        let user_id, props
-        for ( [user_id, props] of Object.entries(u) ) {
-
-            USERS.add(user_id, props["name"]) ;
-
-            props["online"] == "1" ? 
-                USERS.get(user_id).online(true) :
-                USERS.get(user_id).online(false) ;
-
-            USERS.get(user_id).role(props["relation"]["role"]) ;
-
-        } 
-
-        // Process Cards
-        
-        c = r["round"] ;
-        
-        let player
-        for ( [player, props] of Object.entries(c) ) {
-
-            cards = props["cards"]
-
-            value = cards["value"]
-            DECKS.add(player) ;
-            CARDS.add(value, player) ;
-
-            DECKS.get(player).moveCard(CARDS.get(value)) ;
-
-            if ("{{user_id}}" == player)  
-                CARDS.get(value).peeked(value, true) ; 
-
-            CARDS.get(value).flipped(true) ;
-
-            USERS.get(player) ?
-                DECKS.get(player).movePawn(USERS.get(player).eUserPawn) :
-                console.warn(`User ${player} not in room, can't move pawn to deck`) ;
-
-        } 
-
-    })
-
     const SELF = new SelfFooterEntry()
+
 
     document.addEventListener('DOMContentLoaded', () => {
 
+        // Join room
         call('POST', '/api/v1/rooms/{{room.id}}/join')
+
+        // Initializes the Room
+        call('GET', '/api/v1/rooms/{{room.id}}')
+        .then( r => r.json() )
+        .then( r => {
+
+            // Process Users
+
+            u = r["users"] ;
+
+            let index, props
+            for ( [index, props] of Object.entries(u) ) {
+
+                let user_id = props["id"]
+                console.log(`adding user ${user_id} to USERS`)
+                USERS.add(user_id, props["name"]) ;
+
+                props["relation"]["status"] == "online" ? 
+                    USERS.get(user_id).online(true) :
+                    USERS.get(user_id).online(false) ;
+
+                USERS.get(user_id).role(props["relation"]["role"]) ;
+
+            } 
+
+            // Process Cards
+            
+            c = r["round"] ;
+            
+            let player
+            for ( [player, props] of Object.entries(c) ) {
+
+                cards = props["cards"]
+
+                value = cards["value"]
+                DECKS.add(player) ;
+                CARDS.add(value, player) ;
+
+                DECKS.get(player).moveCard(CARDS.get(value)) ;
+
+                if ("{{user_id}}" == player)  
+                    CARDS.get(value).peeked(value, true) ; 
+
+                CARDS.get(value).flipped(true) ;
+
+                USERS.get(player) ?
+                    DECKS.get(player).movePawn(USERS.get(player).eUserPawn) :
+                    console.warn(`User ${player} not in room, can't move pawn to deck`) ;
+
+            } 
+
+        })
+        .then( _ => {
+            // Room's websocket
+            let websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") ;
+            websocket.wsend("hello") ;
+        })
 
     });
 

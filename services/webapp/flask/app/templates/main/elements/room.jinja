@@ -180,9 +180,9 @@
 
     <template id=t-card>
         <div class="card"> <!-- [flipped], [peeked] -->    
-            <div class="face front"></div>
-            <div class="face back"></div>
-            <div class="corner front">
+            <div class="face front" noselect></div>
+            <div class="face back" noselect></div>
+            <div class="corner front" noselect>
                 <span></span>
             </div>
             <div class="corner back"></div>
@@ -230,10 +230,10 @@
 
     <template id=t-table>
         <div class="table" id="table">
-            <div class="area" id="table-area">
+            <!-- <div class="area" id="table-area"> -->
                 <!-- SVG Crown-->
                 <!-- [ Pawns ] -->
-            </div>
+            <!-- </div> -->
             <div class="playground" id="table-playground">
                 <!-- [ Cards ] -->
             </div>
@@ -247,7 +247,7 @@
             super( build("t-table"), document.body)
 
             this.svg = new SVG("crown-line")
-            this.select(".area").append(this.svg.e)
+            // this.select(".area").append(this.svg.e)
 
         }
 

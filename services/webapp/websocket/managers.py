@@ -3,6 +3,8 @@ import redis.asyncio as aioredis
 import os
 from fastapi import WebSocket
 
+from models import User
+
 import utils
 log = utils.get_logger(__name__)
 
@@ -87,12 +89,13 @@ class WebSocketManager:
         self.rooms: dict = {}
         self.pubsub_client = RedisPubSubManager()
 
-    async def add_user_to_room(self, room_id: str, websocket: WebSocket) -> None:
+    async def add_user_to_room(self, room_id: str, user_id: str, websocket: WebSocket) -> None:
         """
         Adds a user's WebSocket connection to a room.
 
         Args:
             room_id (str): Room ID or channel name.
+            user_id (str): User ID of the user owning the websocket.
             websocket (WebSocket): WebSocket connection object.
         """
         await websocket.accept()
@@ -104,7 +107,23 @@ class WebSocketManager:
 
             await self.pubsub_client.connect()
             pubsub_subscriber = await self.pubsub_client.subscribe(room_id)
-            asyncio.create_task(self._pubsub_data_reader(pubsub_subscriber))
+
+            # Create an event to signal when the pubsub reader is ready
+            ready_event = asyncio.Event()
+            asyncio.create_task(self._pubsub_data_reader(pubsub_subscriber, ready_event))
+
+            # Wait until the pubsub reader signals that it's ready
+            await ready_event.wait()
+
+        try:
+            User.get_by_id(user_id).rooms().set(room_id, status="online")
+            utils.publish(room_id, "room:user.online", user_id)
+
+        except Exception as e:
+            log.debug(f"Exception: {e}")
+            pass # legit exception for visitors
+        finally:
+            log.info(f"user {user_id} joined room {room_id}")
 
 
     async def broadcast_to_room(self, room_id: str, message: str) -> None:
@@ -117,12 +136,13 @@ class WebSocketManager:
         """
         await self.pubsub_client._publish(room_id, message)
 
-    async def remove_user_from_room(self, room_id: str, websocket: WebSocket) -> None:
+    async def remove_user_from_room(self, room_id: str, user_id: str, websocket: WebSocket) -> None:
         """
         Removes a user's WebSocket connection from a room.
 
         Args:
             room_id (str): Room ID or channel name.
+            user_id (str): User ID of the user owning the websocket.
             websocket (WebSocket): WebSocket connection object.
         """
         self.rooms[room_id].remove(websocket)
@@ -131,23 +151,37 @@ class WebSocketManager:
             del self.rooms[room_id]
             await self.pubsub_client.unsubscribe(room_id)
 
-    async def _pubsub_data_reader(self, pubsub_subscriber):
+
+        try:
+            User.get_by_id(user_id).rooms().set(room_id, status="offline")
+            utils.publish(room_id, "room:user.offline", user_id)
+        except Exception as e:
+            log.debug(f"Exception: {e}")
+            pass # legit exception for visitors
+        finally:
+            log.info(f"user {user_id} left room {room_id}")
+
+
+    async def _pubsub_data_reader(self, pubsub_subscriber, ready_event=None):
         """
         Reads and broadcasts messages received from Redis PubSub.
 
         Args:
             pubsub_subscriber (aioredis.ChannelSubscribe): PubSub object for the subscribed channel.
+            ready_event (asyncio.Event): Optional event to signal when the reader is ready.
+
         """
+        if ready_event:
+            ready_event.set()  # Signal that the reader is ready
+            
         while True:
             message = await pubsub_subscriber.get_message(ignore_subscribe_messages=True)
             if message is not None:
+
                 room_id = message['channel'].decode('utf-8')
                 all_sockets = self.rooms[room_id]
                 for socket in all_sockets:
 
                     data = message['data'].decode('utf-8')
-
                     log.info(data)
-                    log.info("{}".format(data))
-
                     await socket.send_text(data)
