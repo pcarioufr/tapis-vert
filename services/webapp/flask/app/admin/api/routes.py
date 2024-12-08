@@ -15,8 +15,8 @@ redis_client = redis.Redis(
 )
 
 
-@admin_api.route("/v1/rooms", methods=['POST'])
-@admin_api.route("/v1/rooms/<room_id>", methods=['GET', 'PATCH', 'DELETE'])
+@admin_api.route("/rooms", methods=['POST'])
+@admin_api.route("/rooms/<room_id>", methods=['GET', 'PATCH', 'DELETE'])
 def rooms(room_id=None):
 
     if flask.request.method == 'POST':
@@ -48,8 +48,8 @@ def rooms(room_id=None):
         return flask.jsonify(room.to_dict()), 405
 
 
-@admin_api.route("/v1/users", methods=['POST'])
-@admin_api.route("/v1/users/<user_id>", methods=['GET', 'DELETE', 'PATCH'])
+@admin_api.route("/users", methods=['POST'])
+@admin_api.route("/users/<user_id>", methods=['GET', 'DELETE', 'PATCH'])
 def users(user_id=None):
 
     if flask.request.method == 'POST':
@@ -88,7 +88,7 @@ def users(user_id=None):
 
 
 
-@admin_api.route("/v1/codes", methods=['GET'])
+@admin_api.route("/codes", methods=['GET'])
 def list_codes():
 
     codes, cursor = Code.search()
@@ -96,7 +96,7 @@ def list_codes():
     return flask.jsonify(data), 200
 
 
-@admin_api.route("/v1/users", methods=['GET'])
+@admin_api.route("/users", methods=['GET'])
 def list_users():
 
     users, cursor = User.search()
@@ -104,7 +104,7 @@ def list_users():
     return flask.jsonify(data), 200
 
 
-@admin_api.route("/v1/rooms", methods=['GET'])
+@admin_api.route("/rooms", methods=['GET'])
 def list_rooms():
 
     rooms, cursor = Room.search()

@@ -15,7 +15,13 @@
 
     <template id=t-table>
         <div class="table">
-            <h1></h1>
+            <div class="header">
+                <h1></h1>
+                <div class="new">
+                    <!-- <input></input> -->
+                    <!-- <button></button> -->
+                </div>
+            </div>
             <table>
                 <thead> <tr> <!-- [ <th></th> ]--> </tr>    </thead>
                 <tbody> <!-- [ <tr> [ <td></td> ] </tr> --> </tbody>                
@@ -37,6 +43,19 @@
                     th.textContent = header;
                     this.select("thead tr").append(th);
                 });
+
+                this.input     = new TextInput()
+                this.select(".new").append(this.input.e)
+                this.input.title = "name"
+                this.input.spellcheck = false
+                this.input.autocomplete = "off"
+
+                this.new = new Button()
+                this.select(".new").append(this.new.e)
+                this.new.name = "create"
+                this.new.icon = "add-circle-line"
+                this.new.color = "green"
+
             }
 
             add(items) { 
@@ -53,11 +72,21 @@
         class UserTable extends Table {
         
             constructor() {
+
                 super("Users", [ "id", "name", "code_id", "created at"])
+
+                this.new.callback = ( _ => {
+                    call('POST', '/admin/api/users', { name: this.input.value }) 
+                    .then( _ => this.fill() )
+                })
+
             }
 
             fill() { 
-                call('GET', '/admin/api/v1/users')
+
+                this.select("tbody").replaceChildren()
+
+                call('GET', '/admin/api/users')
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let u of resp ) {
@@ -71,11 +100,21 @@
         class RoomTable extends Table {
         
             constructor() {
+
                 super("Rooms", [ "id", "name", "users", "created at"])
+
+                this.new.callback = ( _ => {
+                    call('POST', '/admin/api/rooms', { name: this.input.value }) 
+                    .then( _ => this.fill() )
+                })
+
             }
 
             fill() { 
-                call('GET', '/admin/api/v1/rooms')
+
+                this.select("tbody").replaceChildren()
+
+                call('GET', '/admin/api/rooms')
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let r of resp ) {

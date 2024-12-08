@@ -30,14 +30,13 @@ div.field .feedback .message{
 
 div.field[text] input {
     width: 20vw;
-    padding: 1vw;
-    font-size: 2vw;
+    padding: 0.5vw;
+    font-size: 1.5vw;
     text-align: center;
     border: 1px solid var(--beige);
     border-radius: 1.5vw;
     background: rgba(255, 255, 255, 0.2);
     color: var(--beige);
-    outline: none;
     backdrop-filter: blur(10px);
     transition: border-color 0.3s ease, background 0.3s ease;
 }
