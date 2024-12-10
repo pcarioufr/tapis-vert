@@ -19,7 +19,6 @@
                 <h1></h1>
                 <div class="new">
                     <!-- <input></input> -->
-                    <!-- <button></button> -->
                 </div>
             </div>
             <table>
@@ -29,13 +28,21 @@
         </div>
     </template>
 
+    <template id=t-action-tray>
+        <div class="action-tray">
+            <!-- <button></button> -->
+        </div>
+    </template>
+
     <script>
 
         class Table extends Element {
 
-            constructor(name, headers){
+            constructor(name, headers, baseURL){
 
                 super( build("t-table"), document.getElementById("tables"))
+
+                this.baseURL = baseURL
 
                 this.select("h1").textContent = name;
                 headers.forEach(header => {
@@ -51,7 +58,8 @@
                 this.input.autocomplete = "off"
 
                 this.new = new Button()
-                this.select(".new").append(this.new.e)
+                // this.select(".new").append(this.new.e)
+                this.input.button = this.new
                 this.new.name = "create"
                 this.new.icon = "add-circle-line"
                 this.new.color = "green"
@@ -59,13 +67,34 @@
             }
 
             add(items) { 
+
                 const tr = document.createElement('tr');
                 this.select("tbody").append(tr);
-                items.forEach(item => {
+
+                items.forEach( (item, index) => {
+                    
                     const th = document.createElement('td');
                     th.innerHTML = item;
                     tr.append(th);
+
+                    // Check if it's the last item
+                    if (index === items.length - 1) {
+                        
+                        const action = build("t-action-tray")
+                        th.append(action)
+
+                        const del = new Button()
+                        del.callback = _ => call("DELETE", `${this.baseURL}/${items[0]}`).then( _ => this.fill() )
+                        del.color = "red"
+                        del.icon = "delete-bin-line"
+                        action.append(del.e)
+                        
+                    }
+
                 });
+
+
+
             }
         }
 
@@ -73,7 +102,7 @@
         
             constructor() {
 
-                super("Users", [ "id", "name", "code_id", "created at"])
+                super("Users", [ "id", "name", "code_id", "created at"], "/admin/api/users" )
 
                 this.new.callback = ( _ => {
                     call('POST', '/admin/api/users', { name: this.input.value }) 
@@ -101,7 +130,7 @@
         
             constructor() {
 
-                super("Rooms", [ "id", "name", "users", "created at"])
+                super("Rooms", [ "id", "name", "users", "created at"], "/admin/api/rooms")
 
                 this.new.callback = ( _ => {
                     call('POST', '/admin/api/rooms', { name: this.input.value }) 

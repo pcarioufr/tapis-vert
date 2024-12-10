@@ -54,3 +54,20 @@ tr:hover {
     gap: 2vw;
     align-items: center;
 }
+
+
+table tbody td {
+    position: relative;
+}    
+
+table tbody tr .action-tray {
+    text-align: center;
+    visibility: hidden; /* Initially hide the button */
+    position: absolute;
+    right: 1vw ;
+    top: 0.5vw ;
+}
+
+table tbody tr:hover .action-tray {
+    visibility: visible; /* Show the button when hovering over a row */
+}
