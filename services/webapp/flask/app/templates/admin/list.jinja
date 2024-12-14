@@ -38,11 +38,17 @@
 
         class Table extends Element {
 
-            constructor(name, headers, baseURL){
+            /**
+             * Creates an instance of Table.
+                super(build("t-table"), document.getElementById("tables"))
+             * @param {Array<string>} headers - The headers of the table.
+             * @param {string} path - The API path for the table data.
+             */
+            constructor(name, headers, path){
 
                 super( build("t-table"), document.getElementById("tables"))
 
-                this.baseURL = baseURL
+                this.path = path
 
                 this.select("h1").textContent = name;
                 headers.forEach(header => {
@@ -51,17 +57,22 @@
                     this.select("thead tr").append(th);
                 });
 
-                this.input     = new TextInput()
-                this.select(".new").append(this.input.e)
-                this.input.title = "name"
-                this.input.spellcheck = false
-                this.input.autocomplete = "off"
+                this.nameInput     = new TextInput()
+                this.select(".new").append(this.nameInput.e)
+                this.nameInput.title = "name"
+                this.nameInput.spellcheck = false
+                this.nameInput.autocomplete = "off"
 
-                this.new = new Button()
-                // this.select(".new").append(this.new.e)
-                this.input.button = this.new
-                this.new.icon = "add-circle-line"
-                this.new.color = "green"
+                this.addButton = new Button()
+                // this.select(".new").append(this.addButton.e)
+                this.nameInput.button = this.addButton
+                this.addButton.icon = "add-circle-line"
+                this.addButton.color = "green"
+                this.addButton.callback = ( _ => {
+                    call('POST', `${this.path}`, { name: this.nameInput.value }) 
+                    .then( _ => this.fill() )
+                })
+
 
             }
 
@@ -83,7 +94,7 @@
                         th.append(action)
 
                         const del = new Button()
-                        del.callback = _ => call("DELETE", `${this.baseURL}/${items[0]}`).then( _ => this.fill() )
+                        del.callback = _ => call("DELETE", `${this.path}/${items[0]}`).then( _ => this.fill() )
                         del.color = "red"
                         del.icon = "delete-bin-line"
                         action.append(del.e)
@@ -103,11 +114,6 @@
 
                 super("Users", [ "id", "name", "code_id", "created at"], "/admin/api/users" )
 
-                this.new.callback = ( _ => {
-                    call('POST', '/admin/api/users', { name: this.input.value }) 
-                    .then( _ => this.fill() )
-                })
-
             }
 
             fill() { 
@@ -118,7 +124,7 @@
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let u of resp ) {
-                        const code_id = u.codes.length > 0 ? u.codes[0].id : null ;
+                        const code_id = u.codes && u.codes.length > 0 ? u.codes[0].id : null ;
                         this.add([u.id, u.name, code_id, date(u._created)]);
                     } 
                 })
@@ -131,11 +137,6 @@
 
                 super("Rooms", [ "id", "name", "users", "created at"], "/admin/api/rooms")
 
-                this.new.callback = ( _ => {
-                    call('POST', '/admin/api/rooms', { name: this.input.value }) 
-                    .then( _ => this.fill() )
-                })
-
             }
 
             fill() { 
@@ -146,7 +147,11 @@
                 .then( resp => resp.json() )
                 .then( resp => {
                     for ( let r of resp ) {
-                        const user_ids = r.users.map(user => `${user.id}:${user.relation.role}`).join('<br>'); 
+
+                        const user_ids = r.users.map(
+                            user => 
+                            `<a href="/r/${r.id}">${user.id}:${user.relation.role}</a>`).join('<br>'
+                        );
                         this.add([r.id, r.name, `<pre>${user_ids}</pre>`, date(r._created)]);
                     } 
                 })
@@ -154,14 +159,12 @@
         }
 
 
-        const userTable = new UserTable();
-        const roomTable = new RoomTable();
-
         document.addEventListener('DOMContentLoaded', () => {
+            const userTable = new UserTable();
+            const roomTable = new RoomTable();
 
-            userTable.fill()
-            roomTable.fill()
-
+            userTable.fill();
+            roomTable.fill();
         });
     </script>
 
