@@ -40,9 +40,9 @@ class RedisMixin():
     def __getattr__(self, name):
         """Intercepts attribute access for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS :
+        if name in self.FIELDS:
             return self.data.get(name)
-        elif name in self.META_FIELDS :
+        elif name in self.META_FIELDS:
             return self.meta.get(name)
         else:
             raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
@@ -50,9 +50,9 @@ class RedisMixin():
     def __setattr__(self, name, value):
         """Intercepts attribute setting for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS :
+        if name in self.FIELDS:
             self.data[name] = value
-        elif name in self.META_FIELDS :
+        elif name in self.META_FIELDS:
             self.meta[name] = value
         elif name in {"key", "data", "meta"}:
             return super().__setattr__(name, value)
@@ -74,8 +74,8 @@ class RedisMixin():
         log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
 
         # Separate valid and invalid fields
-        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS }
-        invalid_fields = set(kwargs.keys()) - set(cls.FIELDS )
+        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
+        invalid_fields = {k for k in kwargs if k not in cls.FIELDS}
 
         # Log a warning for invalid fields
         if invalid_fields:
@@ -89,14 +89,14 @@ class RedisMixin():
         instance._version = -1
 
         if REDIS_CLIENT.exists(key):
-            raise ConflictError("{cls.__name__}.create: {key} already exists}")
+            raise ConflictError(f"{cls.__name__}.create: {key} already exists")
 
         instance.save()
 
         return instance
 
     @classmethod
-    @tracer.wrap("ObjectMixin.exist")
+    @tracer.wrap("RedisMixin.exist")
     def exist(cls, key: str) -> bool:
         """Assesses whether the instance with key exists, or isn't mark for deletion."""
 
@@ -167,8 +167,9 @@ class RedisMixin():
                 # save
                 pipe.hset(self.key, mapping={**self.data, **self.meta})
 
-        except redis.WatchError as e:
-            raise ConflictError(f"Concurrent edit detected, aborting.")
+        except redis.WatchError:
+            log.error(f"Concurrent edit detected for key {self.key}, aborting.")
+            raise ConflictError("Concurrent edit detected, aborting.")
 
         log.info(f"{self.__class__.__name__} with key {self.key} saved: {self.data} (metadata {self.meta})")
         return self.get(self.key)
@@ -237,7 +238,7 @@ class RedisMixin():
         return result
 
     @classmethod
-    @tracer.wrap("ObjectMixin.all")
+    @tracer.wrap("ObjectMixin.search")
     def search(cls, pattern="*", cursor=0, count=1000) -> tuple[list["ObjectMixin"], int]:
         """
         Retrieves a batch of objects matching key pattern, using pagination.
@@ -274,7 +275,6 @@ class RedisMixin():
             instances.append(cls(key, data, meta))
 
         return instances, cursor
-
 
 ## OBJECTS ###### ###### ###### ###### ###### ###### ###### ###### ###### ######
 
@@ -416,8 +416,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
                     lefts = manager.all()
                     result[relation_name] = []
 
-                    for object_id, relation in lefts.items():
-                        result[relation_name].append(relation.left_to_dict())
+                    if lefts is not None:
+                        result[relation_name] = [relation.left_to_dict() for relation in lefts.values()]
 
 
             if self.RIGHTS:
@@ -427,8 +427,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
                     rights = manager.all()
                     result[relation_name] = []
 
-                    for object_id, relation in rights.items():
-                        result[relation_name].append(relation.right_to_dict())
+                    if rights is not None:
+                        result[relation_name] = [relation.right_to_dict() for relation in rights.values()]
 
         return result
 
