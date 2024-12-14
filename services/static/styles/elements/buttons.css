@@ -10,7 +10,7 @@ button {
     display: flex;
     align-items: center;
     gap: 0.5vw;
-    padding: 0 1vw 0 1vw ;
+    padding: 0 1vw 0 0.5vw ;
     box-shadow: 0.4vw 0.4vw 0.2vw #00000099;
     transition: 0.1s ease-in-out;
     cursor: pointer;
@@ -24,9 +24,15 @@ button {
 button svg > path{
     fill: var(--dbrown);
 }
-button .name {
+button span.name {
     color: var(--dbrown);
+    margin-left: 0.5vw;
 }
+
+button span.name:empty {
+    display: none;
+}
+
 
 button[red] {
     background: var(--red);

@@ -3,11 +3,11 @@
     display: flex;
     flex-direction: column;
     gap: 5vh;
-    width: 80vh;
+    width: 90vW;
     align-items: center;
 }
 .table {
-    width: 90%;
+    width: 100%;
     border: 1px solid var(--beige);
     border-radius: 1vw;
     box-shadow: 1vw 1vw 1vw rgba(0, 0, 0, 0.5);
@@ -16,6 +16,7 @@
 h1 {
     text-align: center;
     background-color: var(--dbrown);
+    font-size: 5vw;
     padding: 1vw;
     margin: 0;
     left: 2vw;
@@ -65,7 +66,7 @@ table tbody tr .action-tray {
     visibility: hidden; /* Initially hide the button */
     position: absolute;
     right: 1vw ;
-    top: 0.5vw ;
+    top: calc(50% - 1.5vw);
 }
 
 table tbody tr:hover .action-tray {
