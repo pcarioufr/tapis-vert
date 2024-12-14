@@ -117,7 +117,7 @@ class WebSocketManager:
 
         try:
             User.get_by_id(user_id).rooms().set(room_id, status="online")
-            utils.publish(room_id, "room:user.online", user_id)
+            utils.publish(room_id, "user:online", user_id)
 
         except Exception as e:
             log.debug(f"Exception: {e}")
@@ -154,7 +154,7 @@ class WebSocketManager:
 
         try:
             User.get_by_id(user_id).rooms().set(room_id, status="offline")
-            utils.publish(room_id, "room:user.offline", user_id)
+            utils.publish(room_id, "user:offline", user_id)
         except Exception as e:
             log.debug(f"Exception: {e}")
             pass # legit exception for visitors

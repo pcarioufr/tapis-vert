@@ -138,6 +138,8 @@ class Room(ObjectMixin):
 
 class UsersRooms(RelationMixin):
     '''
+    role:   { watcher, player, master }
+    status: { offline, online }
     '''
 
     FIELDS = {"role", "status"}
@@ -145,5 +147,5 @@ class UsersRooms(RelationMixin):
     L_CLASS = User
     R_CLASS = Room
 
-    NAME    = "round_room"
+    NAME    = "member"
     RELATION_TYPE = "many_to_many"

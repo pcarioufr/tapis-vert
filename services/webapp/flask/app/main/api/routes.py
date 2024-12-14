@@ -61,7 +61,7 @@ def room_join(room_id=None):
     else:
         log.info(f'adding user {user_id} to room {room_id}')
         room.users().add(user_id, role="watcher")
-        utils.publish(room_id, "watcher", user_id)
+        utils.publish(room_id, "user:joined", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
 

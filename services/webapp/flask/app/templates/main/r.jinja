@@ -110,7 +110,7 @@
         add(user_id, name, online) {
 
             if (this._list[user_id]) 
-                return console.warn(`User ${user_id} already registered: can't add`) ;
+                return console.warn(`User ${user_id} already registered: won't add`) ;
 
             this._list[user_id] = new this._User() ;
 
@@ -218,26 +218,26 @@
     <script>
 
     // Listens when a new user joins the room
-    listen( "window", "room:user.joined", (throwerId, user_id) =>
+    listen( "window", "user:joined", (throwerId, user_id) =>
         USERS.add(user_id, user_id, true)  
     )
 
+    // Listens when a new user leaves the room
+    listen( "window", "room:user:left", (throwerId, user_id) =>
+        USERS.remove(user_id)  
+    )
+
     // Listens when a room's user turns online
-    listen( "window", "room:user.online", (throwerId, user_id) => {
-        console.log(`room:user.online:${user_id}`)
+    listen( "window", "user:online", (throwerId, user_id) =>
         USERS.get(user_id).online(true)
-    }   
     )
 
     // Listens when a room's user turns offline
-    listen( "window", "room:user.offline", (throwerId, user_id) =>
+    listen( "window", "user:offline", (throwerId, user_id) =>
         USERS.get(user_id).online(false)
     )
 
-    // Listens when a new user leaves the room
-    listen( "window", "room:user.left", (throwerId, user_id) =>
-        USERS.remove(user_id)  
-    )
+
 
     const SELF = new SelfFooterEntry()
 
