@@ -26,7 +26,7 @@
 
 {% block head %}
 
-    <title>Tapis Vert::{{room.id}}</title>
+    <title>Tapis Vert::{{room.name}}</title>
 
     {% include 'main/elements/room.jinja' %}
     {% include 'auth/self.jinja' %}
@@ -41,10 +41,10 @@
     const ROOM = {
 
         // Representation of the Room in the page footer
-        eFooterEntry: new RoomFooterEntry(),
+        eRoomFooterEntry: new RoomFooterEntry(),
 
-        name(text)  { this.eFooterEntry.name = text  },
-        round(text) { this.eFooterEntry.round = text }
+        name(text)  { this.eRoomFooterEntry.name = text  },
+
 
     };
 
@@ -69,10 +69,11 @@
 
             // Representation of the User in the page footer
             this.eUserFooter = new UserFooter() ;
+            // this.eUserPawn = new Pawn() ;
 
-            // Representation of the User  as a Pawn on the Table
-            this.eUserPawn = new Pawn() ;
-
+            // Add deck to user
+            this.eUserDeck = new Deck();
+        
             // Remove all User's representations
             this._remove = function() {
                 this.eUserFooter.remove() ;
@@ -83,22 +84,27 @@
             this.name = function(name) {
                 this._name = name ;
                 this.eUserFooter.name = name ;
-                this.eUserPawn.name = name ;
+                // this.eUserPawn.name = name ;
             };
 
             // Sets User's online status
             this.online = function(bool) {
                 this._online = bool ;
                 this.eUserFooter.online = bool ;
-                this.eUserPawn.online = bool ;
+                // this.eUserPawn.online = bool ;
             };
 
             // Sets User's role
             this.role = function(role) {
                 this._role = role ;
                 this.eUserFooter.role = role ;
-                this.eUserPawn.role = role ;
+                // this.eUserPawn.role = role ;
                 console.log(`set role ${role} for user ${this._name}`)
+            };
+
+            // Assign card to user's deck
+            this.assignCard = function(card) {
+                this.eUserDeck.card = card.eCard.e;
             };
 
         },
@@ -130,41 +136,27 @@
             delete this._list[user_id] ;
         },
 
+        // Removes a User
+        update(users) {
+
+            let index, props
+            for ( [index, props] of Object.entries(users) ) {
+
+                let user_id = props["id"]
+                console.log(`adding user ${user_id} to USERS`)
+                this.add(user_id, props["name"]) ;
+
+                props["relation"]["status"] == "online" ? 
+                    this.get(user_id).online(true) :
+                    this.get(user_id).online(false) ;
+
+                this.get(user_id).role(props["relation"]["role"]) ;
+
+            }
+        }
+
     };
 
-
-    const DECKS = {
-
-        // Stores the collection of decks, indexed with the owner's user_id
-        _list: {}, 
-
-        _Deck: function() {
-
-            // Representation of the Deck on the Table
-            this.eDeck = new Deck() ;
-
-            // Moves a Pawn into the Deck
-            this.movePawn = function(pawn) { this.eDeck.pawn = pawn.e ; }
-
-            // Moves a Card into the Deck
-            this.moveCard = function(card) { this.eDeck.card = card.eCard.e ; }
-
-        },
-
-        // Returns a Deck based on id
-        get(owner) { return this._list[owner] ; },
-
-        // Adds a new Deck
-        add(owner) {
-            
-            if (this._list[owner]) 
-                return console.warn(`Deck ${owner} already registered: can't add`) ;
-
-            this._list[owner] = new this._Deck() ;
-
-        },
-
-    }
 
     const CARDS = {
 
@@ -179,6 +171,7 @@
             
             // Representation of the Card on the Table
             this.eCard = new Card() ;
+
             this.eCard.owner = owner ; 
             this.eCard.value = value ;
 
@@ -223,7 +216,7 @@
     )
 
     // Listens when a new user leaves the room
-    listen( "window", "room:user:left", (throwerId, user_id) =>
+    listen( "window", "user:left", (throwerId, user_id) =>
         USERS.remove(user_id)  
     )
 
@@ -232,15 +225,35 @@
         USERS.get(user_id).online(true)
     )
 
+    // Listens when a user beocmes player
+    listen( "window", "user:player", (throwerId, user_id) =>
+        USERS.get(user_id).role("player")
+    )
+
+    // Listens when a user beocmes watcher
+    listen( "window", "user:watcher", (throwerId, user_id) =>
+        USERS.get(user_id).role("watcher")
+    )
+
+    // Listens when a user beocmes master
+    listen( "window", "user:master", (throwerId, user_id) =>
+        USERS.get(user_id).role("master")
+    )
+
     // Listens when a room's user turns offline
     listen( "window", "user:offline", (throwerId, user_id) =>
         USERS.get(user_id).online(false)
     )
 
+    // Listens for a new round 
+    listen( "window", "round:new", (throwerId, user_id) =>
+        USERS.add(user_id, user_id, true)  
+    )
+
 
 
     const SELF = new SelfFooterEntry()
-
+    let ROOMWS // Room WebSocket
 
     document.addEventListener('DOMContentLoaded', () => {
 
@@ -253,23 +266,8 @@
         .then( r => {
 
             // Process Users
+            USERS.update(r["users"]) ;
 
-            u = r["users"] ;
-
-            let index, props
-            for ( [index, props] of Object.entries(u) ) {
-
-                let user_id = props["id"]
-                console.log(`adding user ${user_id} to USERS`)
-                USERS.add(user_id, props["name"]) ;
-
-                props["relation"]["status"] == "online" ? 
-                    USERS.get(user_id).online(true) :
-                    USERS.get(user_id).online(false) ;
-
-                USERS.get(user_id).role(props["relation"]["role"]) ;
-
-            } 
 
             // Process Cards
             
@@ -277,31 +275,40 @@
             
             let player
             for ( [player, props] of Object.entries(c) ) {
-
+    
                 cards = props["cards"]
-
                 value = cards["value"]
-                DECKS.add(player) ;
-                CARDS.add(value, player) ;
 
-                DECKS.get(player).moveCard(CARDS.get(value)) ;
+                // get the user to whom assign the card
+                let user = USERS.get(player);
 
-                if ("{{user_id}}" == player)  
-                    CARDS.get(value).peeked(value, true) ; 
+                // create the card on the table
+                CARDS.add(value, user._name) ;
 
-                CARDS.get(value).flipped(true) ;
+                // if the user is in the room, assign the card to the user
+                if (user) {
 
-                USERS.get(player) ?
-                    DECKS.get(player).movePawn(USERS.get(player).eUserPawn) :
-                    console.warn(`User ${player} not in room, can't move pawn to deck`) ;
+                    let card = CARDS.get(value);
+                    user.assignCard(card);
+                    // user.addPawn();
+                    
+                    if ("{{user.id}}" == player) {
+                        CARDS.get(value).peeked(value, true);
+                    }
+                    CARDS.get(value).flipped(true);
+
+                    console.log(`adding card ${value} to user ${player}`)
+                } else {
+                    console.warn(`User ${player} not in room, can't assign card/pawn`);
+                }
 
             } 
 
         })
         .then( _ => {
             // Room's websocket
-            let websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") ;
-            websocket.wsend("hello") ;
+            ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") ;
+            ROOMWS.wsend("hello") ;
         })
 
     });

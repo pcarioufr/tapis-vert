@@ -95,6 +95,11 @@ def room_user(room_id=None, user_id=None):
 
     room.users().set(user_id, **flask.request.args)
 
+    if "role" in flask.request.args:
+        role = flask.request.args.get("role")
+        room, rel = user.rooms().get_by_id(room_id)
+        utils.publish(room_id, f"user:{rel.role}", user_id )
+
     return flask.jsonify(room=room.to_dict()), 200
 
 @main_api.route('/v1/qrcode', methods=['GET'])

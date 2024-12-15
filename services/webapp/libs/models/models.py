@@ -120,7 +120,7 @@ class Room(ObjectMixin):
             player = User.get_by_id(user_id)
             
             if relation.role == "player":
-                round[player.name] = { "cards": {"value": cards[i], "flipped": 0} } 
+                round[player.id] = { "cards": {"value": cards[i], "flipped": 0} } 
             i = i+1
 
         self.round = json.dumps( round )
