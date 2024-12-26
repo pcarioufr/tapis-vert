@@ -23,21 +23,28 @@ REDIS_CLIENT = redis.Redis(
 def users():
 
     NAME = "Alice"
-    user = User.create(name=NAME, nom=NAME)
+    user = User.create(name=NAME)
     user_id = user.id
+
 
     # Assert User creation
     retrieved_user = User.get_by_id(user_id)
     tests = {
         "user:create": OK if retrieved_user else KO,
-        "user:create:name": OK if retrieved_user and retrieved_user.name == NAME else KO,
-        "user:create:nom": OK if retrieved_user and "nom" not in retrieved_user.data else KO,
+        "user:create:name": OK if retrieved_user and retrieved_user.name == NAME else KO
     }
 
     # Assert User update
     NAME = "Alicia"
     user.name = NAME
     user.save()
+
+    try:
+        user.name = "Anthony"
+        user.nom = "nom"
+        user.save()
+    except:
+        pass
 
     retrieved_user = User.get_by_id(user_id)
     tests = tests | {
@@ -95,14 +102,13 @@ def codes():
 def users_codes():
 
     TYPE = "login"
-    TEST = "hello"
 
     userA = User.create(name="Alice")
     userA_id = userA.id
 
     # Assert whether a code can be added for Alice
     # adds it from User
-    code1 = Code.create(test=TEST)
+    code1 = Code.create()
     code1_id = code1.id
     userA.codes().add(code1.id, type=TYPE)
 
@@ -134,7 +140,6 @@ def users_codes():
         "user_code:type":   OK if link_code1_userA.type == TYPE                     else KO,
         "user_code:1u1c-1": OK if code1_userA and code1_userA.id == code1.id        else KO,
         "user_code:1u1c-2": OK if userA_code1 and userA_code1.name == userA.name    else KO,
-        "user_code:1u1c-3": OK if code1_userA and code1_userA.test == code1.test    else KO,
         "user_code:1u2c-1": OK if code2_userA and code2_userA.id == code2.id        else KO,
         "user_code:1u2c-2": OK if userA_code2 and userA_code2.id == userA.id        else KO,
         "user_code:2u1c-1": KO if code1_userB                                       else OK,

@@ -6,9 +6,9 @@ def new_sid() -> str:
     return nanoid.generate(S_ALPHABET, 24)
 
 ALPHABET = '0123456789abcdef'
-def new_id() -> str:
+def new_id(size=10) -> str:
     '''Generates Random ID, suited for Internal Object IDs'''
-    return nanoid.non_secure_generate(ALPHABET, 10)
+    return nanoid.non_secure_generate(ALPHABET, size)
 
 
 import random

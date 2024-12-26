@@ -35,9 +35,9 @@ def round_new(room_id=None):
     if room is None:
         return flask.jsonify(), 404
 
-    room.new_round()
+    round, cards = room.new_round()
 
-    utils.publish(room_id, "round", "new")
+    utils.publish(room_id, "round:new", round)
 
     return flask.jsonify(room=room.to_dict()), 200
 
@@ -56,7 +56,7 @@ def room_join(room_id=None):
 
     user_id = flask_login.current_user.id
 
-    if room.users().exist(user_id):
+    if room.users().exists(user_id):
         log.debug(f'user {user_id} already member of room {room_id}')
     else:
         log.info(f'adding user {user_id} to room {room_id}')
@@ -64,6 +64,50 @@ def room_join(room_id=None):
         utils.publish(room_id, "user:joined", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
+
+
+@main_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
+@flask_login.login_required
+def room_patch(room_id=None):
+    '''Join a room'''
+
+    if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    user_id = flask_login.current_user.id
+
+    if not room.users().exists(user_id):
+        return flask.jsonify(), 401
+
+    for k,v in flask.request.args.items():
+
+        log.debug(f'patching room {room_id} with {k}={v}')
+
+        path = k.split('.')
+        
+        if path[0] != "cards":
+            return flask.jsonify(), 400
+        else: 
+            if path[1] not in room.cards:
+                log.debug(f'invalid card {path[1]}')
+                return flask.jsonify(), 404
+            if path[2] not in ["flipped", "peeked"]:
+                log.debug(f'invalid card property {path[2]}')
+                return flask.jsonify(), 400
+            if path[2] == "peeked":
+                if path[3] != user_id:
+                    log.debug(f'peeked card {path[3]} != user {user_id}')
+                    return flask.jsonify(), 401
+
+        Room.patch(room_id, k, v)
+
+        utils.publish(room_id, f"{k}", v)
+
+    return flask.jsonify(), 200
 
 
 @main_api.route("/v1/rooms/<room_id>/user/<user_id>", methods=['PATCH'])

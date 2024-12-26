@@ -39,13 +39,11 @@
         return array.find(item => item[attributeName] === attributeValue);
     }
 
+    // Object shortcuts
+    function keys(obj)          { return Object.keys(obj) }
+    function values(obj)        { return Object.values(obj) }
+    function entries(obj)       { return Object.entries(obj) }
+    function fromEntries(arr)   { return Object.fromEntries(arr) }
 
-    class Test {
-
-        static auth () {
-            call('GET', '/auth/test')
-        }
-
-    }
 
     </script>

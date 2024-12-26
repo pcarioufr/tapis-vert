@@ -23,7 +23,7 @@
             tag(name)       { this.e.setAttribute(name, "") }
             untag(name)     { this.e.removeAttribute(name) }
             toggle(name)    { this.e.hasAttribute(name) ? this.untag(name) : this.tag(name) }
-            is(name)        { return this.e.classList.contains(classname) }
+            is(name)        { return this.e.hasAttribute(name) }
 
             set hidden(bool)    { bool ? this.tag('hidden')      : this.untag('hidden')      }
             set disabled(bool)  { bool ? this.tag('disabled')    : this.untag('disabled')    }
