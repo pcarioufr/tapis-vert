@@ -128,6 +128,8 @@ class Room(ObjectMixin):
         self.round = json.dumps( round )
         self.save()
 
+        return round
+
 
     @tracer.wrap("Room.to_dict")
     def to_dict(self, include_related=False):

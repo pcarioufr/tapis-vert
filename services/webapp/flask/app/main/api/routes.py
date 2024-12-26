@@ -35,9 +35,9 @@ def round_new(room_id=None):
     if room is None:
         return flask.jsonify(), 404
 
-    room.new_round()
+    round = room.new_round()
 
-    utils.publish(room_id, "round", "new")
+    utils.publish(room_id, "round:new", round["id"])
 
     return flask.jsonify(room=room.to_dict()), 200
 

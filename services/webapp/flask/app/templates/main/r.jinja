@@ -103,6 +103,9 @@
 
             // Listens for a new round 
             listen( "RoomManager", "round:new", (throwerId, user_id) => {
+                
+                Object.values(this.eCards).forEach(cardObj => cardObj.remove());
+                
                 this.sync()
                 .then( _ => this.render() ) ;
             })
@@ -222,6 +225,10 @@
 
                 // representation of the card
                 eCard: new Card(),
+
+                remove() {
+                    this.eCard.remove();
+                },
 
                 set value(value) { 
                     this.eCard.value    = value                     
