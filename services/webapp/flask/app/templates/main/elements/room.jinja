@@ -77,12 +77,13 @@
         constructor(){
 
             super( build("t-user") )
+            console.log("UserFooter created")
 
         }
 
-        set name(text)      { this.select(".name").innerText = text ; this.id = text}
+        set name(text)      { this.select(".name").innerText = text ; }
 
-        set online(bool)    { bool ? 
+        set status(status)  { status == "online" ? 
                                 this.select(".status").setAttribute("online", "") : 
                                 this.select(".status").removeAttribute("online") 
                             }
@@ -95,13 +96,12 @@
                 case "watcher": parent = document.getElementById("footer-watchers") ; break ;
                 default:
                     console.error(`Role "${role}" isn't supported option for user`);
-                    return
+                    returnx
             }
             console.log(`User ${this.select(".name").innerText} moved to "${role}s"`);
             parent.append(this.e)
         }
 
-        remove()            { this.e.remove() }
 
     }
     </script>
@@ -135,7 +135,7 @@
 
         set role(role)      { console.warn("Pawn.role() method not implemented")}
 
-        set online(bool)    { bool ? 
+        set status(status)  { status == "online" ? 
                                 this.select(".status").setAttribute("online", "") : 
                                 this.select(".status").removeAttribute("online") 
                             }

@@ -109,10 +109,10 @@ class Room(ObjectMixin):
 
         users = self.users().all()
 
-        round = {}
+        round = { "id": utils.new_sid(), "cards": [] }
 
-        cards = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-        random.shuffle(cards)
+        values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+        random.shuffle(values)
 
         i = 0
         for user_id, relation in users.items():
@@ -120,7 +120,9 @@ class Room(ObjectMixin):
             player = User.get_by_id(user_id)
             
             if relation.role == "player":
-                round[player.id] = { "cards": {"value": cards[i], "flipped": 0} } 
+                card = {"value": values[i], "flipped": 0, "player_id": player.id }
+                round["cards"].append(card)
+
             i = i+1
 
         self.round = json.dumps( round )

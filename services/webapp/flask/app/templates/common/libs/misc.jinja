@@ -33,6 +33,13 @@
 
     } 
 
+
+    // Function to find an object in an array by attribute value
+    function find(array, attributeName, attributeValue) {
+        return array.find(item => item[attributeName] === attributeValue);
+    }
+
+
     class Test {
 
         static auth () {
