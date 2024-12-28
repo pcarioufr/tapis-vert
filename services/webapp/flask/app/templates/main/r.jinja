@@ -73,13 +73,13 @@
 
             // Listens when a room's user turns online
             listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                find(this.data.users, "id", user_id).status = "online" ;
+                find(this.data.users, "id", user_id).relation.status = "online" ;
                 this.eUsers[user_id].status  = "online" ;
             })
 
             // Listens when a room's user turns offline
             listen( "RoomManager", "user:offline", (throwerId, user_id) => {
-                find(this.data.users, "id", user_id).status = "offline" ;
+                find(this.data.users, "id", user_id).relation.status = "offline" ;
                 this.eUsers[user_id].status  = "offline" ;
             })
 
@@ -198,7 +198,7 @@
                     this.eUserFooter.name = name ;
                 },
                 set status(status) {
-                    this.eUserFooter.online = status ;
+                    this.eUserFooter.status = status ;
                 },
                 set role(role) {
                     this.eUserFooter.role = role ;
@@ -255,7 +255,7 @@
     <script>
 
     let ROOMWS // Room WebSocket
-
+    let ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
@@ -263,8 +263,6 @@
 
         // Join room
         call('POST', '/api/v1/rooms/{{room.id}}/join')
-
-        let ROOM = new RoomManager()
 
         ROOM.sync()
         .then( _ => ROOM.render() )
