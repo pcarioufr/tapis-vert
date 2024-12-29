@@ -56,7 +56,7 @@ def room_join(room_id=None):
 
     user_id = flask_login.current_user.id
 
-    if room.users().exist(user_id):
+    if room.users().exists(user_id):
         log.debug(f'user {user_id} already member of room {room_id}')
     else:
         log.info(f'adding user {user_id} to room {room_id}')

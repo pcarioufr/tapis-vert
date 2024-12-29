@@ -111,7 +111,7 @@ class RedisMixin():
 
     @classmethod
     @tracer.wrap("RedisMixin.exist")
-    def exist(cls, key: str) -> bool:
+    def exists(cls, key: str) -> bool:
         """Assesses whether the instance with key exists, or isn't mark for deletion."""
 
         with REDIS_CLIENT.pipeline() as pipe:
@@ -150,17 +150,7 @@ class RedisMixin():
 
         for field, value in raw.items() :
 
-            def _unflatten(d):
-                result = {}
-                for k, v in d.items():
-                    keys = k.split('.')
-                    temp = result
-                    for key in keys[:-1]:
-                        temp = temp.setdefault(key, {})
-                    temp[keys[-1]] = v
-                return result
-
-            data.update(_unflatten({k: v for k, v in raw.items() if k not in cls.META_FIELDS}))
+            data.update(utils.unflatten({k: v for k, v in raw.items() if k not in cls.META_FIELDS}))
 
 
         meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS }
@@ -192,33 +182,20 @@ class RedisMixin():
                     raise ConflictError(f"Version mismatch: on server {version_ref}{type(version_ref)}, on instance {version_self}{type(version_self)}.")
 
                 # flush existing fields - specifically matters for dictionary values
+                existing_fields = REDIS_CLIENT.hkeys(self.key)
                 for field in self.FIELDS:
-                    existing_fields = REDIS_CLIENT.hkeys(self.key)
-                    for field_name in self.FIELDS:
-                        subkeys = [k for k in existing_fields if k.startswith(f"{field_name}.")]
-                        if subkeys:
-                            pipe.hdel(self.key, *subkeys)
+                    subkeys = [k for k in existing_fields if k.startswith(f"{field}.")]
+                    if subkeys:
+                        pipe.hdel(self.key, *subkeys)
+
 
                 # data & metadata update
                 mapping = {}
 
                 # prepare data
-
-                def _flatten(data, prefix="", out=None):
-                    if out is None:
-                        out = {}
-                    if isinstance(data, dict):
-                        for k, v in data.items():
-                            new_key = f"{prefix}.{k}".strip(".")
-                            _flatten(v, new_key, out)
-                    else:
-                        out[prefix] = data
-                    return out
-
-                flattened = _flatten(self.data)
+                flattened = utils.flatten(self.data)
                 for k, v in flattened.items():
                     mapping[k] = v
-
 
                 # prepare metadata
                 self._edited = utils.now()
@@ -266,10 +243,11 @@ class RedisMixin():
             - value: updated value to set. 
 
         Returns:
-            - The patched object
+            - The True/False, whether the object was patched or not
+              TODO: return object instead
         """
 
-        if not cls.exist(key):
+        if not cls.exists(key):
             log.warning("object deleted, skipping patch") 
             return False
 
@@ -301,7 +279,6 @@ class RedisMixin():
             log.error(f"Concurrent edit detected for key {self.key}, aborting.")
             raise ConflictError("Concurrent edit detected, aborting.")
 
-        # TODO: return object instead
         return True
 
     @tracer.wrap("RedisMixin.to_dict")
@@ -433,8 +410,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
         return super().create(cls._key(id), **kwargs)
 
     @classmethod
-    def exist(cls, id: str) -> bool:
-        return super().exist( cls._key(id) )
+    def exists(cls, id: str) -> bool:
+        return super().exists( cls._key(id) )
 
     @classmethod
     def get_by_id(cls, id: str) -> "ObjectMixin":
@@ -474,7 +451,7 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
 
     @classmethod
     def patch(cls, id: str, **kwargs) -> bool:
-        return super().patch(cls._key(), **kwargs)
+        return super().patch(cls._key(id), **kwargs)
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related=False):
@@ -605,8 +582,8 @@ class RelationMixin(RedisMixin):
 
 
     @classmethod
-    def exist(cls, left_id: str, right_id: str) -> bool:
-        return super().exist( cls._key(left_id, right_id) )
+    def exists(cls, left_id: str, right_id: str) -> bool:
+        return super().exists( cls._key(left_id, right_id) )
 
     @classmethod
     def get_by_ids(cls, left_id: str, right_id: str) -> "RelationMixin":
@@ -840,7 +817,7 @@ class RightwardsRelationManager(RelationManager):
     @tracer.wrap("RightwardsRelationManager.get")
     def get_by_id(self, related_id) :
         
-        if self.exist(related_id) :
+        if self.exists(related_id) :
             rel = self.relation_class.get_by_ids(self.instance.id, related_id)
             obj = self.relation_class.R_CLASS.get_by_id(related_id)
             return obj, rel
@@ -848,9 +825,9 @@ class RightwardsRelationManager(RelationManager):
             return None, None
 
     @tracer.wrap("RightwardsRelationManager.exist")
-    def exist(self, related_id: str):
+    def exists(self, related_id: str):
 
-        return self.relation_class.exist(self.instance.id, related_id)
+        return self.relation_class.exists(self.instance.id, related_id)
 
     @tracer.wrap("RightwardsRelationManager.first")
     def first(self) :
@@ -886,7 +863,7 @@ class LeftwardsRelationManager(RelationManager):
     @tracer.wrap("LeftwardsRelationManager.get")
     def get_by_id(self, related_id) :
         
-        if self.exist(related_id):
+        if self.exists(related_id):
             rel = self.relation_class.get_by_ids(related_id, self.instance.id)
             obj = self.relation_class.L_CLASS.get_by_id(related_id)
             return obj, rel
@@ -894,9 +871,9 @@ class LeftwardsRelationManager(RelationManager):
             return None, None
 
     @tracer.wrap("RightwardsRelationManager.exist")
-    def exist(self, related_id: str):
+    def exists(self, related_id: str):
 
-        return self.relation_class.exist(related_id, self.instance.id)
+        return self.relation_class.exists(related_id, self.instance.id)
 
     @tracer.wrap("LeftwardsRelationManager.first")
     def first(self):
