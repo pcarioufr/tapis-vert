@@ -26,7 +26,9 @@ class RedisMixin():
     """A Redis ORM Mixin that manipulates hash map (HSET) objects"""
 
     FIELDS          = {}
+
     META_FIELDS     = {"_created", "_edited", "_version"}  # metadata fields
+
 
     def __init__(self, key: str, data: dict, meta: dict):
 
@@ -34,30 +36,42 @@ class RedisMixin():
             raise TypeError("RedisMixin.__init__() is abstract. Call subclass' instead.")
 
         self.key = key
-        self.data = data or {} # Instance data (FIELDS)
-        self.meta = meta or {} # Instance metadata (META_FIELDS)
 
-    def __getattr__(self, name):
+        self.data = {}
+        for field in self.FIELDS:
+            self.__setattr__(field, data.get(field, None))
+
+        self.meta = {}
+        for field in self.META_FIELDS:
+            self.__setattr__(field, meta.get(field, None))
+
+
+    def __getattr__(self, field):
         """Intercepts attribute access for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS:
-            return self.data.get(name)
-        elif name in self.META_FIELDS:
-            return self.meta.get(name)
-        else:
-            raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
+        if field in self.FIELDS:
+            return self.data.get(field)
 
-    def __setattr__(self, name, value):
+        elif field in self.META_FIELDS:
+            return self.meta.get(field)
+
+        else:
+            raise AttributeError(f"{self.__class__.__name__}.{field} does not exist.")
+
+    def __setattr__(self, field, value):
         """Intercepts attribute setting for keys in FIELDS & META_FIELDS."""
 
-        if name in self.FIELDS:
-            self.data[name] = value
-        elif name in self.META_FIELDS:
-            self.meta[name] = value
-        elif name in {"key", "data", "meta"}:
-            return super().__setattr__(name, value)
+        if field in self.FIELDS:
+            self.data[field] = value
+
+        elif field in self.META_FIELDS:
+            self.meta[field] = value
+
+        elif field in {"key", "data", "meta"}:
+            return super().__setattr__(field, value)
+
         else:
-            raise AttributeError(f"{self.__class__.__name__}.{name} does not exist.")
+            raise AttributeError(f"{self.__class__.__name__}.{field} does not exist.")
 
     @classmethod
     @tracer.wrap("RedisMixin.create")
@@ -73,16 +87,16 @@ class RedisMixin():
 
         log.info(f"Creating {cls.__name__} with kwargs {kwargs}")
 
-        # Separate valid and invalid fields
-        data = {k: v for k, v in kwargs.items() if k in cls.FIELDS}
-        invalid_fields = {k for k in kwargs if k not in cls.FIELDS}
-
-        # Log a warning for invalid fields
+        # Check for invalid fields
+        invalid_fields = {k for k in kwargs if k not in cls.FIELDS }
         if invalid_fields:
-            log.warning(
-                f"Ignoring invalid fields for {cls.__name__}: {invalid_fields}. "
-                f"Allowed fields are: {cls.FIELDS}"
-            )
+            raise AttributeError(f"Invalid fields for {cls.__name__}: {invalid_fields}")
+
+        # Separate valid and invalid fields
+        # data = {}
+        # for key, value in kwargs.items():
+        #     data[key] = value
+        data = dict(kwargs)
 
         instance = cls(key=key, data=data, meta={})
         instance._created = utils.now()
@@ -120,18 +134,35 @@ class RedisMixin():
             - The object, or None
         """
 
+        # retrieve data
         raw = REDIS_CLIENT.hgetall(key)
         
+        # check if object (still) exists
         if not raw:
             log.warning(f"No match for {cls.__name__} with key {key}")
             return None
-
         if raw.get("_deleted"):
             log.warning(f"{cls.__name__} with key {key} marked for deletion. Returning None")
             return None
 
-        # Separate data and meta based on known fields and metadata fields
-        data = {k: v for k, v in raw.items() if k in cls.FIELDS }
+        # retrieve data
+        data = {}
+
+        for field, value in raw.items() :
+
+            def _unflatten(d):
+                result = {}
+                for k, v in d.items():
+                    keys = k.split('.')
+                    temp = result
+                    for key in keys[:-1]:
+                        temp = temp.setdefault(key, {})
+                    temp[keys[-1]] = v
+                return result
+
+            data.update(_unflatten({k: v for k, v in raw.items() if k not in cls.META_FIELDS}))
+
+
         meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS }
 
         return cls(key=key, data=data, meta=meta)
@@ -143,29 +174,61 @@ class RedisMixin():
         Raises an exception if concurrent edits have been made (version change), or are being made (watch) 
         """
 
-        # TODO reinforce checks on save if object does not exist
-        # the _version in the object should be trusted
-
         try:
 
             with REDIS_CLIENT.pipeline() as pipe:
 
+                # watch for concurrent edits
                 pipe.watch(self.key)
 
-                # Fetch current version within the pipeline
-                version_ref = pipe.hget(self.key, "_version")
+                pipe.multi()
+
+                # fetch current version within the pipeline
+                version_ref = REDIS_CLIENT.hget(self.key, "_version")
                 version_ref = int(version_ref) if version_ref else -1
                 version_self = int(self._version)
 
                 if version_ref != version_self:
                     raise ConflictError(f"Version mismatch: on server {version_ref}{type(version_ref)}, on instance {version_self}{type(version_self)}.")
 
-                # edit metadata
+                # flush existing fields - specifically matters for dictionary values
+                for field in self.FIELDS:
+                    existing_fields = REDIS_CLIENT.hkeys(self.key)
+                    for field_name in self.FIELDS:
+                        subkeys = [k for k in existing_fields if k.startswith(f"{field_name}.")]
+                        if subkeys:
+                            pipe.hdel(self.key, *subkeys)
+
+                # data & metadata update
+                mapping = {}
+
+                # prepare data
+
+                def _flatten(data, prefix="", out=None):
+                    if out is None:
+                        out = {}
+                    if isinstance(data, dict):
+                        for k, v in data.items():
+                            new_key = f"{prefix}.{k}".strip(".")
+                            _flatten(v, new_key, out)
+                    else:
+                        out[prefix] = data
+                    return out
+
+                flattened = _flatten(self.data)
+                for k, v in flattened.items():
+                    mapping[k] = v
+
+
+                # prepare metadata
                 self._edited = utils.now()
                 self._version = int(self._version) + 1
+                mapping.update(self.meta)
 
-                # save
-                pipe.hset(self.key, mapping={**self.data, **self.meta})
+                pipe.hset(self.key, mapping=mapping)
+
+                # push the update
+                pipe.execute()
 
         except redis.WatchError:
             log.error(f"Concurrent edit detected for key {self.key}, aborting.")
@@ -192,35 +255,51 @@ class RedisMixin():
 
     @classmethod
     @tracer.wrap("RedisMixin.patch")
-    def patch(cls, key: str, **kwargs) -> bool:
+    def patch(cls, key: str, field: str, value) -> bool:
         """
-        Low-latency update of FIELDS values.
-        Pushes the information regardless of conflicts, but in any case wouldn't revive a deleted instance.
+        Lower-latency update of a single FIELD values.
+        Minimal conflict prevention: may *not* revive a deleted subkey
         Args:
             - key: The Redis key of the object to patch
-            - kwargs: field (withing FIELDS) to update with their values
+            - field: field to update  
+              for dictionary fields, use nested syntax: field.subkey, field.subkey.subsubkey, etc.
+            - value: updated value to set. 
+
         Returns:
-            - The created object
+            - The patched object
         """
 
         if not cls.exist(key):
             log.warning("object deleted, skipping patch") 
             return False
 
-        with REDIS_CLIENT.pipeline() as pipe:
+        try:
 
-            pipe.multi()
+            with REDIS_CLIENT.pipeline() as pipe:
 
-            for field, value in kwargs.items():
+                # watch for concurrent edits
+                pipe.watch(key)
+
+                pipe.multi()
+
                 if field in cls.FIELDS:
-                    pipe.hset(key, field, value)
+                    if REDIS_CLIENT.hexists(key, field):
+                        pipe.hset(key, field, value)
+                    else:
+                        raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
+    
                 else:
                     raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
 
-            pipe.hincrby(key, "_version", 1)
-            pipe.hset(key, "_edited", utils.now())
-            pipe.execute()
-            log.info(f"Patched {field}:{value} for {key}")
+                pipe.hincrby(key, "_version", 1)
+                pipe.hset(key, "_edited", utils.now())
+                pipe.execute()
+
+                log.info(f"Patched {field}:{value} for {key}")
+
+        except redis.WatchError:
+            log.error(f"Concurrent edit detected for key {self.key}, aborting.")
+            raise ConflictError("Concurrent edit detected, aborting.")
 
         # TODO: return object instead
         return True
@@ -336,7 +415,6 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
 
     def __getattr__(self, name):
         """Intercepts attribute access for id."""
-
         if name == "id":
             return self.key[len(self._prefix()):]
         else:

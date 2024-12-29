@@ -152,21 +152,23 @@
 
             // RENDER CARDS ----
 
-            this.data.round.cards.forEach( cardDATA => {
+            Object.keys(this.data.cards).forEach(cardKey => {
+
+                let cardDATA = this.data.cards[cardKey];
 
                 // adds card if does not exist
-                if (!this.eCards[cardDATA.value]) {
-                    this.createCard(cardDATA.value) ;
+                if (!this.eCards[cardKey]) {
+                    this.createCard(cardKey) ;
                 }
 
                 // renders card
-                this.eCards[cardDATA.value].value      = cardDATA.value ;
-                this.eCards[cardDATA.value].owner      = find(this.data.users, "id", cardDATA.player_id).name ;
-                this.eCards[cardDATA.value].peeked     = cardDATA.peeked ;
-                this.eCards[cardDATA.value].flipped    = cardDATA.flipped ;
+                this.eCards[cardKey].value      = cardDATA.value ;
+                this.eCards[cardKey].owner      = find(this.data.users, "id", cardDATA.player_id).name ;
+                this.eCards[cardKey].peeked     = cardDATA.peeked ;
+                this.eCards[cardKey].flipped    = cardDATA.flipped ;
 
                 // assigns card to user
-                this.eUsers[cardDATA.player_id].assignCard(this.eCards[cardDATA.value]);
+                this.eUsers[cardDATA.player_id].assignCard(this.eCards[cardKey]);
 
             });
 

@@ -68,7 +68,6 @@ class Code(ObjectMixin):
     * user: reference to user
     '''
 
-    FIELDS = {"test"}
     ID_GENERATOR = utils.new_sid
 
     LEFTS = {
@@ -96,7 +95,7 @@ class Room(ObjectMixin):
     '''
     '''
 
-    FIELDS = {"name", "round"}
+    FIELDS = {"name", "round", "cards"}
 
     RIGHTS = {} 
     LEFTS = {
@@ -109,8 +108,10 @@ class Room(ObjectMixin):
 
         users = self.users().all()
 
-        round = { "id": utils.new_sid(), "cards": [] }
+        round = utils.new_id()
+        self.round = round
 
+        cards = {}
         values = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
         random.shuffle(values)
 
@@ -119,25 +120,25 @@ class Room(ObjectMixin):
 
             player = User.get_by_id(user_id)
             
+            card_ids = []
             if relation.role == "player":
-                card = {"value": values[i], "flipped": 0, "player_id": player.id }
-                round["cards"].append(card)
+
+                while True:
+                    card_id = utils.new_id(4)
+                    if card_id not in card_ids:
+                        break
+                card_ids.append(card_id)
+
+                cards[card_id] = { "flipped": 0, "player_id": player.id, "value": values[i] }
 
             i = i+1
 
-        self.round = json.dumps( round )
+        self.cards = cards
         self.save()
 
+        return round, cards
+
         return round
-
-
-    @tracer.wrap("Room.to_dict")
-    def to_dict(self, include_related=False):
-
-        result = super().to_dict(include_related)
-        result["round"] = json.loads(result["round"]) if result.get("round") else {}
-
-        return result
 
 
 class UsersRooms(RelationMixin):
