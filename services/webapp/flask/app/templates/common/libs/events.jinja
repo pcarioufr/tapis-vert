@@ -2,67 +2,102 @@
 
     <script>
 
-        const LISTENERS = {}; // Use const for immutability as the reference to LISTENERS will not change
+    /**
+    * Each listener is stored as an object:
+    * {
+    *   listenerId: string,
+    *   pattern: string,  // can be exact name or pattern with wildcards
+    *   callback: function
+    * }
+    */
+    const LISTENERS = [];
 
-        /**
-        * Triggers all callbacks registered for a specific event.
-        * 
-        * @param {string} throwerId - ID of the source that triggered the event.
-        * @param {string} eventName - Name of the event being fired.
-        * @param {*} data - Optional data to be passed to the callbacks.
-        */
-        function fire(throwerId, eventName, data = null) {
-
-            // Check if any listeners exist for this event
-            if (LISTENERS[eventName] != null) {
-            
-                // Iterate through listeners and call their callback functions
-                Object.entries(LISTENERS[eventName]).forEach(([listenerId, callback]) => {
-                    callback.call(this, throwerId, data);
-                });
-
+    /**
+    * Fire: triggers any listener whose pattern matches the eventName.
+    * @param {string} throwerId
+    * @param {string} eventName
+    * @param {*} data
+    */
+    function fire(throwerId, eventName, data = null) {
+        // Loop through all listener entries
+        LISTENERS.forEach(({ listenerId, pattern, callback }) => {
+            if (eventMatchesPattern(eventName, pattern)) {
+                callback.call(this, throwerId, data, eventName);
             }
+        });
+    }
+
+    /**
+    * Listen: register a callback for an event name or a wildcard pattern.
+    * @param {string} listenerId
+    * @param {string} pattern
+    * @param {function} callback
+    */
+    function listen(listenerId, pattern, callback) {
+        if (typeof listenerId !== 'string' || listenerId.trim() === '') {
+            throw new Error("Listener ID must be a non-empty string.");
+        }
+        if (typeof pattern !== 'string' || pattern.trim() === '') {
+            throw new Error("Event pattern must be a non-empty string.");
         }
 
-        /**
-        * Registers a callback function to a specific event.
-        * 
-        * @param {string|null} listenerId - ID of the listener.
-        * @param {string} eventName - Name of the event to listen for.
-        * @param {function} callback - Callback function to run when the event is fired.
-        */
-        function listen(listenerId, eventName, callback) {
+        // Create a new listener entry
+        LISTENERS.push({
+            listenerId,
+            pattern,
+            callback
+        });
+    }
 
-            if (typeof listenerId !== 'string' || listenerId.trim() === '') {
-                throw new Error("Listener ID must be a non-empty string.");
-            }
-
-            // Initialize the event listener array if not present
-            if (!LISTENERS.hasOwnProperty(eventName)) {
-                LISTENERS[eventName] = [];
-            }
-
-            // Add the callback for this listener
-            LISTENERS[eventName][listenerId] = callback;
+    /**
+    * Ignore: unregister a listener from a given pattern (or exact event).
+    * @param {string} listenerId
+    * @param {string} pattern
+    */
+    function ignore(listenerId, pattern) {
+        if (typeof listenerId !== 'string' || listenerId.trim() === '') {
+            throw new Error("Listener ID must be a non-empty string.");
+        }
+        if (typeof pattern !== 'string' || pattern.trim() === '') {
+            throw new Error("Event pattern must be a non-empty string.");
         }
 
-        /**
-        * Unregisters a listener from an event.
-        * 
-        * @param {string} listenerId - ID of the listener to remove.
-        * @param {string} eventName - Name of the event from which the listener is removed.
-        */
-        function ignore(listenerId, eventName) {
-
-            if (typeof listenerId !== 'string' || listenerId.trim() === '') {
-                throw new Error("Listener ID must be a non-empty string.");
-            }
-
-            // Remove the listener's callback if it exists
-            if (LISTENERS[eventName]) {
-                delete LISTENERS[eventName][listenerId];
+        // Filter out the matching listener(s)
+        for (let i = LISTENERS.length - 1; i >= 0; i--) {
+            const entry = LISTENERS[i];
+            if (entry.listenerId === listenerId && entry.pattern === pattern) {
+                LISTENERS.splice(i, 1);
             }
         }
+    }
+
+    /**
+    * Helper: Does the eventName match a given pattern?
+    * - If pattern has no special wildcard characters, it must match exactly.
+    * - If pattern contains wildcard(s) like '*', we do a simple conversion to RegExp.
+    *
+    * @param {string} eventName
+    * @param {string} pattern
+    * @returns {boolean}
+    */
+    function eventMatchesPattern(eventName, pattern) {
+        // Quick optimization if there's no wildcard in the pattern
+        if (!pattern.includes('*')) {
+            return (eventName === pattern);
+        }
+
+        // Convert the pattern to a RegExp: 
+        // 1) Escape all regex meta-characters except `*`.  
+        // 2) Replace `*` with `.*` 
+        // 3) Anchor ^ and $
+        const regexStr = '^' + pattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape everything except '*'
+            .replace(/\*/g, '.*') + '$';
+
+        const regex = new RegExp(regexStr);
+        return regex.test(eventName);
+    }
+
 
     </script>
 
