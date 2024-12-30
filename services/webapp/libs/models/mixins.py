@@ -92,13 +92,8 @@ class RedisMixin():
         if invalid_fields:
             raise AttributeError(f"Invalid fields for {cls.__name__}: {invalid_fields}")
 
-        # Separate valid and invalid fields
-        # data = {}
-        # for key, value in kwargs.items():
-        #     data[key] = value
-        data = dict(kwargs)
 
-        instance = cls(key=key, data=data, meta={})
+        instance = cls(key=key, data=dict(kwargs), meta={})
         instance._created = utils.now()
         instance._version = -1
 
@@ -247,8 +242,8 @@ class RedisMixin():
               TODO: return object instead
         """
 
-        if not cls.exists(key):
-            log.warning("object deleted, skipping patch") 
+        if not RedisMixin.exists.__func__(cls, key):
+            log.warning(f"{cls.__class__} > {key} deleted, skipping patch") 
             return False
 
         try:
@@ -260,14 +255,10 @@ class RedisMixin():
 
                 pipe.multi()
 
-                if field in cls.FIELDS:
-                    if REDIS_CLIENT.hexists(key, field):
-                        pipe.hset(key, field, value)
-                    else:
-                        raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
-    
+                if REDIS_CLIENT.hexists(key, field):
+                    pipe.hset(key, field, value)
                 else:
-                    raise AttributeError(f"'{cls.__name__}' object has no attribute '{field}'")
+                    raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
 
                 pipe.hincrby(key, "_version", 1)
                 pipe.hset(key, "_edited", utils.now())
@@ -450,8 +441,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
         return super().delete()
 
     @classmethod
-    def patch(cls, id: str, **kwargs) -> bool:
-        return super().patch(cls._key(id), **kwargs)
+    def patch(cls, id: str, field, value) -> bool:
+        return super().patch(cls._key(id), field, value)
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related=False):
@@ -598,8 +589,8 @@ class RelationMixin(RedisMixin):
         return super().get( cls._key(left_id, right_id) )
     
     @classmethod
-    def patch(cls, left_id: str, right_id: str, **kwargs) -> bool:
-        return super().patch( cls._key(left_id, right_id), **kwargs)
+    def patch(cls, left_id: str, right_id: str, field, value) -> bool:
+        return super().patch( cls._key(left_id, right_id), field, value)
 
     @classmethod
     def search(cls, cursor=0, count=1000):
