@@ -182,10 +182,14 @@
         <div class="card"> <!-- [flipped], [peeked] -->    
             <div class="face front" noselect></div>
             <div class="face back" noselect></div>
-            <div class="corner front" noselect>
+            <div class="cornerDW front" noselect>
                 <span></span>
             </div>
-            <div class="corner back"></div>
+            <div class="cornerDW back"></div>
+            <div class="cornerUP front" noselect>
+                <span></span>
+            </div>
+            <div class="cornerUP back"></div>
         </div>
     </template>
 
@@ -235,7 +239,8 @@
                             }
         set value(text)     {   
                                 this.select(".face.front").innerText = text
-                                this.select(".corner.front span").innerText = text 
+                                this.select(".cornerDW.front span").innerText = text 
+                                this.select(".cornerUP.front span").innerText = text 
                             }
 
         set peeked(bool)  { bool ? this.tag("peeked")  : this.untag("peeked")  ; }
