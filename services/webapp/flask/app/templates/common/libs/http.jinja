@@ -2,14 +2,12 @@
 
     <script>
 
-        function debounce(func, wait = 500) {   
-            var timeout;
-            return function() {
-                var context = this, args = arguments;
-                var later = function() { timeout = null; func.apply(context, args); };
+        function debounce(fn, delay = 300) {
+            let timeout;
+            return function(...args) {
                 clearTimeout(timeout);
-                timeout = setTimeout(later, wait);        
-            }
+                timeout = setTimeout(() => fn(...args), delay);
+            };
         }
 
         function handle_response(r, ignore4xx=false) { 
