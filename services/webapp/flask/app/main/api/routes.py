@@ -66,6 +66,33 @@ def room_join(room_id=None):
     return flask.jsonify(room=room.to_dict()), 200
 
 
+@main_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
+@flask_login.login_required
+def room_patch(room_id=None):
+    '''Join a room'''
+
+    if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    user_id = flask_login.current_user.id
+
+    if not room.users().exists(user_id):
+        return flask.jsonify(), 401
+
+    for k,v in flask.request.args.items():
+
+        log.debug(f'patching room {room_id} with {k}={v}')
+        Room.patch(room_id, k, v)
+
+        utils.publish(room_id, f"{k}", v)
+
+    return flask.jsonify(), 200
+
+
 @main_api.route("/v1/rooms/<room_id>/user/<user_id>", methods=['PATCH'])
 @flask_login.login_required
 def room_user(room_id=None, user_id=None):

@@ -110,6 +110,14 @@
                 .then( _ => this.render() ) ;
             })
 
+            // Listens for a card update
+            listen( "RoomManager", "cards.*", (throwerId, update, eventName) => {
+
+                let [_, cardID, property] = eventName.split('.');
+                this.eCards[cardID][property] = update;
+
+            })
+
         }
 
         // (re)initializes the room data, synchronizing it with backend
@@ -226,7 +234,7 @@
             this.eCards[card_id] = {
 
                 // representation of the card
-                eCard: new Card(),
+                eCard: new Card(card_id),
 
                 remove() {
                     this.eCard.remove();
@@ -238,11 +246,14 @@
                 set owner(owner) { 
                     this.eCard.owner    = owner ; 
                 },                
-                set peeked(bool) {
-                    this.eCard.peeked   = bool ; 
+                set peeked(isPeeked) {
+                    isPeeked  == "True" ? isPeeked = true  : isPeeked  = false ;
+                    this.eCard.peeked   = isPeeked ; 
                 },
-                set flipped(bool) {
-                    this.eCard.flipped  = bool ;
+                set flipped(isFlipped) {
+
+                    isFlipped == "True" ? isFlipped = true : isFlipped = false ;
+                    this.eCard.flipped  = isFlipped ;
                 }
 
             } ;

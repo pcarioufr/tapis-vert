@@ -192,21 +192,30 @@
     <script>
     class Card extends Element {
 
-        constructor(){
+        constructor(card_id){
+
+            const dCall = debounce(call, 300);
 
             super( build("t-card") )
 
             // Toggle the corner peek effect on click
             this.select('.face.back').addEventListener('click', _ => {
+
                 this.toggle('peeked');
+                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`] : this.is("peeked") ? "True" : "False" }) ;
+
             });
 
             // Flips the card on double-click
             this.e.addEventListener('dblclick', _ => {
-                this.untag('peeked');  // no peek while flipping the card
-                this.toggle('flipped');
-            });
 
+                this.untag('peeked');  // no peek while flipping the card
+                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`] : "False"  }) ;
+
+                this.toggle('flipped');
+                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.flipped`] : this.is("flipped") ? "True" : "False" }) 
+
+            });
 
         }
 
