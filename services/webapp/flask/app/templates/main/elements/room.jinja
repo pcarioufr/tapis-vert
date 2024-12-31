@@ -194,7 +194,17 @@
 
         constructor(card_id){
 
-            const dCall = debounce(call, 300);
+            // debounce the PATCH request for peeked
+            const dPeeked = debounce(value => 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`]: value }), 
+                300
+            );
+
+            // debounce the PATCH request for flipped
+            const dFlipped = debounce(value => 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.flipped`]: value }),
+                300
+            );
 
             super( build("t-card") )
 
@@ -202,7 +212,7 @@
             this.select('.face.back').addEventListener('click', _ => {
 
                 this.toggle('peeked');
-                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`] : this.is("peeked") ? "True" : "False" }) ;
+                dPeeked( this.is("peeked") ? "True" : "False" ) ;
 
             });
 
@@ -210,10 +220,10 @@
             this.e.addEventListener('dblclick', _ => {
 
                 this.untag('peeked');  // no peek while flipping the card
-                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`] : "False"  }) ;
+                dPeeked( "False" ) ;
 
                 this.toggle('flipped');
-                dCall("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.flipped`] : this.is("flipped") ? "True" : "False" }) 
+                dFlipped( this.is("flipped") ? "True" : "False" ) ;
 
             });
 

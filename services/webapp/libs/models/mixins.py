@@ -229,8 +229,8 @@ class RedisMixin():
     @tracer.wrap("RedisMixin.patch")
     def patch(cls, key: str, field: str, value) -> bool:
         """
-        Lower-latency update of a single FIELD values.
-        Minimal conflict prevention: may *not* revive a deleted subkey
+        Lower-latency update, targetting a single FIELD values.
+        No conflict prevention (the last update wins), although will never revive a deleted subkey
         Args:
             - key: The Redis key of the object to patch
             - field: field to update  
@@ -246,29 +246,21 @@ class RedisMixin():
             log.warning(f"{cls.__class__} > {key} deleted, skipping patch") 
             return False
 
-        try:
 
-            with REDIS_CLIENT.pipeline() as pipe:
+        with REDIS_CLIENT.pipeline() as pipe:
 
-                # watch for concurrent edits
-                pipe.watch(key)
+            pipe.multi()
 
-                pipe.multi()
+            if REDIS_CLIENT.hexists(key, field):
+                pipe.hset(key, field, value)
+            else:
+                raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
 
-                if REDIS_CLIENT.hexists(key, field):
-                    pipe.hset(key, field, value)
-                else:
-                    raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
+            pipe.hincrby(key, "_version", 1)
+            pipe.hset(key, "_edited", utils.now())
+            pipe.execute()
 
-                pipe.hincrby(key, "_version", 1)
-                pipe.hset(key, "_edited", utils.now())
-                pipe.execute()
-
-                log.info(f"Patched {field}:{value} for {key}")
-
-        except redis.WatchError:
-            log.error(f"Concurrent edit detected for key {self.key}, aborting.")
-            raise ConflictError("Concurrent edit detected, aborting.")
+            log.info(f"Patched {field}:{value} for {key}")
 
         return True
 
