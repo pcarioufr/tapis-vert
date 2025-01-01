@@ -1,4 +1,4 @@
-    <!-- VIEWS ------ ------ ------ ------ ------ ------ ------ -->
+<!-- VIEWS ------ ------ ------ ------ ------ ------ ------ -->
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/room.css') }}">
 
@@ -182,14 +182,15 @@
         <div class="card"> <!-- [flipped], [peeked] -->    
             <div class="face front" noselect></div>
             <div class="face back" noselect></div>
-            <div class="cornerDW front" noselect>
+            <div class="card-corner lower front" noselect>
                 <span></span>
             </div>
-            <div class="cornerDW back"></div>
-            <div class="cornerUP front" noselect>
+            <div class="card-corner lower back"></div>
+
+            <div class="card-corner upper front" noselect>
                 <span></span>
             </div>
-            <div class="cornerUP back"></div>
+            <div class="card-corner upper back"></div>
         </div>
     </template>
 
@@ -239,8 +240,8 @@
                             }
         set value(text)     {   
                                 this.select(".face.front").innerText = text
-                                this.select(".cornerDW.front span").innerText = text 
-                                this.select(".cornerUP.front span").innerText = text 
+                                this.select(".lower.front span").innerText = text 
+                                this.select(".upper.front span").innerText = text 
                             }
 
         set peeked(bool)  { bool ? this.tag("peeked")  : this.untag("peeked")  ; }

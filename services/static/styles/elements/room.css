@@ -1,14 +1,27 @@
+/*-------------------------------------------*/
+/* Custom Properties                         */
+/*-------------------------------------------*/
+@property --grad-start {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 2%;
+}
+@property --grad-end {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 5%;
+}
 
-
-/* TABLE ***** ***** ***** ***** ***** ***** ***** ***** */
-
+/*-------------------------------------------*/
+/* TABLE Styles                              */
+/*-------------------------------------------*/
 .table {
     position: relative;
 
     --card-w: 16vw; /* card width */
     --card-h: 22vw; /* card height */
-    --card-c: 8vw;  /* card corner size */      
-    --card-r: 0deg; /* Initial rotation, not used yet */
+    --card-c: 8vw;  /* card corner (square)-size */
+    --card-rotation: 0deg; /* Initial rotation */
 
     display: flex;
     flex-direction: row;
@@ -50,9 +63,15 @@
 
 }
 
+/*-------------------------------------------*/
+/* PAWNS Styles                              */
+/*-------------------------------------------*/
 
-/* PAWNS ***** ***** ***** ***** ***** ***** ***** ***** */
-
+.deck .pawn-slot{
+    position: absolute;
+    top: -20%;
+    left: 75%
+}
 
 .pawn {
     z-index: 10;
@@ -120,11 +139,9 @@
     background: var(--green);
 }
 
-
-
-/* USERS ***** ***** ***** ***** ***** ***** ***** ***** */
-
-
+/*-------------------------------------------*/
+/* USERS Styles                              */
+/*-------------------------------------------*/
 .room-footer-panel {
     display: flex;
     flex-direction: column;
@@ -192,10 +209,9 @@
     background: var(--green);
 }
 
-
-
-/* CARDS ***** ***** ***** ***** ***** ***** ***** ***** */
-
+/*-------------------------------------------*/
+/* CARDS Styles                              */
+/*-------------------------------------------*/
 /* Container for the card */
 .deck {
     width: var(--card-w);
@@ -220,13 +236,13 @@
     transform-style: preserve-3d; /* Ensures both front and back are in 3D */
     transition: transform 0.6s; /* Flip animation */
 
-    transform: rotateZ( var(--card-r) );
+    transform: rotateZ(var(--card-rotation));
     
 }
 
 /* When the card is flipped */
 [flipped].card {
-    transform: rotateZ( var(--card-r) ) rotateY(180deg); /* Flip the card */
+    transform: rotateZ(var(--card-rotation)) rotateY(180deg); /* Flip the card */
 }
 
 /* Card faces */
@@ -281,14 +297,7 @@
 /* CARD CORNERS & PEEKING EFFECT */
 
 /* Clipping cards to leave room for peeking corner */
-/*
-.card .face.back {
-    clip-path: polygon( 0% 0%, 0% calc( 100% - var(--card-c)), var(--card-c) 100%, 100% 100%, 100% 0% );
-}
-.card .face.front {
-    clip-path: polygon( 0% 0%, 0% 100%, calc( 100% - var(--card-c)) 100%, 100% calc(100% - var(--card-c)), 100% 0% );
-}
-*/
+
 .card .face.back {
     clip-path: polygon( 
                     0% 0%, 
@@ -312,29 +321,39 @@
 }
 
 
-/* Corner */
-.card .cornerDW {
+/* Corners */
+
+.card .card-corner {
     position: absolute;
     width: var(--card-c);
     height: var(--card-c);
+    backface-visibility: hidden;
+    border-color: var(--beige);
+    border-style: solid;
+    border-width: 2px;
+    box-sizing: border-box;
+    transform: rotate3d(1, 1, 0, 0deg); /* No initial rotation */
+    transform-origin: center center;
+    transition: transform 0.5s ease-in-out;
+    will-change: transform;
+}
+
+/* LOWER CORNER */
+.card .card-corner.lower {
     border-radius: 0 0 2vw 0;
     bottom: 0;
     right: 0;
-    transform-origin: center center;
-    transform: rotate3d(1, 1, 0, 0deg); /* No initial rotation */
-    transition: transform 0.5s ease-in-out;
-    will-change: transform;
     clip-path: polygon(100% 0, 0 100%, 100% 100%)
 }
 
-/* Front corner */
-.card .cornerDW.front {
+/* down corner - front */
+.card .card-corner.lower.front {
     background-color: var(--beige); /* Back color */
     backface-visibility: hidden;
     display: flex;
 }
 
-.card .cornerDW.front span {
+.card .card-corner.lower.front span {
     position: relative;
     margin: auto;
     transform: rotate(135deg);
@@ -343,8 +362,8 @@
     color: var(--dblue);
 }
 
-/* Back corner */
-.card .cornerDW.back {
+/* down corner - back */
+.card .card-corner.lower.back {
     background-color: var(--dblue); /* Back color */
     backface-visibility: hidden;
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg);
@@ -354,45 +373,52 @@
     border-width: 2px;
     box-sizing: border-box;
 
+    background: radial-gradient(
+        ellipse
+        calc(120% + 75% * cos(var(--card-rotation) + 215deg))
+        calc(60% + 30% * sin(var(--card-rotation) + 215deg))
+        at top left,
+        var(--bblue) var(--grad-start),
+        var(--dblue) var(--grad-end)
+    );
+    transition: --grad-start 0.5s , --grad-end 0.5s , transform 0.5s ease-in-out;
+
+}
+
+[peeked].card .card-corner.lower.back {
+    --grad-start: 80%;
+    --grad-end: 250%;
 }
 
 
 /* Front corner lifts and back of the corner is revealed */
-[flipped][peeked].card .cornerDW.front {
+[flipped][peeked].card .card-corner.lower.front {
     transform: rotate3d(-1, 1, 0, 130deg); /* Rotate to lift the corner */
 }
 
 /* Back corner follows the movement */
-[flipped][peeked].card .cornerDW.back {
+[flipped][peeked].card .card-corner.lower.back {
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -130deg); 
 }
 
 
-/* Corner */
-.card .cornerUP {
-    position: absolute;
-    width: var(--card-c);
-    height: var(--card-c);
+/* UPPER CORNER */
+.card .card-corner.upper {
     border-radius: 2vw 0 0 0;
     top: 0;
     left: 0;
-    transform-origin: center center;
-    transform: rotate3d(1, 1, 0, 0deg); /* No initial rotation */
-    transition: transform 0.5s ease-in-out;
-    will-change: transform;
-    clip-path: polygon(0 0, 0 100%, 100% 0)
-    
+    clip-path: polygon(0 0, 0 100%, 100% 0)   
 }
 
 
-/* Front corner */
-.card .cornerUP.front {
+/* Up corner - front */
+.card .card-corner.upper.front {
     background-color: var(--beige); /* Back color */
     backface-visibility: hidden;
     display: flex;
 }
 
-.card .cornerUP.front span {
+.card .card-corner.upper.front span {
     position: relative;
     margin: auto;
     transform: rotate(-45deg);
@@ -401,33 +427,21 @@
     color: var(--dblue);
 }
 
-/* Back corner */
+/* Up corner back */
 
-@property --p3 {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: 2%;
- }
-
-@property --p4 {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: 5%;
-}
-
-.card .cornerUP.back {
+.card .card-corner.upper.back {
     backface-visibility: hidden;
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg);
 
     background: radial-gradient(
         ellipse
-        calc(120% + 75% * cos(var(--card-r) + 135deg))
-        calc(60% + 30% * sin(var(--card-r) + 135deg))
+        calc(120% + 75% * cos(var(--card-rotation) + 135deg))
+        calc(60% + 30% * sin(var(--card-rotation) + 135deg))
         at bottom right,
-        var(--bblue) var(--p3),
-        var(--dblue) var(--p4)
+        var(--bblue) var(--grad-start),
+        var(--dblue) var(--grad-end)
     );
-    transition: --p3 0.5s ease-in-out, --p4 0.5s ease-in-out, transform 0.5s ease-in-out;
+    transition: --grad-start 0.5s ease-in-out, --grad-end 0.5s ease-in-out, transform 0.5s ease-in-out;
 
     border-color: var(--beige);
     border-style: solid;
@@ -436,68 +450,49 @@
 
 }
 
-[peeked].card .cornerUP.back {
-    --p3: 80%;
-    --p4: 170%;
+[peeked].card .card-corner.upper.back {
+    --grad-start: 80%;
+    --grad-end: 170%;
 }
 
 
 /* Front corner lifts and back of the corner is revealed */
-[flipped][peeked].card .cornerUP.front {
+[flipped][peeked].card .card-corner.upper.front {
     transform: rotate3d(-1, 1, 0, -70deg); /* Rotate to lift the corner */
 }
 
 /* Back corner follows the movement */
-[flipped][peeked].card .cornerUP.back {
+[flipped][peeked].card .card-corner.upper.back {
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -70deg); 
 }
 
 
 /* Shadow effect on peeked card */
-
-@property --p1 {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: 2%;
- }
-
-@property --p2 {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: 5%;
-}
-
 .card .face.back {
+    /* radial-gradient used for dynamic shadows. We combine properties here for clarity */
     background: 
     radial-gradient(
         ellipse 
-        calc(120% + 75% * cos(var(--card-r) - 45deg)) calc(60% + 30% * sin(var(--card-r) - 45deg)) 
+        calc(120% + 75% * cos(var(--card-rotation) - 45deg)) calc(60% + 30% * sin(var(--card-rotation) - 45deg)) 
         at bottom left, 
-        var(--bblue) var(--p1), 
-        var(--dblue) var(--p2),
+        var(--bblue) var(--grad-start), 
+        var(--dblue) var(--grad-end),
         transparent 80%
     ),
     radial-gradient(
         ellipse
-        calc(120% + 75% * cos(var(--card-r) + 135deg))
-        calc(60% + 30% * sin(var(--card-r) + 135deg))
+        calc(120% + 75% * cos(var(--card-rotation) + 135deg))
+        calc(60% + 30% * sin(var(--card-rotation) + 135deg))
         at top right,
-        var(--bblue) var(--p1),
-        var(--dblue) var(--p2),
+        var(--bblue) var(--grad-start),
+        var(--dblue) var(--grad-end),
         transparent 80%
     ), var(--dblue);
-    transition: --p1 0.5s, --p2 0.5s;
+    transition: --grad-start 0.5s, --grad-end 0.5s;
 
 }
 
 [peeked].card .face.back {
-    --p1: 30%;
-    --p2: 60%;
-}
-
-
-.deck .pawn-slot{
-    position: absolute;
-    top: -20%;
-    left: 75%
+    --grad-start: 30%;
+    --grad-end: 60%;
 }
