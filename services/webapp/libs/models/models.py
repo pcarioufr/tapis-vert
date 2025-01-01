@@ -129,7 +129,12 @@ class Room(ObjectMixin):
                         break
                 card_ids.append(card_id)
 
-                cards[card_id] = { "flipped": "True", "peeked": "False", "player_id": player.id, "value": values[i] }
+                cards[card_id] = { 
+                    "flipped": "True", 
+                    "player_id": player.id, 
+                    "peeked": {u_id: "False" for u_id in users.keys()},
+                    "value": values[i] 
+                }
 
             i = i+1
 

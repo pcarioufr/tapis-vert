@@ -199,9 +199,9 @@
 
         constructor(card_id){
 
-            // debounce the PATCH request for peeked
+            // debounce the PATCH request for lower-peeked
             const dPeeked = debounce(value => 
-                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked`]: value }), 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked.{{user.id}}`]: value }), 
                 300
             );
 
@@ -216,15 +216,16 @@
             // Toggle the corner peek effect on click
             this.select('.face.back').addEventListener('click', _ => {
 
-                this.toggle('peeked');
-                dPeeked( this.is("peeked") ? "True" : "False" ) ;
+                this.toggle('peeked-lower');
+                dPeeked( this.is("peeked-lower") ? "True" : "False" ) ;
 
             });
 
             // Flips the card on double-click
             this.e.addEventListener('dblclick', _ => {
 
-                this.untag('peeked');  // no peek while flipping the card
+                this.untag('peeked-lower');  // no peek while flipping the card
+                this.untag('peeked-upper');  // no peek while flipping the card
                 dPeeked( "False" ) ;
 
                 this.toggle('flipped');
@@ -244,7 +245,9 @@
                                 this.select(".upper.front span").innerText = text 
                             }
 
-        set peeked(bool)  { bool ? this.tag("peeked")  : this.untag("peeked")  ; }
+        set peekedL(bool)  { bool ? this.tag("peeked-lower")  : this.untag("peeked-lower")  ; }
+        set peekedU(bool)  { bool ? this.tag("peeked-upper")  : this.untag("peeked-upper")  ; }
+        
         set flipped(bool) { bool ? this.tag("flipped") : this.untag("flipped") ; }
 
     }

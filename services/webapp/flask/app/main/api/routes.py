@@ -86,6 +86,23 @@ def room_patch(room_id=None):
     for k,v in flask.request.args.items():
 
         log.debug(f'patching room {room_id} with {k}={v}')
+
+        path = k.split('.')
+        
+        if path[0] != "cards":
+            return flask.jsonify(), 400
+        else: 
+            if path[1] not in room.cards:
+                log.debug(f'invalid card {path[1]}')
+                return flask.jsonify(), 404
+            if path[2] not in ["flipped", "peeked"]:
+                log.debug(f'invalid card property {path[2]}')
+                return flask.jsonify(), 400
+            if path[2] == "peeked":
+                if path[3] != user_id:
+                    log.debug(f'peeked card {path[3]} != user {user_id}')
+                    return flask.jsonify(), 401
+
         Room.patch(room_id, k, v)
 
         utils.publish(room_id, f"{k}", v)

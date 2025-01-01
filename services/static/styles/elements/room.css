@@ -1,12 +1,23 @@
 /*-------------------------------------------*/
 /* Custom Properties                         */
 /*-------------------------------------------*/
-@property --grad-start {
+@property --lower-grad-start {
     syntax: '<percentage>';
     inherits: false;
     initial-value: 2%;
 }
-@property --grad-end {
+@property --lower-grad-end {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 5%;
+}
+
+@property --upper-grad-start {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 2%;
+}
+@property --upper-grad-end {
     syntax: '<percentage>';
     inherits: false;
     initial-value: 5%;
@@ -378,26 +389,26 @@
         calc(120% + 75% * cos(var(--card-rotation) + 215deg))
         calc(60% + 30% * sin(var(--card-rotation) + 215deg))
         at top left,
-        var(--bblue) var(--grad-start),
-        var(--dblue) var(--grad-end)
+        var(--bblue) var(--lower-grad-start),
+        var(--dblue) var(--lower-grad-end)
     );
-    transition: --grad-start 0.5s , --grad-end 0.5s , transform 0.5s ease-in-out;
+    transition: --lower-grad-start 0.2s ease-in-out, --lower-grad-end 0.2s ease-in-out, transform 0.5s ease-in-out;
 
 }
 
-[peeked].card .card-corner.lower.back {
-    --grad-start: 80%;
-    --grad-end: 250%;
+[peeked-lower].card .card-corner.lower.back {
+    --lower-grad-start: 80%;
+    --lower-grad-end: 250%;
 }
 
 
 /* Front corner lifts and back of the corner is revealed */
-[flipped][peeked].card .card-corner.lower.front {
+[flipped][peeked-lower].card .card-corner.lower.front {
     transform: rotate3d(-1, 1, 0, 130deg); /* Rotate to lift the corner */
 }
 
 /* Back corner follows the movement */
-[flipped][peeked].card .card-corner.lower.back {
+[flipped][peeked-lower].card .card-corner.lower.back {
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -130deg); 
 }
 
@@ -438,10 +449,10 @@
         calc(120% + 75% * cos(var(--card-rotation) + 135deg))
         calc(60% + 30% * sin(var(--card-rotation) + 135deg))
         at bottom right,
-        var(--bblue) var(--grad-start),
-        var(--dblue) var(--grad-end)
+        var(--bblue) var(--upper-grad-start),
+        var(--dblue) var(--upper-grad-end)
     );
-    transition: --grad-start 0.5s ease-in-out, --grad-end 0.5s ease-in-out, transform 0.5s ease-in-out;
+    transition: --upper-grad-start 0.5s ease-in-out, --upper-grad-end 0.5s ease-in-out, transform 0.5s ease-in-out;
 
     border-color: var(--beige);
     border-style: solid;
@@ -450,19 +461,19 @@
 
 }
 
-[peeked].card .card-corner.upper.back {
-    --grad-start: 80%;
-    --grad-end: 170%;
+[peeked-upper].card .card-corner.upper.back {
+    --upper-grad-start: 80%;
+    --upper-grad-end: 170%;
 }
 
 
 /* Front corner lifts and back of the corner is revealed */
-[flipped][peeked].card .card-corner.upper.front {
+[flipped][peeked-upper].card .card-corner.upper.front {
     transform: rotate3d(-1, 1, 0, -70deg); /* Rotate to lift the corner */
 }
 
 /* Back corner follows the movement */
-[flipped][peeked].card .card-corner.upper.back {
+[flipped][peeked-upper].card .card-corner.upper.back {
     transform: rotate3d(0, 1, 0, 180deg) rotate3d(0, 0, 1, 90deg) rotate3d(-1, 1, 0, -70deg); 
 }
 
@@ -475,8 +486,8 @@
         ellipse 
         calc(120% + 75% * cos(var(--card-rotation) - 45deg)) calc(60% + 30% * sin(var(--card-rotation) - 45deg)) 
         at bottom left, 
-        var(--bblue) var(--grad-start), 
-        var(--dblue) var(--grad-end),
+        var(--bblue) var(--lower-grad-start), 
+        var(--dblue) var(--lower-grad-end),
         transparent 80%
     ),
     radial-gradient(
@@ -484,15 +495,20 @@
         calc(120% + 75% * cos(var(--card-rotation) + 135deg))
         calc(60% + 30% * sin(var(--card-rotation) + 135deg))
         at top right,
-        var(--bblue) var(--grad-start),
-        var(--dblue) var(--grad-end),
+        var(--bblue) var(--upper-grad-start),
+        var(--dblue) var(--upper-grad-end),
         transparent 80%
     ), var(--dblue);
-    transition: --grad-start 0.5s, --grad-end 0.5s;
+    transition: --upper-grad-start 0.5s, --upper-grad-end 0.5s, --lower-grad-start 0.5s, --lower-grad-end 0.5s ;
 
 }
 
-[peeked].card .face.back {
-    --grad-start: 30%;
-    --grad-end: 60%;
+[peeked-upper].card .face.back {
+    --upper-grad-start: 30%;
+    --upper-grad-end: 60%;
+}
+
+[peeked-lower].card .face.back {
+    --lower-grad-start: 30%;
+    --lower-grad-end: 60%;
 }
