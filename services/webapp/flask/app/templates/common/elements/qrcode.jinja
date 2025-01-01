@@ -15,12 +15,13 @@
 
         }
 
-        set link(link) { 
+        async updateLink(link) { 
 
             this.active = false
-            call("GET", "/api/v1/qrcode", {link: link, size: 4} )
-            .then(r => r.blob())
-            .then(blob => imageAssign( this.select("img"), blob) )
+            const resp = await call("GET", "/api/v1/qrcode", {link: link, size: 4} )
+            const data = await resp.blob()
+
+            imageAssign( this.select("img"), data )
 
         }
 

@@ -66,13 +66,12 @@
             this.logout.icon = "logout-circle"
             this.logout.color = "red"
 
-            this.logout.callback = ( _ => {
+            this.logout.callback = ( async _ => {
 
-                call('POST', '/auth/logout', { user_id: "{{user.id}}" })
-                .then( r => r.json() )
-                .then( r => {                        
-                    this.footerPanel.untag("logged")
-                })
+                const resp = await call('POST', '/auth/logout', { user_id: "{{user.id}}" })
+                const data = await resp.json() 
+                                        
+                this.footerPanel.untag("logged")
 
             })
 
@@ -93,20 +92,18 @@
             this.login.icon = "login-circle"
             this.login.color = "green"
             
-            this.login.callback = ( _ => {
+            this.login.callback = ( async _ => {
 
-                call('POST', '/auth/login', { code_id: this.codeInput.value })
-                .then( r => r.json() )
-                .then( r => { this.footerPanel.tag("logged") })
+                const resp = await call('POST', '/auth/login', { code_id: this.codeInput.value })
+                const data = await resp.json()
+
+                this.footerPanel.tag("logged")
 
             })
 
-
             {% endif %}
 
-
         }
-
         
 
     }

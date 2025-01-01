@@ -100,7 +100,10 @@ def list_codes():
 def list_users():
 
     users, cursor = User.search()
-    data = [user.to_dict(True) for user in users]    
+    data = {}
+    for user in users:
+        data.update(user.to_dict(True))
+
     return flask.jsonify(data), 200
 
 
@@ -108,7 +111,10 @@ def list_users():
 def list_rooms():
 
     rooms, cursor = Room.search()
-    data = [room.to_dict(True) for room in rooms]
+    data = {}
+    for room in rooms:
+        data.update(room.to_dict(True))
+
     return flask.jsonify(data), 200
 
 

@@ -36,13 +36,15 @@
 {% block body %}
 
 
-    <script>
-
+    <script type="module">
 
     // represntations of the room and its elements
     class RoomManager {
 
         constructor() {
+
+            this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
+
 
             // room data - mirrors backend data
             this.data = {} ;
@@ -58,64 +60,63 @@
             this.eCards = {} ;
 
             // Listens when a new user joins the room
-            listen( "RoomManager", "user:joined", (throwerId, user_id) => {
-                this.sync()
-                .then( _ => this.render() ) ;
+            listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
+                await this.refresh() ;
+                this.render() ;
             })
 
             // Listens when a new user leaves the room
-            listen( "RoomManager", "user:left", (throwerId, user_id) => {
-                this.sync()
-                .then( _ => this.render() ) ;
+            listen( "RoomManager", "user:left", async (throwerId, user_id) => {
+                await this.refresh() ;
+                this.render() ;
             })
 
             // Listens when a room's user turns online
             listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).relation.status = "online" ;                
+                this.data.users[user_id].relation.status = "online" ;                
                 this.eUsers[user_id].status  = "online" ;
             })
 
             // Listens when a room's user turns offline
             listen( "RoomManager", "user:offline", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).relation.status = "offline" ;
+                this.data.users[user_id].relation.status = "offline" ;
                 this.eUsers[user_id].status  = "offline" ;
             })
 
-            // Listens when a user beocmes player
+            // Listens when a user becomes player
             listen( "RoomManager", "user:player", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "player" ;
+                this.data.users[user_id].role = "player" ;
                 this.eUsers[user_id].role    = "player" ;
             })
 
-            // Listens when a user beocmes watcher
+            // Listens when a user becomes watcher
             listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "watcher" ;
+                this.data.users[user_id].role = "watcher" ;
                 this.eUsers[user_id].role    = "watcher" ;
             })
 
-            // Listens when a user beocmes master
+            // Listens when a user becomes master
             listen( "RoomManager", "user:master", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "master" ;
+                this.data.users[user_id].role = "master" ;
                 this.eUsers[user_id].role    = "master" ;
             })
 
             // Listens for a new round 
-            listen( "RoomManager", "round:new", (throwerId, user_id) => {
+            listen( "RoomManager", "round:new", async (throwerId, user_id) => {
                 
                 values(this.eCards).forEach(cardObj => cardObj.remove());
                 
-                this.sync()
-                .then( _ => this.render() ) ;
+                await this.refresh() ;
+                this.render() ;
+
             })
 
             // Listens for a card peeked event
-            listen( "RoomManager", "cards.*.peeked.*", (throwerId, update, eventName) => {
+            listen( "RoomManager", "cards:*:peeked:*", (throwerId, update, eventName) => {
 
-                console.debug(`Card update: ${eventName} = ${update}`) ;
+                const [_1, card_id, _3, user_id] = eventName.split(':');
 
-                let [_1, card_id, _3, user_id] = eventName.split('.');
                 let card = this.data.cards[card_id]
-
                 card.peeked[user_id] = update ;
 
                 // if the card peeked is self's
@@ -140,24 +141,57 @@
             })
 
             // Listens for a card flipped event
-            listen( "RoomManager", "cards.*.flipped", (throwerId, update, eventName) => {
+            listen( "RoomManager", "cards:*:flipped", (throwerId, update, eventName) => {
 
-                this.data.cards[card_id].flipped = update ;
+                const [_1, card_id, _3] = eventName.split(':');
 
-                let [_, cardID, property] = eventName.split('.');
-                this.eCards[cardID][property] = update;
+                let card = this.data.cards[card_id] ;
+                card.flipped = update ;
+
+                this.eCards[card_id].flipped = update;
 
             })
+
+            // Track user {{user.id}} cursor and update other users
+
+            const sendCursorPos = throttle((pageX, pageY) => {
+            
+                const table = document.getElementById("table");
+                const rect = table.getBoundingClientRect();
+
+                const rawX = (pageX - rect.left) / rect.width * 100;
+                const rawY = (pageY - rect.top)  / rect.height * 100;
+                const relX = parseFloat(rawX.toFixed(3));
+                const relY = parseFloat(rawY.toFixed(3));
+
+                this.websocket.wsend(`cursor:move`,`${relX}:${relY}`);
+
+            }, 100);
+
+            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
+            
+
+            // Listen for remote cursor moves
+            listen("RoomManager", `user:*:cursor:move`, (throwerId, data, eventName) => {
+
+                const [_1, user_id, _3, _4] = eventName.split(':');
+                const position  = data.split(':');
+                console.debug(`Received cursor move for user ${user_id} at ${position}`);
+
+                if (user_id === "{{user.id}}") return; // skip self
+                this.eUsers[user_id].position = position;
+
+
+            });
+
 
         }
 
         // (re)initializes the room data, synchronizing it with backend
-        sync() {
-
-            return call('GET', '/api/v1/rooms/{{room.id}}')
-                    .then( r => r.json() )
-                    .then( r => this.data = r )
-
+        async refresh() {
+            const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
+            const data = await resp.json();
+            this.data = data["{{room.id}}"];
         }
 
         // Renders the room
@@ -165,32 +199,31 @@
 
             // RENDER USERS ----
 
-            // remove users which are not in the room anymore
-            // TODO Replace with Object.keys(this.eUsers).forEach(...)
-            for (let id in this.eUsers) {
+            // remove users who are not in the room anymore            
+            entries(this.eUsers).forEach( ([id, eUser]) => {
                 if (!this.data.users.some(userDATA => userDATA.id == id)) {
                     this.eUsers[id].remove() ;
                     delete this.eUsers[id] ;
                 }
-            }
+            })
 
-            this.data.users.forEach( userDATA => {
+            console.log(this.data.users)
+            entries(this.data.users).forEach( ([user_id, user]) => {
 
-                // adds user if does not exist
-                if (!this.eUsers[userDATA.id]) {
-                    this.createUser(userDATA.id) ;
-                }
+                // ADDS USER IF DOES NOT EXIST
+                if (!this.eUsers[user_id]) { this.createUser(user_id) }
 
-                // renders user
-                this.eUsers[userDATA.id].name    = userDATA.name ;
-                this.eUsers[userDATA.id].status  = userDATA.relation.status ;
-                this.eUsers[userDATA.id].role    = userDATA.relation.role ;
+                // RENDERS USER
+                this.eUsers[user_id].name    = user.name ;
+                this.eUsers[user_id].status  = user.relation.status ;
+                this.eUsers[user_id].role    = user.relation.role ;
             
             });
 
 
             // RENDER CARDS ----
 
+            console.log(this.data.users)
             entries(this.data.cards).forEach( ([card_id, card]) => {
 
                 // ADDS CARD IF DOES NOT EXIST
@@ -200,7 +233,7 @@
                 // RENDERS CARD
 
                 this.eCards[card_id].value  = card.value ;
-                this.eCards[card_id].owner  = find(this.data.users, "id", card.player_id).name ;
+                this.eCards[card_id].owner  = this.data.users[card.player_id].name ;
 
                 // lower-peeked property - for self
                 card.peeked["{{user.id}}"] === "True" ?
@@ -240,6 +273,8 @@
 
                 // representation of the user in thr footer
                 eUserFooter: new UserFooter(),
+                eRemoteCursor: new RemoteCursor(this.eTable.e, name),
+
 
                 remove() {
                     this.eUserFooter.remove();
@@ -247,6 +282,7 @@
 
                 set name(name) {
                     this.eUserFooter.name = name ;
+                    this.eRemoteCursor.name = name ;
                 },
                 set status(status) {
                     this.eUserFooter.status = status ;
@@ -255,9 +291,14 @@
                     this.eUserFooter.role = role ;
                 },
 
-                assignCard(cardOBJ) {                    
-                    this.eUserDeck.card = cardOBJ.eCard.e ;
+                set position(position) {
+                    this.eRemoteCursor.position = position ;
+                },
+
+                assignCard(card) {                    
+                    this.eUserDeck.card = card.eCard.e ;
                 }
+
 
             } ;
 
@@ -304,26 +345,21 @@
 
         }
 
-
     };
-    </script>
 
-    <!-- LISTENERS ------ ------ ------ ------ -->
-    <script>
 
     let ROOMWS // Room WebSocket
     let ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async _ => {
 
-        // Join room
-        call('POST', '/api/v1/rooms/{{room.id}}/join')
+        await call('POST', '/api/v1/rooms/{{room.id}}/join');
 
-        ROOM.sync()
-        .then( _ => ROOM.render() )
-        .then( _ => ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") )
+        await ROOM.refresh() ;
+        ROOM.render();
+
 
     });
 

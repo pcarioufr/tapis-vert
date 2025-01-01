@@ -138,7 +138,8 @@
         }
 
         // this.send(), but waiting for the websocket connection to open.
-        wsend(msg, timeout = 5000) {
+        // key will be prefixed by user:{{user.id}}: by the server
+        wsend(key, value, timeout = 5000) {
 
             const startTime = Date.now();
 
@@ -148,7 +149,7 @@
 
                     if (this.readyState === 1) {  // Check if WebSocket is open
                         clearInterval(interval);
-                        this.send(msg); 
+                        this.send(`${key}::${value}`); 
                     } 
                     else if (Date.now() - startTime > timeout) {  // Check if timeout exceeded
                         clearInterval(interval); 

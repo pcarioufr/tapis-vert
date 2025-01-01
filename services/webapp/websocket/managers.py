@@ -183,5 +183,4 @@ class WebSocketManager:
                 for socket in all_sockets:
 
                     data = message['data'].decode('utf-8')
-                    log.info(data)
                     await socket.send_text(data)

@@ -32,8 +32,10 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
         while True:
 
             data = await websocket.receive_text()
+            key, value = data.split("::")
+
             with tracer.trace("receive"):
-                message = f"user::{user_id}:{data}"
+                message = f"user:{user_id}:{key}::{value}"
                 await socket_manager.broadcast_to_room(room_id, message)
 
     except WebSocketDisconnect:
