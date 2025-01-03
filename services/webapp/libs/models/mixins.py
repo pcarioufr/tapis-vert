@@ -190,7 +190,7 @@ class RedisMixin():
                 # prepare data
                 flattened = utils.flatten(self.data)
                 for k, v in flattened.items():
-                    mapping[k] = v
+                     mapping[k] = '' if v is None else v
 
                 # prepare metadata
                 self._edited = utils.now()
