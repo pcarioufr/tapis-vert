@@ -96,7 +96,7 @@
                 case "watcher": parent = document.getElementById("footer-watchers") ; break ;
                 default:
                     console.error(`Role "${role}" isn't supported option for user`);
-                    returnx
+                    return
             }
             console.log(`User ${this.select(".name").innerText} moved to "${role}s"`);
             parent.append(this.e)
