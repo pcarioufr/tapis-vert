@@ -264,17 +264,6 @@ class RedisMixin():
 
         return True
 
-    @tracer.wrap("RedisMixin.to_dict")
-    def to_dict(self):
-        """Converts the object to a dictionary for JSON serialization."""
-
-        result = {
-            "key": self.key,
-            **self.data, 
-            **self.meta
-        }
-
-        return result
 
     @classmethod
     @tracer.wrap("ObjectMixin.search")
@@ -438,12 +427,9 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related=False):
+        """Converts the object to a dictionary for JSON serialization."""
 
-        result = { 
-            "id": self.id,
-            **self.data, 
-            **self.meta
-        }
+        base = { **self.data, **self.meta }
 
         if include_related:
             
@@ -452,23 +438,30 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
                     manager = LeftwardsRelationManager(self, relation_class)
                     
                     lefts = manager.all()
-                    result[relation_name] = []
-
                     if lefts is not None:
-                        result[relation_name] = [relation.left_to_dict() for relation in lefts.values()]
-
+                        base[relation_name] = {
+                            k: v
+                            for relation in lefts.values()
+                            for k, v in relation.left_to_dict().items()
+                        }
+                    else:
+                        base[relation_name] = {}
 
             if self.RIGHTS:
                 for relation_name, relation_class in self.RIGHTS.items():
                     manager = RightwardsRelationManager(self, relation_class)
 
                     rights = manager.all()
-                    result[relation_name] = []
-
                     if rights is not None:
-                        result[relation_name] = [relation.right_to_dict() for relation in rights.values()]
+                        base[relation_name] = {
+                            k: v
+                            for relation in rights.values()
+                            for k, v in relation.right_to_dict().items()
+                        }
+                    else:
+                        base[relation_name] = {}
 
-        return result
+        return { str(self.id): base }
 
     @classmethod
     def search(cls, cursor=0, count=1000):
@@ -589,18 +582,6 @@ class RelationMixin(RedisMixin):
         pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}*"
         return super().search(pattern, cursor, count)
     
-    @tracer.wrap("RelationMixin.to_dict")
-    def to_dict(self):
-        """Converts the relation to a dictionary for JSON serialization."""
-
-        result = {
-            f"{self._L_prefix()}": self.L_CLASS.get_by_id(self.left_id).to_dict(False),
-            f"{self._R_prefix()}": self.R_CLASS.get_by_id(self.right_id).to_dict(False),
-            **self.meta,
-            **self.data
-        }
-    
-        return result
 
     @tracer.wrap("RelationMixin.left")
     def left(self):
@@ -618,8 +599,8 @@ class RelationMixin(RedisMixin):
     def left_to_dict(self):
         """Returns the relation alongside its left-side object for JSON serialization."""
 
-        result = self.L_CLASS.get_by_id(self.left_id).to_dict(False)
-        result ["relation"] = self.meta | self.data
+        result = self.left().to_dict(False)
+        result[str(self.left_id)]["relation"] = self.meta | self.data
     
         return result
 
@@ -627,15 +608,18 @@ class RelationMixin(RedisMixin):
     def right_to_dict(self):
         """Returns the relation alongside its right-side object for JSON serialization."""
 
-        result = self.R_CLASS.get_by_id(self.right_id).to_dict(False)
-        result ["relation"] = self.meta | self.data
-    
+        result = self.right().to_dict(False)
+        result[str(self.right_id)]["relation"] = self.meta | self.data
+        
         return result
 
     @classmethod
     @tracer.wrap("RelationMixin.lefts")
     def lefts(cls, right_id: str) -> dict[str, "RelationMixin"]:
-        """Retrieve all leftwards relations with a given right-side object."""
+        """
+        Retrieve all leftwards relations with a given right-side object.
+        Indexed by the left-side object ID.
+        """
 
         lefts = {}
 
@@ -666,7 +650,10 @@ class RelationMixin(RedisMixin):
     @classmethod
     @tracer.wrap("RelationMixin.rights")
     def rights(cls, left_id: str) -> dict[str, "RelationMixin"]:
-        """Retrieve all rightwards relations with a given left-side object."""
+        """
+        Retrieve all rightwards relations with a given left-side object.
+        Indexed by the right-side object ID.
+        """
 
         rights = {}
 

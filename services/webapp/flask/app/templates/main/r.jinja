@@ -71,31 +71,31 @@
 
             // Listens when a room's user turns online
             listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).relation.status = "online" ;                
+                this.data.users[user_id].relation.status = "online" ;                
                 this.eUsers[user_id].status  = "online" ;
             })
 
             // Listens when a room's user turns offline
             listen( "RoomManager", "user:offline", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).relation.status = "offline" ;
+                this.data.users[user_id].relation.status = "offline" ;
                 this.eUsers[user_id].status  = "offline" ;
             })
 
-            // Listens when a user beocmes player
+            // Listens when a user becomes player
             listen( "RoomManager", "user:player", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "player" ;
+                this.data.users[user_id].role = "player" ;
                 this.eUsers[user_id].role    = "player" ;
             })
 
-            // Listens when a user beocmes watcher
+            // Listens when a user becomes watcher
             listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "watcher" ;
+                this.data.users[user_id].role = "watcher" ;
                 this.eUsers[user_id].role    = "watcher" ;
             })
 
-            // Listens when a user beocmes master
+            // Listens when a user becomes master
             listen( "RoomManager", "user:master", (throwerId, user_id) => {
-                find(this.data.users, "id", `${user_id}`).role = "master" ;
+                this.data.users[user_id].role = "master" ;
                 this.eUsers[user_id].role    = "master" ;
             })
 
@@ -111,11 +111,9 @@
             // Listens for a card peeked event
             listen( "RoomManager", "cards.*.peeked.*", (throwerId, update, eventName) => {
 
-                console.debug(`Card update: ${eventName} = ${update}`) ;
-
                 let [_1, card_id, _3, user_id] = eventName.split('.');
-                let card = this.data.cards[card_id]
 
+                let card = this.data.cards[card_id]
                 card.peeked[user_id] = update ;
 
                 // if the card peeked is self's
@@ -142,10 +140,12 @@
             // Listens for a card flipped event
             listen( "RoomManager", "cards.*.flipped", (throwerId, update, eventName) => {
 
-                this.data.cards[card_id].flipped = update ;
+                let [_1, card_id, _3] = eventName.split('.');
 
-                let [_, cardID, property] = eventName.split('.');
-                this.eCards[cardID][property] = update;
+                let card = this.data.cards[card_id] ;
+                card.flipped = update ;
+
+                this.eCards[card_id].flipped = update;
 
             })
 
@@ -156,7 +156,7 @@
 
             return call('GET', '/api/v1/rooms/{{room.id}}')
                     .then( r => r.json() )
-                    .then( r => this.data = r )
+                    .then( r => this.data = r["{{room.id}}"] )
 
         }
 
@@ -165,32 +165,31 @@
 
             // RENDER USERS ----
 
-            // remove users which are not in the room anymore
-            // TODO Replace with Object.keys(this.eUsers).forEach(...)
-            for (let id in this.eUsers) {
+            // remove users who are not in the room anymore            
+            entries(this.eUsers).forEach( ([id, eUser]) => {
                 if (!this.data.users.some(userDATA => userDATA.id == id)) {
                     this.eUsers[id].remove() ;
                     delete this.eUsers[id] ;
                 }
-            }
+            })
 
-            this.data.users.forEach( userDATA => {
+            console.log(this.data.users)
+            entries(this.data.users).forEach( ([user_id, user]) => {
 
-                // adds user if does not exist
-                if (!this.eUsers[userDATA.id]) {
-                    this.createUser(userDATA.id) ;
-                }
+                // ADDS USER IF DOES NOT EXIST
+                if (!this.eUsers[user_id]) { this.createUser(user_id) }
 
-                // renders user
-                this.eUsers[userDATA.id].name    = userDATA.name ;
-                this.eUsers[userDATA.id].status  = userDATA.relation.status ;
-                this.eUsers[userDATA.id].role    = userDATA.relation.role ;
+                // RENDERS USER
+                this.eUsers[user_id].name    = user.name ;
+                this.eUsers[user_id].status  = user.relation.status ;
+                this.eUsers[user_id].role    = user.relation.role ;
             
             });
 
 
             // RENDER CARDS ----
 
+            console.log(this.data.users)
             entries(this.data.cards).forEach( ([card_id, card]) => {
 
                 // ADDS CARD IF DOES NOT EXIST
@@ -200,7 +199,7 @@
                 // RENDERS CARD
 
                 this.eCards[card_id].value  = card.value ;
-                this.eCards[card_id].owner  = find(this.data.users, "id", card.player_id).name ;
+                this.eCards[card_id].owner  = this.data.users[card.player_id].name ;
 
                 // lower-peeked property - for self
                 card.peeked["{{user.id}}"] === "True" ?
@@ -255,8 +254,8 @@
                     this.eUserFooter.role = role ;
                 },
 
-                assignCard(cardOBJ) {                    
-                    this.eUserDeck.card = cardOBJ.eCard.e ;
+                assignCard(card) {                    
+                    this.eUserDeck.card = card.eCard.e ;
                 }
 
             } ;
