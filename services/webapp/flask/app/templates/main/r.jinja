@@ -36,8 +36,7 @@
 {% block body %}
 
 
-    <script>
-
+    <script type="module">
 
     // represntations of the room and its elements
     class RoomManager {
@@ -58,15 +57,15 @@
             this.eCards = {} ;
 
             // Listens when a new user joins the room
-            listen( "RoomManager", "user:joined", (throwerId, user_id) => {
-                this.sync()
-                .then( _ => this.render() ) ;
+            listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
+                await this.refresh() ;
+                this.render() ;
             })
 
             // Listens when a new user leaves the room
-            listen( "RoomManager", "user:left", (throwerId, user_id) => {
-                this.sync()
-                .then( _ => this.render() ) ;
+            listen( "RoomManager", "user:left", async (throwerId, user_id) => {
+                await this.refresh() ;
+                this.render() ;
             })
 
             // Listens when a room's user turns online
@@ -100,12 +99,13 @@
             })
 
             // Listens for a new round 
-            listen( "RoomManager", "round:new", (throwerId, user_id) => {
+            listen( "RoomManager", "round:new", async (throwerId, user_id) => {
                 
                 values(this.eCards).forEach(cardObj => cardObj.remove());
                 
-                this.sync()
-                .then( _ => this.render() ) ;
+                await this.refresh() ;
+                this.render() ;
+
             })
 
             // Listens for a card peeked event
@@ -152,12 +152,10 @@
         }
 
         // (re)initializes the room data, synchronizing it with backend
-        sync() {
-
-            return call('GET', '/api/v1/rooms/{{room.id}}')
-                    .then( r => r.json() )
-                    .then( r => this.data = r["{{room.id}}"] )
-
+        async refresh() {
+            const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
+            const data = await resp.json();
+            this.data = data["{{room.id}}"];
         }
 
         // Renders the room
@@ -305,24 +303,21 @@
 
 
     };
-    </script>
 
-    <!-- LISTENERS ------ ------ ------ ------ -->
-    <script>
 
     let ROOMWS // Room WebSocket
     let ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async _ => {
 
-        // Join room
-        call('POST', '/api/v1/rooms/{{room.id}}/join')
+        await call('POST', '/api/v1/rooms/{{room.id}}/join');
 
-        ROOM.sync()
-        .then( _ => ROOM.render() )
-        .then( _ => ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}") )
+        await ROOM.refresh() ;
+        ROOM.render();
+
+        ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
 
     });
 

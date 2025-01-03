@@ -27,23 +27,25 @@
         {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
         const HEADERS = {}
 
-        function call(method, route, params={}) {
+        async function call(method, route, params = {}) {
 
-            let first = true ;
-            Object.keys(params).forEach(
-                key => {
-                    if (first) { route = `${route}?`; first = false ;}
-                    else { route = `${route}&`}
-                    route = `${route}${key}=${params[key]}`
-                }) ;
+            // Build query string manually
+            let first = true;
+            Object.keys(params).forEach( key => {
+                if (first) { route += '?'; first = false;} 
+                else       { route += '&'; }
+                route += `${key}=${params[key]}`;
+            });
 
-            let headers = {}
-            Object.assign(headers, HEADERS)
+            let headers = {};
+            Object.assign(headers, HEADERS);
 
-            return fetch(route, { method: method, headers: HEADERS} )
-                .then( r => handle_response(r) )
-                .catch( error => { /* TODO */ throw error } ) 
-
+            try {
+                const resp = await fetch(route, { method: method, headers: HEADERS });
+                return handle_response(resp);
+            } catch (error) {
+                throw error; /* TODO */ // currently re-throw the error
+            }
         }
 
     </script>
