@@ -318,7 +318,7 @@
 
         ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
 
-        new CursorManager("table", document.getElementById("table"), ROOMWS );
+        new CursorManager("table", document.getElementById("table"), ROOMWS, ROOM.data.users) ;
 
     });
 

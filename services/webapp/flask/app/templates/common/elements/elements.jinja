@@ -83,10 +83,11 @@
 
         class SVG {
         
-            constructor(icon="null") {
+            constructor(icon="null", classname=null) {
 
                 // SVG container
                 this.e = build("t-svg")
+                this.e.classList.add(classname)
 
                 // SVG content
                 let eSVG =  document.getElementById(icon).cloneNode(true);

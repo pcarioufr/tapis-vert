@@ -4,6 +4,8 @@
 
     <template id=t-remote-cursor>
         <div class="remote-cursor">
+            <!-- <svg></svg> goes here -->
+            <div class="name"></div>
         </div>
     </template>
 
@@ -13,12 +15,12 @@
 
     class Cursor extends Element {
 
-        constructor(eParent){
+        constructor(eParent, name) {
 
             super( build("t-remote-cursor"), eParent)
 
-            this.svg = new SVG("map-pin-user-line")
-            this.e.append(this.svg.e)
+            this.svg = new SVG("map-pin-user-line", "cursor")
+            this.e.prepend(this.svg.e)
 
         }
 
@@ -31,11 +33,12 @@
 
     class CursorManager {
 
-        constructor(id, eParent, websocket){
+        constructor(id, eParent, websocket, mapping){
 
             this.id = id;
-            this.eParent = eParent;
-            this.websocket = websocket;
+            this.eParent = eParent; // Element to append cursors to
+            this.websocket = websocket; // EventWebSocket to send and receive cursor moves
+            this.mapping = mapping; // Mapping of user_id to name ( mapping["user_id"].name )
 
             this.cursors = {}; // store { userId: cursorElement }
 
@@ -77,11 +80,14 @@
             this.cursors[user_id].e.style.top  = y + "%";
         }
 
-        createCursor(user_id) {
+        createCursor(user_id, name) {
 
-            const c = new Cursor(this.eParent);
+            const c = new Cursor(this.eParent, name);
+            c.select("svg").style.fill      = getColorForUser(user_id);
+            c.select(".name").style.color   = getColorForUser(user_id);
+            c.select(".name").innerText     = this.mapping[user_id].name;
+
             this.cursors[user_id] = c;
-            this.cursors[user_id].select("svg").style.fill = getColorForUser(user_id);
 
         }
     }

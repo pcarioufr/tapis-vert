@@ -1,18 +1,34 @@
 .remote-cursor {
     position: absolute;
-    width: 4vw;
-    height: 4vw;
     pointer-events: none; 
-    z-index: 9999;
+    z-index: 100;
     transition: left 0.1s ease, top 0.1s ease;
-    transform: translate(-50%, -100%);
-    drop-shadow(2px 2px 2px black);
+    transform: translate(-1.5vw, -3vw);
+    
+    display: flex;
+    align-items: center;
 }
 
 .remote-cursor svg {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top:0%;
-    left:0%;
+    position: relative;
+    width: 3vw;
+    height: 3vw;
+}
+
+.remote-cursor svg path {
+    stroke: black;
+    stroke-width: 0.1vw;
+}
+
+.remote-cursor div.name {
+    position: relative;
+    font-size: 1.5vw;
+    border-radius: 1vw;
+    text-align: left;
+    margin: auto;
+    width: max-content;
+    padding-right: 1vw;
+    padding-left: 1vw;
+    background: var(--black);
+    opacity: 0.8;
 }
