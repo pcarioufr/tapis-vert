@@ -2,14 +2,6 @@
 
     <script>
 
-        function debounce(fn, delay = 300) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn(...args), delay);
-            };
-        }
-
         function handle_response(r, ignore4xx=false) { 
             if (r.status >= 500) { throw "oups, c'est cassé..." }
             if (!ignore4xx){

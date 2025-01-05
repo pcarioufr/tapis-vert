@@ -1,0 +1,89 @@
+    <!-- CURSORS ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/cursor.css') }}">
+
+    <template id=t-remote-cursor>
+        <div class="remote-cursor">
+        </div>
+    </template>
+
+
+    <script>
+
+
+    class Cursor extends Element {
+
+        constructor(eParent){
+
+            super( build("t-remote-cursor"), eParent)
+
+            this.svg = new SVG("map-pin-user-line")
+            this.e.append(this.svg.e)
+
+        }
+
+    }
+
+    function getColorForUser(userId) {
+        const h = Math.abs(hashString(userId)) % 360;
+        return `hsl(${h}, 80%, 60%)`;
+    }
+
+    class CursorManager {
+
+        constructor(id, eParent, websocket){
+
+            this.id = id;
+            this.eParent = eParent;
+            this.websocket = websocket;
+
+            this.cursors = {}; // store { userId: cursorElement }
+
+            // Listen for remote cursor moves
+            listen(`${this.id}`, `user:*:${this.id}:move`, (throwerId, data, eventName) => {
+
+                const [_1, user_id, _3, _4] = eventName.split(':');
+                const [x, y]  = data.split(':');
+
+                console.log(`Received cursor move for user ${user_id} at ${x}, ${y}`);
+
+                if (user_id === "{{user.id}}") return; // skip self
+                this.updateRemoteCursor(user_id, x, y);
+
+
+            });
+
+            const sendCursorPos = throttle((pageX, pageY) => {
+
+                const table = document.getElementById("table");
+                const rect = table.getBoundingClientRect();
+
+                const rawX = (pageX - rect.left) / rect.width * 100;
+                const rawY = (pageY - rect.top)  / rect.height * 100;
+                const relX = parseFloat(rawX.toFixed(3));
+                const relY = parseFloat(rawY.toFixed(3));
+
+                this.websocket.wsend(`${this.id}:move`,`${relX}:${relY}`);
+
+            }, 100);
+
+            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
+        }
+
+
+        updateRemoteCursor(user_id, x, y) {
+            if (!this.cursors[user_id]) this.createCursor(user_id);
+            this.cursors[user_id].e.style.left = x + "%";
+            this.cursors[user_id].e.style.top  = y + "%";
+        }
+
+        createCursor(user_id) {
+
+            const c = new Cursor(this.eParent);
+            this.cursors[user_id] = c;
+            this.cursors[user_id].select("svg").style.fill = getColorForUser(user_id);
+
+        }
+    }
+
+    </script>

@@ -199,13 +199,13 @@
 
             // debounce the PATCH request for lower-peeked
             const dPeeked = debounce(value => 
-                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.peeked.{{user.id}}`]: value }), 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:peeked:{{user.id}}`]: value }), 
                 300
             );
 
             // debounce the PATCH request for flipped
             const dFlipped = debounce(value => 
-                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards.${card_id}.flipped`]: value }),
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:flipped`]: value }),
                 300
             );
 

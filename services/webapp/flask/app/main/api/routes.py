@@ -87,7 +87,7 @@ def room_patch(room_id=None):
 
         log.debug(f'patching room {room_id} with {k}={v}')
 
-        path = k.split('.')
+        path = k.split(':')
         
         if path[0] != "cards":
             return flask.jsonify(), 400

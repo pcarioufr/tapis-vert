@@ -15,7 +15,7 @@ def flatten(data, prefix="", out=None):
         out = {}
     if isinstance(data, dict):
         for k, v in data.items():
-            new_key = f"{prefix}.{k}".strip(".")
+            new_key = f"{prefix}:{k}".strip(":")
             flatten(v, new_key, out)
     else:
         out[prefix] = data
@@ -34,7 +34,7 @@ def unflatten(d):
     """
     result = {}
     for k, v in d.items():
-        keys = k.split('.')
+        keys = k.split(':')
         temp = result
         for key in keys[:-1]:
             temp = temp.setdefault(key, {})

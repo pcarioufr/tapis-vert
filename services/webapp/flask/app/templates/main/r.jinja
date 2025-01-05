@@ -109,9 +109,9 @@
             })
 
             // Listens for a card peeked event
-            listen( "RoomManager", "cards.*.peeked.*", (throwerId, update, eventName) => {
+            listen( "RoomManager", "cards:*:peeked:*", (throwerId, update, eventName) => {
 
-                let [_1, card_id, _3, user_id] = eventName.split('.');
+                const [_1, card_id, _3, user_id] = eventName.split(':');
 
                 let card = this.data.cards[card_id]
                 card.peeked[user_id] = update ;
@@ -138,9 +138,9 @@
             })
 
             // Listens for a card flipped event
-            listen( "RoomManager", "cards.*.flipped", (throwerId, update, eventName) => {
+            listen( "RoomManager", "cards:*:flipped", (throwerId, update, eventName) => {
 
-                let [_1, card_id, _3] = eventName.split('.');
+                const [_1, card_id, _3] = eventName.split(':');
 
                 let card = this.data.cards[card_id] ;
                 card.flipped = update ;
@@ -301,7 +301,6 @@
 
         }
 
-
     };
 
 
@@ -318,6 +317,8 @@
         ROOM.render();
 
         ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
+
+        new CursorManager("table", document.getElementById("table"), ROOMWS );
 
     });
 
