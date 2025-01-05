@@ -1,4 +1,4 @@
-    <!-- CURSORS ------ ------ ------ ------ -->
+<!-- CURSORS ------ ------ ------ ------ -->
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/cursor.css') }}">
 
@@ -15,14 +15,15 @@
 
     class RemoteCursor extends Element {
 
-        constructor(eParent, name) {
+        constructor(eParent) {
 
-            super( build("t-remote-cursor"), eParent)
+            super( build("t-remote-cursor"), eParent);
 
-            this.svg = new SVG("map-pin-user-line", "cursor")
-            this.e.prepend(this.svg.e)
+            this.svg = new SVG("map-pin-user-line", "cursor") ;
+            this.e.prepend(this.svg.e) ;
 
-            this.hidden = true
+            this.hidden = true ;
+            this.e.style.opacity = "0" ;
 
         }
 
@@ -33,16 +34,17 @@
         
             this.svg.style.fill      = getColorForUser(user_id);
             this.select(".name").style.color   = getColorForUser(user_id);
-            this.svg.e.style.fill = color 
+            this.svg.e.style.fill = color ;
         }
 
         set position(position) {
    
+            this.hidden = false ;
             if (position[0] < 0 || position[0] > 100 || position[1] < 0 || position[1] > 100) {
-                this.hidden = true
-                return
+                this.e.style.opacity = "0";
+                return;
             }
-            this.hidden = false
+            this.e.style.opacity = "1";
             this.e.style.left = position[0] + "%";
             this.e.style.top  = position[1] + "%";
             
