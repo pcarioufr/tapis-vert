@@ -24,7 +24,7 @@
     border-radius: max(1vw, 2%)
 }
 
-[noselect] {
+[noselect] * {
     user-select: none;
     -webkit-user-select: none;
 }

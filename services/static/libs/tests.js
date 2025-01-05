@@ -1,6 +1,5 @@
-    <!-- TEST UTILS ------ ------ ------ ------ -->
+    // TEST UTILS ------ ------ ------ ------ ------ */
 
-    <script>
 
     // A class utility to test API endpoints
     class Test {
@@ -11,5 +10,3 @@
         }
 
     }
-
-    </script>

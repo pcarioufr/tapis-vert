@@ -1,6 +1,4 @@
-<!-- MISCELLANEOUS UTILS ------ ------ ------ ------ -->
-
-    <script>
+    // MISCELLANEOUS UTILS ------ ------ ------ ------ ------ */
 
     // a funciton that does nothing
     function noop() {}
@@ -70,6 +68,10 @@
         };
     }
 
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     // Function to hash any string
     function hashString(str) {
         let hash = 0;
@@ -94,5 +96,3 @@
     // Turn Redis strings into JS boolean - and vice versa
     function boolify(str)       { return str === "True" }
     function stringify(bool)    { return bool ? "True" : "False" }
-
-    </script>

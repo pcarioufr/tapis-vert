@@ -49,3 +49,44 @@
 .footer-panel > .self-footer-panel button {
   margin-left: auto;
 }
+
+
+.footer-panel > .self-footer-panel > .c-role {
+  display: flex;
+  flex-direction: column;
+  gap: 1vw;
+  width: 10vw;
+}
+
+.footer-panel > .self-footer-panel .choice {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  justify-content: flex-start;
+  margin-right: auto;
+  cursor: pointer;
+}
+
+.footer-panel > .self-footer-panel .choice[active] {
+  cursor: default;
+}
+
+.footer-panel > .self-footer-panel .choice svg {
+  fill: var(--beige);
+  height: 3.5vw;
+  width: 3.5vw;
+  margin: auto;
+}
+
+.footer-panel > .self-footer-panel .choice span{
+  color: var(--beige);
+  font-size: 3.5vw;
+  margin: auto;
+}
+
+.footer-panel > .self-footer-panel .choice[active] svg {
+  fill: var(--green);
+}
+.footer-panel > .self-footer-panel .choice[active] span{
+  color: var(--green);
+}

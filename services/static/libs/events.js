@@ -1,6 +1,4 @@
-    <!-- EVENTS ------ ------ ------ ------ -->
-
-    <script>
+    // EVENTS ------ ------ ------ ------ ------ */
 
     /**
     * Each listener is stored as an object:
@@ -98,80 +96,3 @@
         return regex.test(eventName);
     }
 
-
-    </script>
-
-
-    <!-- WEBSOCKETS ------ ------ ------ ------ -->
-
-    <script>
-
-    class EventWebSocket extends WebSocket {
-
-
-        constructor(url) {
-
-            super(url);  // Call the WebSocket constructor
-
-            this.onmessage = (event) => {
-                let [key, value] = event.data.split('::', 2);  // Split only at the first occurrence of '::'
-                
-                // If value looks like JSON (starts with `{` or `[`), parse it
-                try { 
-                    value = JSON.parse(value); 
-                } catch (e) { /* If not JSON, just use raw value */ }
-
-                fire("websocket", key, value);
-            };
-
-            this.onopen = () => {
-                console.log("WebSocket connection established");
-            };
-
-            this.onclose = () => {
-                console.log("WebSocket connection closed");
-            };
-
-            this.onerror = (error) => {
-                console.error("WebSocket error:", error);
-            };
-        }
-
-        // this.send(), but waiting for the websocket connection to open.
-        // key will be prefixed by user:{{user.id}}: by the server
-        wsend(key, value, timeout = 5000) {
-
-            const startTime = Date.now();
-
-            const interval = setInterval(
-                
-                _ => {
-
-                    if (this.readyState === 1) {  // Check if WebSocket is open
-                        clearInterval(interval);
-                        this.send(`${key}::${value}`); 
-                    } 
-                    else if (Date.now() - startTime > timeout) {  // Check if timeout exceeded
-                        clearInterval(interval); 
-                        console.error('WebSocket connection timed out. Message not sent.');
-                    }
-
-                }, 
-                5 // Check every 5 milliseconds
-            );  
-
-        }
-  
-        disconnect() {
-            if (this.readyState === WebSocket.OPEN || this.readyState === WebSocket.CONNECTING) {
-                this.close();
-                console.log("WebSocket connection closed by client.");
-            } else {
-                console.log("WebSocket is already closed.");
-            }
-        }
-
-
-    }
-
-    </script>

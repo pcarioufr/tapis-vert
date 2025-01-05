@@ -28,6 +28,8 @@
 
     <title>Tapis Vert::{{room.name}}</title>
 
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
+
     {% include 'main/elements/room.jinja' %}
     {% include 'auth/self.jinja' %}
 
@@ -44,7 +46,12 @@
         constructor() {
 
             this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
-
+            listen( "RoomManager", "ws:reconnected", async (throwerId, websocket) => {
+                this.websocket = websocket ;
+                console.log("Roommanager using new websocket");
+                await this.refresh() ;
+                this.render() ;
+            })
 
             // room data - mirrors backend data
             this.data = {} ;
@@ -62,43 +69,50 @@
             // Listens when a new user joins the room
             listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
                 await this.refresh() ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} joined the room`, "login-circle");
                 this.render() ;
             })
 
             // Listens when a new user leaves the room
             listen( "RoomManager", "user:left", async (throwerId, user_id) => {
                 await this.refresh() ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} left the room`, "logout-circle");
                 this.render() ;
             })
 
             // Listens when a room's user turns online
             listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                this.data.users[user_id].relation.status = "online" ;                
-                this.eUsers[user_id].status  = "online" ;
+                this.data.users[user_id].relation.status = "online" ;
+                this.eUsers[user_id].status  = "online";
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is online`, "login-circle");                
             })
 
             // Listens when a room's user turns offline
             listen( "RoomManager", "user:offline", (throwerId, user_id) => {
                 this.data.users[user_id].relation.status = "offline" ;
                 this.eUsers[user_id].status  = "offline" ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is offline`, "logout-circle");  
             })
 
             // Listens when a user becomes player
             listen( "RoomManager", "user:player", (throwerId, user_id) => {
                 this.data.users[user_id].role = "player" ;
                 this.eUsers[user_id].role    = "player" ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room player`, "chess-line");  
             })
 
             // Listens when a user becomes watcher
             listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
                 this.data.users[user_id].role = "watcher" ;
                 this.eUsers[user_id].role    = "watcher" ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room spectator`, "glasses-fill");  
             })
 
             // Listens when a user becomes master
             listen( "RoomManager", "user:master", (throwerId, user_id) => {
                 this.data.users[user_id].role = "master" ;
                 this.eUsers[user_id].role    = "master" ;
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room master`, "crown-line");  
             })
 
             // Listens for a new round 
@@ -107,6 +121,7 @@
                 values(this.eCards).forEach(cardObj => cardObj.remove());
                 
                 await this.refresh() ;
+                new Toast("info", "New round started", "swap-box-line");
                 this.render() ;
 
             })
@@ -154,7 +169,7 @@
 
             // Track user {{user.id}} cursor and update other users
 
-            const sendCursorPos = throttle((pageX, pageY) => {
+            const sendCursorPos = throttle( async (pageX, pageY) => {
             
                 const table = document.getElementById("table");
                 const rect = table.getBoundingClientRect();
@@ -164,7 +179,7 @@
                 const relX = parseFloat(rawX.toFixed(3));
                 const relY = parseFloat(rawY.toFixed(3));
 
-                this.websocket.wsend(`cursor:move`,`${relX}:${relY}`);
+                await this.websocket.send(`cursor:move`,`${relX}:${relY}`);
 
             }, 100);
 
@@ -181,27 +196,29 @@
                 if (user_id === "{{user.id}}") return; // skip self
                 this.eUsers[user_id].position = position;
 
-
             });
-
 
         }
 
         // (re)initializes the room data, synchronizing it with backend
         async refresh() {
+
             const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
             const data = await resp.json();
             this.data = data["{{room.id}}"];
+
         }
 
         // Renders the room
         render() {
 
+            console.log(this.data)
+
             // RENDER USERS ----
 
             // remove users who are not in the room anymore            
             entries(this.eUsers).forEach( ([id, eUser]) => {
-                if (!this.data.users.some(userDATA => userDATA.id == id)) {
+                if (!keys(this.data.users).some(user_id => user_id == id)) {
                     this.eUsers[id].remove() ;
                     delete this.eUsers[id] ;
                 }
@@ -217,7 +234,7 @@
                 this.eUsers[user_id].name    = user.name ;
                 this.eUsers[user_id].status  = user.relation.status ;
                 this.eUsers[user_id].role    = user.relation.role ;
-            
+
             });
 
 
@@ -275,7 +292,6 @@
                 eUserFooter: new UserFooter(),
                 eRemoteCursor: new RemoteCursor(this.eTable.e, name),
 
-
                 remove() {
                     this.eUserFooter.remove();
                 },
@@ -289,6 +305,11 @@
                 },
                 set role(role) {
                     this.eUserFooter.role = role ;
+
+                    role === "player" ?
+                        this.eUserDeck.active(true) :
+                        this.eUserDeck.active(false) ;
+
                 },
 
                 set position(position) {
@@ -348,14 +369,18 @@
     };
 
 
-    let ROOMWS // Room WebSocket
     let ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
     document.addEventListener('DOMContentLoaded', async _ => {
 
+
         await call('POST', '/api/v1/rooms/{{room.id}}/join');
+
+        const resp = await call('GET', '/auth/me');
+        const data = await resp.json();
+        SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
 
         await ROOM.refresh() ;
         ROOM.render();

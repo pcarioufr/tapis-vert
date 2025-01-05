@@ -20,6 +20,16 @@ def auth_login():
     return flask.jsonify({"success": True, "user": user.to_dict(True) })
 
 
+@auth.route("/me", methods=["GET"])
+@flask_login.login_required
+def me():
+    """Logs in the current user."""
+
+    user = flask_login.current_user
+
+    return flask.jsonify( user.to_dict(True) )
+
+
 @auth.route("/logout", methods=["POST"])
 @flask_login.login_required
 def auth_logout():
