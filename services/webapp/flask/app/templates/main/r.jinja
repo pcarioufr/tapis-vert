@@ -43,6 +43,9 @@
 
         constructor() {
 
+            this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
+
+
             // room data - mirrors backend data
             this.data = {} ;
 
@@ -149,6 +152,39 @@
 
             })
 
+            // Track user {{user.id}} cursor and update other users
+
+            const sendCursorPos = throttle((pageX, pageY) => {
+            
+                const table = document.getElementById("table");
+                const rect = table.getBoundingClientRect();
+
+                const rawX = (pageX - rect.left) / rect.width * 100;
+                const rawY = (pageY - rect.top)  / rect.height * 100;
+                const relX = parseFloat(rawX.toFixed(3));
+                const relY = parseFloat(rawY.toFixed(3));
+
+                this.websocket.wsend(`cursor:move`,`${relX}:${relY}`);
+
+            }, 100);
+
+            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
+            
+
+            // Listen for remote cursor moves
+            listen("RoomManager", `user:*:cursor:move`, (throwerId, data, eventName) => {
+
+                const [_1, user_id, _3, _4] = eventName.split(':');
+                const position  = data.split(':');
+                console.debug(`Received cursor move for user ${user_id} at ${position}`);
+
+                if (user_id === "{{user.id}}") return; // skip self
+                this.eUsers[user_id].position = position;
+
+
+            });
+
+
         }
 
         // (re)initializes the room data, synchronizing it with backend
@@ -237,6 +273,8 @@
 
                 // representation of the user in thr footer
                 eUserFooter: new UserFooter(),
+                eRemoteCursor: new RemoteCursor(this.eTable.e, name),
+
 
                 remove() {
                     this.eUserFooter.remove();
@@ -244,6 +282,7 @@
 
                 set name(name) {
                     this.eUserFooter.name = name ;
+                    this.eRemoteCursor.name = name ;
                 },
                 set status(status) {
                     this.eUserFooter.status = status ;
@@ -252,9 +291,14 @@
                     this.eUserFooter.role = role ;
                 },
 
+                set position(position) {
+                    this.eRemoteCursor.position = position ;
+                },
+
                 assignCard(card) {                    
                     this.eUserDeck.card = card.eCard.e ;
                 }
+
 
             } ;
 
@@ -316,9 +360,6 @@
         await ROOM.refresh() ;
         ROOM.render();
 
-        ROOMWS = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
-
-        new CursorManager("table", document.getElementById("table"), ROOMWS, ROOM.data.users) ;
 
     });
 

@@ -13,7 +13,7 @@
     <script>
 
 
-    class Cursor extends Element {
+    class RemoteCursor extends Element {
 
         constructor(eParent, name) {
 
@@ -22,6 +22,30 @@
             this.svg = new SVG("map-pin-user-line", "cursor")
             this.e.prepend(this.svg.e)
 
+            this.hidden = true
+
+        }
+
+        set name(name) { 
+            this.select(".name").innerText = name 
+        }
+        set color(color) {
+        
+            this.svg.style.fill      = getColorForUser(user_id);
+            this.select(".name").style.color   = getColorForUser(user_id);
+            this.svg.e.style.fill = color 
+        }
+
+        set position(position) {
+   
+            if (position[0] < 0 || position[0] > 100 || position[1] < 0 || position[1] > 100) {
+                this.hidden = true
+                return
+            }
+            this.hidden = false
+            this.e.style.left = position[0] + "%";
+            this.e.style.top  = position[1] + "%";
+            
         }
 
     }
@@ -31,65 +55,5 @@
         return `hsl(${h}, 80%, 60%)`;
     }
 
-    class CursorManager {
-
-        constructor(id, eParent, websocket, mapping){
-
-            this.id = id;
-            this.eParent = eParent; // Element to append cursors to
-            this.websocket = websocket; // EventWebSocket to send and receive cursor moves
-            this.mapping = mapping; // Mapping of user_id to name ( mapping["user_id"].name )
-
-            this.cursors = {}; // store { userId: cursorElement }
-
-            // Listen for remote cursor moves
-            listen(`${this.id}`, `user:*:${this.id}:move`, (throwerId, data, eventName) => {
-
-                const [_1, user_id, _3, _4] = eventName.split(':');
-                const [x, y]  = data.split(':');
-
-                console.log(`Received cursor move for user ${user_id} at ${x}, ${y}`);
-
-                if (user_id === "{{user.id}}") return; // skip self
-                this.updateRemoteCursor(user_id, x, y);
-
-
-            });
-
-            const sendCursorPos = throttle((pageX, pageY) => {
-
-                const table = document.getElementById("table");
-                const rect = table.getBoundingClientRect();
-
-                const rawX = (pageX - rect.left) / rect.width * 100;
-                const rawY = (pageY - rect.top)  / rect.height * 100;
-                const relX = parseFloat(rawX.toFixed(3));
-                const relY = parseFloat(rawY.toFixed(3));
-
-                this.websocket.wsend(`${this.id}:move`,`${relX}:${relY}`);
-
-            }, 100);
-
-            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
-        }
-
-
-        updateRemoteCursor(user_id, x, y) {
-            if (!this.cursors[user_id]) this.createCursor(user_id);
-            this.cursors[user_id].e.style.left = x + "%";
-            this.cursors[user_id].e.style.top  = y + "%";
-        }
-
-        createCursor(user_id, name) {
-
-            const c = new Cursor(this.eParent, name);
-            c.select("svg").style.fill      = getColorForUser(user_id);
-            c.select(".name").style.color   = getColorForUser(user_id);
-            c.select(".name").innerText     = this.mapping[user_id].name;
-
-            this.cursors[user_id] = c;
-
-        }
-    }
 
     </script>
