@@ -1,0 +1,49 @@
+    <!-- TOASTERS -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/elements/toast.css') }}">
+
+    <template id=t-toast>
+        <div class="toast">
+            <div class=message rounded></div>
+            <!-- <svg></svg> goes here-->
+        </div>
+    </template>
+    
+    <script>
+
+        class Toast extends Element {
+
+            constructor(level, message, delay=10000){
+
+
+                super( build("t-toast"), document.querySelector("#toasts"))
+                this.tag("show");
+                this.tag(`${level}`);
+                
+                let svg;
+                switch (level) {
+                    case "ok":    
+                        svg = new SVG("checkbox-circle-line");
+                        console.log(message) 
+                    break;
+                    case "info":  
+                        svg = new SVG("information-line"); 
+                        console.log(message)
+                    break;
+                    case "error": 
+                        svg = new SVG("error-warning-line");
+                        console.error(message) 
+                    break;
+                }
+                this.e.prepend(svg.e) ;
+
+                this.select(".message").innerText = message
+
+                setTimeout( _ => this.untag("show") , delay)
+                setTimeout( _ => this.remove()      , delay+1000)
+
+            }
+
+        } 
+
+    </script>
