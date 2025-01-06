@@ -114,10 +114,10 @@
             super(url);  // Call the WebSocket constructor
 
             this._url = url;
-            this.maxReconnectAttempts = 10;
+            this.maxReconnectAttempts = 60;
             this.reconnectAttempt = 0;
             this.baseDelay = 1000;
-            this.maxDelay = 30000;
+            this.maxDelay = 60000;
             this.isReconnecting = false;
 
             this.onmessage = (event) => {
@@ -136,10 +136,8 @@
             };
 
             this.onclose = (event) => {
-                console.log("WebSocket connection closed");
-                if (!event.wasClean && !this.isReconnecting) {
-                    this.tryReconnect();
-                }
+                new Toast("error", "Lost connection with room");
+                if (!event.wasClean && !this.isReconnecting) { this.tryReconnect(); }
             };
 
             this.onerror = (error) => {
@@ -163,7 +161,7 @@
                     } 
                     else if (Date.now() - startTime > timeout) {  // Check if timeout exceeded
                         clearInterval(interval); 
-                        console.error('WebSocket connection timed out. Message not sent.');
+                        console.error("WebSocket connection timed out");
                     }
 
                 }, 
@@ -174,7 +172,7 @@
 
         tryReconnect() {
             if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-                console.error("Max reconnection attempts reached.");
+                new Toast("error", "Max reconnection attempts reached");
                 return;
             }
             this.isReconnecting = true;
@@ -183,21 +181,22 @@
                 this.baseDelay * Math.pow(2, this.reconnectAttempt - 1),
                 this.maxDelay
             );
-            console.log(`Reconnecting in ${delay / 1000}s...`);
+            new Toast("info", `Trying to reconnect with room...`, delay);
 
             setTimeout(() => {
                 const newWs = new EventWebSocket(this._url);
                 // preserve existing handlers
                 newWs.onmessage = this.onmessage;
                 newWs.onerror   = this.onerror;
-                newWs.onclose   = (e) => {
-                    if (!e.wasClean) { this.tryReconnect(); }
-                };
+
+                newWs.onclose   = (e) => { if (!e.wasClean) { this.tryReconnect(); } };
                 newWs.onopen = () => {
-                    console.log("Reconnected!");
+                    new Toast("ok", "Connection with room re-established");
                     this.isReconnecting = false;
                     this.reconnectAttempt = 0;
                     Object.assign(this, newWs);
+                    fire ("EventWebSocket", "ws:reconnected", newWs);
+
                 };
             }, delay);
         }

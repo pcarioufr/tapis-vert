@@ -44,7 +44,10 @@
         constructor() {
 
             this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
-
+            listen( "RoomManager", "ws:reconnected", (throwerId, websocket) => {
+                this.websocket = websocket ;
+                console.log("Roommanager using new websocket");
+            })
 
             // room data - mirrors backend data
             this.data = {} ;
