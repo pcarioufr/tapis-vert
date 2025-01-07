@@ -25,13 +25,11 @@
     padding: 0.5vw;
     border-radius: 2vw;
 
+    background: black;
     box-shadow: 0.5vw 0.5vw 1vw black;
 }
 
 #toasts svg {
-
-    fill: black;
-
     margin: 0.5vw;
     margin-right: 0.5vw;
     height: 3vw;
@@ -41,7 +39,6 @@
 #toasts .message {
 
     margin: auto;
-    color: black;
 
     margin-left: 0.5vw;
     margin-right: 1vw;
@@ -49,16 +46,25 @@
 }
     
 
-#toasts .toast[error] {
-    background: var(--red);
+#toasts .toast[error] .message {
+    color: var(--red);
+}
+#toasts .toast[error] svg {
+    fill: var(--red);
 }
 
-#toasts .toast[info] {
-    background: var(--lblue);
+#toasts .toast[info] .message {
+    color: var(--lblue);
+}
+#toasts .toast[info] svg {
+    fill: var(--lblue);
 }
 
-#toasts .toast[ok] {
-    background: var(--green);
+#toasts .toast[ok] .message {
+    color: var(--green);
+}
+#toasts .toast[ok] svg {
+    fill: var(--green);
 }
 
 #toasts .toast[show] {
