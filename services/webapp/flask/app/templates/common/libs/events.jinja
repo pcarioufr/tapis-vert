@@ -109,108 +109,66 @@
     class EventWebSocket extends WebSocket {
 
 
-        constructor(url) {
+        constructor(wsurl) {
 
-            super(url);  // Call the WebSocket constructor
+            super(wsurl);  // Call the WebSocket constructor
+            this.wsurl = wsurl;
 
-            this._url = url;
-            this.maxReconnectAttempts = 60;
-            this.reconnectAttempt = 0;
-            this.baseDelay = 1000;
-            this.maxDelay = 60000;
-            this.isReconnecting = false;
+            this.delay = 5000; // Delay before reconnecting
 
             this.onmessage = (event) => {
-                let [key, value] = event.data.split('::', 2);  // Split only at the first occurrence of '::'
-                
-                // If value looks like JSON (starts with `{` or `[`), parse it
-                try { 
-                    value = JSON.parse(value); 
-                } catch (e) { /* If not JSON, just use raw value */ }
-
+                let [key, value] = event.data.split('::', 2);
+                try { value = JSON.parse(value); } 
+                catch (e) { /* If not JSON, just use raw value */ }
                 fire("websocket", key, value);
             };
 
-            this.onopen = () => {
+            this.onopen = _ => {
                 console.log("WebSocket connection established");
             };
 
-            this.onclose = (event) => {
-                new Toast("error", "Lost connection with room");
-                if (!event.wasClean && !this.isReconnecting) { this.tryReconnect(); }
+            this.onclose = event => {
+                new Toast("error", "Lost connection with room.", this.delay - 1000);
+                this.tryReconnect();
             };
 
-            this.onerror = (error) => {
-                console.error("WebSocket error:", error);
-            };
         }
 
         // this.send(), but waiting for the websocket connection to open.
         // key will be prefixed by user:{{user.id}}: by the server
-        wsend(key, value, timeout = 5000) {
+        async send(key, value, timeout = 5000) {
 
             const startTime = Date.now();
 
-            const interval = setInterval(
-                
-                _ => {
+            const trySend = _ => {
+                if (this.readyState === 1) {  // Check if WebSocket is open
+                    super.send(`${key}::${value}`);
+                    return true; // Successfully sent
+                }
+                return false; // Not ready
+            };
 
-                    if (this.readyState === 1) {  // Check if WebSocket is open
-                        clearInterval(interval);
-                        this.send(`${key}::${value}`); 
-                    } 
-                    else if (Date.now() - startTime > timeout) {  // Check if timeout exceeded
-                        clearInterval(interval); 
-                        console.error("WebSocket connection timed out");
-                    }
-
-                }, 
-                5 // Check every 5 milliseconds
-            );  
-
-        }
-
-        tryReconnect() {
-            if (this.reconnectAttempt >= this.maxReconnectAttempts) {
-                new Toast("error", "Max reconnection attempts reached");
-                return;
-            }
-            this.isReconnecting = true;
-            this.reconnectAttempt++;
-            const delay = Math.min(
-                this.baseDelay * Math.pow(2, this.reconnectAttempt - 1),
-                this.maxDelay
-            );
-            new Toast("info", `Trying to reconnect with room...`, delay);
-
-            setTimeout(() => {
-                const newWs = new EventWebSocket(this._url);
-                // preserve existing handlers
-                newWs.onmessage = this.onmessage;
-                newWs.onerror   = this.onerror;
-
-                newWs.onclose   = (e) => { if (!e.wasClean) { this.tryReconnect(); } };
-                newWs.onopen = () => {
-                    new Toast("ok", "Connection with room re-established");
-                    this.isReconnecting = false;
-                    this.reconnectAttempt = 0;
-                    Object.assign(this, newWs);
-                    fire ("EventWebSocket", "ws:reconnected", newWs);
-
-                };
-            }, delay);
-        }
-  
-        disconnect() {
-            this.isReconnecting = false;
-            if (this.readyState === WebSocket.OPEN || this.readyState === WebSocket.CONNECTING) {
-                this.close();
-                console.log("WebSocket connection closed by client.");
-            } else {
-                console.log("WebSocket is already closed.");
+            while (!trySend()) {
+                if (Date.now() - startTime > timeout) {
+                    console.error("WebSocket connection timed out");
+                    return; // Exit the function after a timeout
+                }
+                await wait(5); // Pause for 5ms before retrying
             }
         }
 
+        async tryReconnect() {
+
+            await wait(this.delay);
+
+            const newWs = new EventWebSocket(this.wsurl);
+            newWs.onopen = _ => {
+                new Toast("ok", "Recovered connection with room.");
+                Object.assign(this, newWs);
+                fire ("EventWebSocket", "ws:reconnected", newWs);
+            };
+
+        }
 
     }
 

@@ -44,9 +44,11 @@
         constructor() {
 
             this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
-            listen( "RoomManager", "ws:reconnected", (throwerId, websocket) => {
+            listen( "RoomManager", "ws:reconnected", async (throwerId, websocket) => {
                 this.websocket = websocket ;
                 console.log("Roommanager using new websocket");
+                await this.refresh() ;
+                this.render() ;
             })
 
             // room data - mirrors backend data
@@ -157,7 +159,7 @@
 
             // Track user {{user.id}} cursor and update other users
 
-            const sendCursorPos = throttle((pageX, pageY) => {
+            const sendCursorPos = throttle( async (pageX, pageY) => {
             
                 const table = document.getElementById("table");
                 const rect = table.getBoundingClientRect();
@@ -167,7 +169,7 @@
                 const relX = parseFloat(rawX.toFixed(3));
                 const relY = parseFloat(rawY.toFixed(3));
 
-                this.websocket.wsend(`cursor:move`,`${relX}:${relY}`);
+                await this.websocket.send(`cursor:move`,`${relX}:${relY}`);
 
             }, 100);
 
@@ -200,11 +202,13 @@
         // Renders the room
         render() {
 
+            console.log(this.data)
+
             // RENDER USERS ----
 
             // remove users who are not in the room anymore            
             entries(this.eUsers).forEach( ([id, eUser]) => {
-                if (!this.data.users.some(userDATA => userDATA.id == id)) {
+                if (!keys(this.data.users).some(user_id => user_id == id)) {
                     this.eUsers[id].remove() ;
                     delete this.eUsers[id] ;
                 }

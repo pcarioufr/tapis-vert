@@ -70,6 +70,10 @@
         };
     }
 
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     // Function to hash any string
     function hashString(str) {
         let hash = 0;
