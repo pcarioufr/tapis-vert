@@ -28,8 +28,8 @@
 
     <title>Tapis Vert::{{room.name}}</title>
 
+    {% include 'common/libs/websocket.jinja' %}
     {% include 'main/elements/room.jinja' %}
-    {% include 'main/libs/websocket.jinja' %}
     {% include 'auth/self.jinja' %}
 
 {% endblock %}
