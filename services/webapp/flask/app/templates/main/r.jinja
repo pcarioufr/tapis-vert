@@ -187,17 +187,17 @@
                 if (user_id === "{{user.id}}") return; // skip self
                 this.eUsers[user_id].position = position;
 
-
             });
-
 
         }
 
         // (re)initializes the room data, synchronizing it with backend
         async refresh() {
+
             const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
             const data = await resp.json();
             this.data = data["{{room.id}}"];
+
         }
 
         // Renders the room
@@ -225,7 +225,7 @@
                 this.eUsers[user_id].name    = user.name ;
                 this.eUsers[user_id].status  = user.relation.status ;
                 this.eUsers[user_id].role    = user.relation.role ;
-            
+
             });
 
 
@@ -283,7 +283,6 @@
                 eUserFooter: new UserFooter(),
                 eRemoteCursor: new RemoteCursor(this.eTable.e, name),
 
-
                 remove() {
                     this.eUserFooter.remove();
                 },
@@ -297,6 +296,11 @@
                 },
                 set role(role) {
                     this.eUserFooter.role = role ;
+
+                    role === "player" ?
+                        this.eUserDeck.active(true) :
+                        this.eUserDeck.active(false) ;
+
                 },
 
                 set position(position) {
@@ -356,14 +360,18 @@
     };
 
 
-    let ROOMWS // Room WebSocket
     let ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
     document.addEventListener('DOMContentLoaded', async _ => {
 
+
         await call('POST', '/api/v1/rooms/{{room.id}}/join');
+
+        const resp = await call('GET', '/auth/me');
+        const data = await resp.json();
+        SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
 
         await ROOM.refresh() ;
         ROOM.render();

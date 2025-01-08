@@ -17,6 +17,21 @@
                 <!-- TextInput: Name -->
                 <!-- Button: Logout -->
             </div>
+            <div class="c-role">
+                <div class="choice" master noselect>
+                    <!-- <svg></svg> goes here -->
+                    <span>master</span>
+                </div>
+                <div class="choice" player noselect>
+                    <!-- <svg></svg> goes here -->
+                    <span>player</span>
+                </div>
+                <div class="choice" watcher noselect>
+                    <!-- <svg></svg> goes here -->
+                    <span>watcher</span>
+                </div>
+            </div>
+
         </div>
     </template>
 
@@ -48,7 +63,6 @@
             this.switch.offText     = "I Reject Cookies"
 
 
-
             {% if user.is_authenticated %}
 
             // Authent Section - Logged in option
@@ -73,6 +87,27 @@
                                         
                 this.footerPanel.untag("logged")
 
+            })
+
+            const svgM = new SVG("crown-line");
+            this.footerPanel.select(".choice[master]").prepend(svgM.e)
+            this.footerPanel.select(".choice[master]").onclick = ( _ => { 
+                call("PATCH","/api/v1/rooms/{{room.id}}/user/{{user.id}}",{"role": "master"})
+                this.role = "master"
+            })
+
+            const svgP = new SVG("crown-line");
+            this.footerPanel.select(".choice[player]").prepend(svgP.e)
+            this.footerPanel.select(".choice[player]").onclick = ( _ => { 
+                call("PATCH","/api/v1/rooms/{{room.id}}/user/{{user.id}}",{"role": "player"})
+                this.role = "player"
+            })
+
+            const svgW = new SVG("crown-line");
+            this.footerPanel.select(".choice[watcher]").prepend(svgW.e)
+            this.footerPanel.select(".choice[watcher]").onclick = ( _ => { 
+                call("PATCH","/api/v1/rooms/{{room.id}}/user/{{user.id}}",{"role": "watcher"})
+                this.role = "watcher"
             })
 
             {% else %}
@@ -105,6 +140,32 @@
 
         }
         
+        set role(role) {
+            switch(role) {
+                case "master":  {
+                    this.footerPanel.select(".choice[master]").setAttribute("active","") ;
+                    this.footerPanel.select(".choice[player]").removeAttribute("active") ;
+                    this.footerPanel.select(".choice[watcher]").removeAttribute("active") ;
+                    break ;
+                }
+                case "player": {
+                    this.footerPanel.select(".choice[master]").removeAttribute("active") ;
+                    this.footerPanel.select(".choice[player]").setAttribute("active","") ;
+                    this.footerPanel.select(".choice[watcher]").removeAttribute("active") ;
+                    break ;
+                }
+                case "watcher": {
+                    this.footerPanel.select(".choice[master]").removeAttribute("active") ;
+                    this.footerPanel.select(".choice[player]").removeAttribute("active") ;
+                    this.footerPanel.select(".choice[watcher]").setAttribute("active","") ;
+                    break ;
+                }
+                default:
+                    console.error(`Role "${role}" isn't supported option for user`);
+                    return
+            }
+        }
+
 
     }
     </script>

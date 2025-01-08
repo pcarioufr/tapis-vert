@@ -158,8 +158,14 @@
 
         constructor(){
 
-            super( build("t-deck"), document.getElementById("table-playground"))
+            super( build("t-deck") );
+            this.table = document.getElementById("table-playground");
+        }
 
+        active(bool)  { 
+            bool ?
+                this.table.append(this.e) :
+                this.e.remove() ;
         }
 
         set pawn(element)  {
@@ -169,7 +175,7 @@
         set card(element) {
             this.select(".card-slot").append(element)
         }
-        
+
     }
     </script>
 
