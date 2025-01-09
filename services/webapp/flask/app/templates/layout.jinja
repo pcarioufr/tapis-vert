@@ -15,23 +15,25 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
 
     {# COMMONS/LIBS #}
-    {% include 'common/libs/http.jinja' %}
-    {% include 'common/libs/events.jinja' %}
-    {% include 'common/libs/datadog.jinja' %}
-    {% include 'common/libs/cookies.jinja' %}
-    {% include 'common/libs/misc.jinja' %}
-    {% include 'common/libs/tests.jinja' %}
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/http.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/events.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/cookies.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/tests.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/misc.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/tests.js') }}"></script>
 
     {# COMMONS/ELEMENTS #}
-    {% include 'common/elements/elements.jinja' %}
-    {% include 'common/elements/buttons.jinja' %}
-    {% include 'common/elements/qrcode.jinja' %}
-    {% include 'common/elements/footer.jinja' %}
-    {% include 'common/elements/input.jinja' %}
-    {% include 'common/elements/cursor.jinja' %}
-    {% include 'common/elements/toast.jinja' %}
+    {% include 'elements/elements.jinja' %}
+    {% include 'elements/buttons.jinja' %}
+    {% include 'elements/qrcode.jinja' %}
+    {% include 'elements/footer.jinja' %}
+    {% include 'elements/input.jinja' %}
+    {% include 'elements/cursor.jinja' %}
+    {% include 'elements/toast.jinja' %}
 
     {% block head %}{% endblock %}
+
+    {% include 'datadog.jinja' %}
 
 </head>
 
@@ -42,6 +44,8 @@
     <!-- ASSESS MOBILE ------ ------ ------ ------ -->
     <script> 
         
+        {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
+
         let SIZE_S = window.matchMedia("(pointer:none), (max-width: 800px)")
         function assessLayout() { 
             SIZE_S.matches ? document.body.id = "S" : document.body.id = "M" 

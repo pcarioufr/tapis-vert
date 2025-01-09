@@ -28,7 +28,8 @@
 
     <title>Tapis Vert::{{room.name}}</title>
 
-    {% include 'common/libs/websocket.jinja' %}
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
+
     {% include 'main/elements/room.jinja' %}
     {% include 'auth/self.jinja' %}
 

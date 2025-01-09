@@ -1,6 +1,4 @@
-<!-- COOKIES -->
-
-<script>
+    // COOKIES ------ ------ ------ ------ ------ */
 
     class Cookies {
     
@@ -29,5 +27,3 @@
         }
 
     }
-
-</script>

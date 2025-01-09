@@ -1,6 +1,4 @@
-    <!-- WEBSOCKETS ------ ------ ------ ------ -->
-
-    <script>
+    // WEBSOCKETS ------ ------ ------ ------ ------ */
 
     class EventWebSocket extends WebSocket {
 
@@ -67,5 +65,3 @@
         }
 
     }
-
-    </script>

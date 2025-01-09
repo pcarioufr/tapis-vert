@@ -1,6 +1,4 @@
-<!-- MISCELLANEOUS UTILS ------ ------ ------ ------ -->
-
-    <script>
+    // MISCELLANEOUS UTILS ------ ------ ------ ------ ------ */
 
     // a funciton that does nothing
     function noop() {}
@@ -98,5 +96,3 @@
     // Turn Redis strings into JS boolean - and vice versa
     function boolify(str)       { return str === "True" }
     function stringify(bool)    { return bool ? "True" : "False" }
-
-    </script>

@@ -1,6 +1,4 @@
-<!-- EVENTS ------ ------ ------ ------ -->
-
-    <script>
+    // EVENTS ------ ------ ------ ------ ------ */
 
     /**
     * Each listener is stored as an object:
@@ -97,8 +95,4 @@
         const regex = new RegExp(regexStr);
         return regex.test(eventName);
     }
-
-
-    </script>
-
 
