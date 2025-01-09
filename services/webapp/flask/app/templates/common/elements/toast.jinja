@@ -13,7 +13,7 @@
 
         class Toast extends Element {
 
-            constructor(level, message, delay=10000){
+            constructor(level, message, icon=null, delay=10000){
 
 
                 super( build("t-toast"), document.querySelector("#toasts"))
@@ -22,20 +22,27 @@
                 
                 let svg;
                 switch (level) {
-                    case "ok":    
-                        svg = new SVG("checkbox-circle-line");
+                    case "ok":                             
+                        icon == null ?
+                            svg = new SVG("checkbox-circle-line") :
+                            svg = new SVG(icon);
                         console.log(message) 
                     break;
                     case "info":  
-                        svg = new SVG("information-line"); 
+                        icon == null ?
+                            svg = new SVG("information-line") :
+                            svg = new SVG(icon); 
                         console.log(message)
                     break;
                     case "error": 
-                        svg = new SVG("error-warning-line");
+                        icon == null ?
+                            svg = new SVG("error-warning-line") :
+                            svg = new SVG(icon);
                         console.error(message) 
                     break;
                 }
-                this.e.prepend(svg.e) ;
+
+                this.e.append(svg.e) ;
 
                 this.select(".message").innerText = message
 

@@ -24,7 +24,7 @@
             };
 
             this.onclose = event => {
-                new Toast("error", "Lost connection with room.", this.delay - 1000);
+                new Toast("error", "Lost connection with room.", "wifi-off-line", this.delay - 1000);
                 this.tryReconnect();
             };
 
@@ -59,7 +59,7 @@
 
             const newWs = new EventWebSocket(this.wsurl);
             newWs.onopen = _ => {
-                new Toast("ok", "Recovered connection with room.");
+                new Toast("ok", "Recovered connection with room.", "wifi-line");
                 Object.assign(this, newWs);
                 fire ("EventWebSocket", "ws:reconnected", newWs);
             };

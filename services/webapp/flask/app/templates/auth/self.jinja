@@ -28,7 +28,7 @@
                 </div>
                 <div class="choice" watcher noselect>
                     <!-- <svg></svg> goes here -->
-                    <span>watcher</span>
+                    <span>spectator</span>
                 </div>
             </div>
 
@@ -96,14 +96,14 @@
                 this.role = "master"
             })
 
-            const svgP = new SVG("crown-line");
+            const svgP = new SVG("chess-line");
             this.footerPanel.select(".choice[player]").prepend(svgP.e)
             this.footerPanel.select(".choice[player]").onclick = ( _ => { 
                 call("PATCH","/api/v1/rooms/{{room.id}}/user/{{user.id}}",{"role": "player"})
                 this.role = "player"
             })
 
-            const svgW = new SVG("crown-line");
+            const svgW = new SVG("glasses-fill");
             this.footerPanel.select(".choice[watcher]").prepend(svgW.e)
             this.footerPanel.select(".choice[watcher]").onclick = ( _ => { 
                 call("PATCH","/api/v1/rooms/{{room.id}}/user/{{user.id}}",{"role": "watcher"})

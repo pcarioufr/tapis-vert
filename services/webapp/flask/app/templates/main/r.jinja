@@ -68,43 +68,50 @@
             // Listens when a new user joins the room
             listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
                 await this.refresh() ;
+                new Toast("info", `${this.data.users[user_id].name} joined the room`, "login-circle");
                 this.render() ;
             })
 
             // Listens when a new user leaves the room
             listen( "RoomManager", "user:left", async (throwerId, user_id) => {
                 await this.refresh() ;
+                new Toast("info", `${this.data.users[user_id].name} left the room`, "logout-circle");
                 this.render() ;
             })
 
             // Listens when a room's user turns online
             listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                this.data.users[user_id].relation.status = "online" ;                
-                this.eUsers[user_id].status  = "online" ;
+                this.data.users[user_id].relation.status = "online" ;
+                this.eUsers[user_id].status  = "online";
+                new Toast("info", `${this.data.users[user_id].name} is online`, "login-circle");                
             })
 
             // Listens when a room's user turns offline
             listen( "RoomManager", "user:offline", (throwerId, user_id) => {
                 this.data.users[user_id].relation.status = "offline" ;
                 this.eUsers[user_id].status  = "offline" ;
+                new Toast("info", `${this.data.users[user_id].name} is offline`, "logout-circle");  
             })
 
             // Listens when a user becomes player
             listen( "RoomManager", "user:player", (throwerId, user_id) => {
                 this.data.users[user_id].role = "player" ;
                 this.eUsers[user_id].role    = "player" ;
+                new Toast("info", `${this.data.users[user_id].name} is now a room player`, "chess-line");  
             })
 
             // Listens when a user becomes watcher
             listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
                 this.data.users[user_id].role = "watcher" ;
                 this.eUsers[user_id].role    = "watcher" ;
+                new Toast("info", `${this.data.users[user_id].name} is now a room spectator`, "glasses-fill");  
             })
 
             // Listens when a user becomes master
             listen( "RoomManager", "user:master", (throwerId, user_id) => {
                 this.data.users[user_id].role = "master" ;
                 this.eUsers[user_id].role    = "master" ;
+                new Toast("info", `${this.data.users[user_id].name} is now a room master`, "crown-line");  
             })
 
             // Listens for a new round 
@@ -113,6 +120,7 @@
                 values(this.eCards).forEach(cardObj => cardObj.remove());
                 
                 await this.refresh() ;
+                new Toast("info", "New round started", "swap-box-line");
                 this.render() ;
 
             })
