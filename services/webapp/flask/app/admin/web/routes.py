@@ -10,10 +10,10 @@ log = utils.get_logger(__name__)
 @admin_web.route("/list", methods=['GET'])
 def list():
     
-    return render_template("admin/list.jinja")
+    return render_template("admin/_list.jinja")
 
 
 @admin_web.route("/redis", methods=['GET'])
 def search():
     
-    return render_template("admin/redis.jinja")
+    return render_template("admin/_redis.jinja")
