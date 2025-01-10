@@ -30,8 +30,10 @@
 
     <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
 
-    {% include 'room/room.jinja' %}
-    {% include 'room/self.jinja' %}
+    {% include 'room/table.jinja' %}
+    {% include 'room/cards.jinja' %}
+    {% include 'room/footer-self.jinja' %}
+    {% include 'room/footer-room.jinja' %}
 
 {% endblock %}
 

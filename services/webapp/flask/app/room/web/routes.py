@@ -23,7 +23,7 @@ def room_app(room_id=None):
 
 
     return render_template (
-        "room/r.jinja",
+        "room/_room.jinja",
         user=flask_login.current_user,
         room=room
     )

@@ -1,0 +1,81 @@
+<!-- VIEWS ------ ------ ------ ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/room/cards.css') }}">
+
+
+    <!-- Cards -->
+
+    <template id=t-card>
+        <div class="card"> <!-- [flipped], [peeked] -->    
+            <div class="face front" noselect></div>
+            <div class="face back" noselect></div>
+            <div class="card-corner lower front" noselect>
+                <span></span>
+            </div>
+            <div class="card-corner lower back"></div>
+
+            <div class="card-corner upper front" noselect>
+                <span></span>
+            </div>
+            <div class="card-corner upper back"></div>
+        </div>
+    </template>
+
+    <script>
+    class Card extends Element {
+
+        constructor(card_id){
+
+            // debounce the PATCH request for lower-peeked
+            const dPeeked = debounce(value => 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:peeked:{{user.id}}`]: value }), 
+                300
+            );
+
+            // debounce the PATCH request for flipped
+            const dFlipped = debounce(value => 
+                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:flipped`]: value }),
+                300
+            );
+
+            super( build("t-card") )
+
+            // Toggle the corner peek effect on click
+            this.select('.face.back').addEventListener('click', _ => {
+
+                this.toggle('peeked-lower');
+                dPeeked( this.is("peeked-lower") ? "True" : "False" ) ;
+
+            });
+
+            // Flips the card on double-click
+            this.e.addEventListener('dblclick', _ => {
+
+                this.untag('peeked-lower');  // no peek while flipping the card
+                this.untag('peeked-upper');  // no peek while flipping the card
+                dPeeked( "False" ) ;
+
+                this.toggle('flipped');
+                dFlipped( this.is("flipped") ? "True" : "False" ) ;
+
+            });
+
+        }
+
+        set owner(text)      { 
+                                this.select(".face.back" ).innerText = text 
+                                // this.select(".back  span.name" ).innerText = text
+                            }
+        set value(text)     {   
+                                this.select(".face.front").innerText = text
+                                this.select(".lower.front span").innerText = text 
+                                this.select(".upper.front span").innerText = text 
+                            }
+
+        set peekedL(bool)  { bool ? this.tag("peeked-lower")  : this.untag("peeked-lower")  ; }
+        set peekedU(bool)  { bool ? this.tag("peeked-upper")  : this.untag("peeked-upper")  ; }
+        
+        set flipped(bool) { bool ? this.tag("flipped") : this.untag("flipped") ; }
+
+    }
+    </script>

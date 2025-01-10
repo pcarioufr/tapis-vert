@@ -1,0 +1,16 @@
+
+.qrcode {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--beige);
+    overflow: hidden;
+}
+
+.qrcode img {
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    height: 12vw;
+    width: 12vw;
+}

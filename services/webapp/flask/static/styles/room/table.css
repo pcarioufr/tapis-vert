@@ -1,0 +1,57 @@
+
+.table {
+    position: relative;
+
+    --card-w: 16vw; /* card width */
+    --card-h: 22vw; /* card height */
+    --card-c: 8vw;  /* card corner (square)-size */
+    --card-rotation: 0deg; /* Initial rotation */
+
+    display: flex;
+    flex-direction: row;
+
+}
+
+.table .area {
+    position: relative;
+    width: 20vw;
+    height: 20vw;
+    border-radius: 2vw;
+    margin: auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3vw;
+}
+
+.table .area svg {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    top:10%;
+    left:10%;
+    fill: var(--green)
+}
+
+
+.table .playground {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3vw;
+    margin: auto;
+    width: 60vw;
+
+}
+
+
+.deck {
+    width: var(--card-w);
+    height: var(--card-h);
+    position: relative;
+}
+
+
