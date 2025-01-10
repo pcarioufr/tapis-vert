@@ -1,4 +1,4 @@
-from app.main import main_web
+from app.room import room_web
 from app.auth import code_auth
 
 import flask, flask_login
@@ -9,7 +9,7 @@ log = utils.get_logger(__name__)
 
 
 
-@main_web.before_request
+@room_web.before_request
 def code_authentication():
 
     if flask.request.args.get("code_id"):
@@ -19,15 +19,15 @@ def code_authentication():
         user = code_auth(code_id)
 
 
-@main_web.before_request
+@room_web.before_request
 def session_management():
 
     flask.session.permanent = True
     flask.session.modified = True
-    main_web.permanent_session_lifetime = datetime.timedelta(seconds=3600)
+    room_web.permanent_session_lifetime = datetime.timedelta(seconds=3600)
 
 
-@main_web.before_request
+@room_web.before_request
 def visitor_id():
     
     # Ensure Session a Visitor ID

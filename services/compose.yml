@@ -4,7 +4,7 @@ services:
 
   nginx:
     container_name: nginx
-    build: ./nginx/build/.
+    build: ./nginx/.build/.
     restart: unless-stopped
     ports:
       - 80:80
@@ -13,7 +13,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/reload.sh:/usr/local/bin/reload.sh
-      - ./static:/data/static
+      - ./webapp/flask/static:/data/static
       - certbot:/etc/letsencrypt # Certificates
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; reload.sh ; done & sleep 5 & wait $${!}; reload.sh & nginx -g \"daemon off;\"'"
     labels:
@@ -29,7 +29,7 @@ services:
 
   flask:
     container_name: flask
-    build: ./webapp/flask/build/.
+    build: ./webapp/flask/.build/.
     volumes:
       - ./webapp/flask:/flask
       - ./webapp/libs:/opt/libs:ro
@@ -84,7 +84,7 @@ services:
 
   websocket:
     container_name: websocket
-    build: ./webapp/websocket/build/.
+    build: ./webapp/websocket/.build/.
     environment:
       - PYTHONPATH=/opt/libs
       - DD_SERVICE="web-socket"

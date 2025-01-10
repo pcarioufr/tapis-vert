@@ -1,8 +1,8 @@
 import flask
 
 # Initialize Blueprints for API and Pages
-main_api = flask.Blueprint("main_api", __name__)
-main_web = flask.Blueprint("main_web", __name__)
+room_api = flask.Blueprint("room_api", __name__)
+room_web = flask.Blueprint("room_web", __name__)
 
 # Import the routes from submodules
 from .api import routes

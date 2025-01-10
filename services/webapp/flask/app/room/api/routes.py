@@ -1,4 +1,4 @@
-from app.main import main_api  # Import the Blueprint from __init__.py
+from app.room import room_api  # Import the Blueprint from __init__.py
 
 import io, qrcode
 import flask, flask_login
@@ -9,7 +9,7 @@ import utils
 log = utils.get_logger(__name__)
 
 
-@main_api.route("/v1/rooms/<room_id>", methods=['GET'])
+@room_api.route("/v1/rooms/<room_id>", methods=['GET'])
 def room_get(room_id=None):
     '''Access rooms details'''
 
@@ -23,7 +23,7 @@ def room_get(room_id=None):
     return flask.jsonify(room.to_dict(True)), 200
 
 
-@main_api.route("/v1/rooms/<room_id>/round", methods=['POST'])
+@room_api.route("/v1/rooms/<room_id>/round", methods=['POST'])
 # @flask_login.login_required
 def round_new(room_id=None):
     '''Start a new round in room'''
@@ -42,7 +42,7 @@ def round_new(room_id=None):
     return flask.jsonify(room=room.to_dict()), 200
 
 
-@main_api.route("/v1/rooms/<room_id>/join", methods=['POST'])
+@room_api.route("/v1/rooms/<room_id>/join", methods=['POST'])
 @flask_login.login_required
 def room_join(room_id=None):
     '''Join a room'''
@@ -66,7 +66,7 @@ def room_join(room_id=None):
     return flask.jsonify(room=room.to_dict()), 200
 
 
-@main_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
+@room_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
 @flask_login.login_required
 def room_patch(room_id=None):
     '''Join a room'''
@@ -110,7 +110,7 @@ def room_patch(room_id=None):
     return flask.jsonify(), 200
 
 
-@main_api.route("/v1/rooms/<room_id>/user/<user_id>", methods=['PATCH'])
+@room_api.route("/v1/rooms/<room_id>/user/<user_id>", methods=['PATCH'])
 @flask_login.login_required
 def room_user(room_id=None, user_id=None):
     '''Changes properties of user in a room'''
@@ -146,7 +146,7 @@ def room_user(room_id=None, user_id=None):
 
     return flask.jsonify(room=room.to_dict()), 200
 
-@main_api.route('/v1/qrcode', methods=['GET'])
+@room_api.route('/v1/qrcode', methods=['GET'])
 @flask_login.login_required
 def qr_code():
     '''QR code generator'''
