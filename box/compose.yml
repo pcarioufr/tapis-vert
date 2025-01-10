@@ -4,10 +4,8 @@ services:
     container_name: box
     hostname: box
     build: build/.
-    environment:
-      - DEBUG
-      - TF_VAR_openstack_password=${OPENSTACK_PASSWORD}
-      - TF_VAR_openstack_username=${OPENSTACK_USERNAME}
+    env_file:
+      - .env
     volumes:
       - ./home/:/home/me # HOME
       - ./opt:/opt/box # BOX scripts
