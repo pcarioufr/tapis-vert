@@ -68,6 +68,23 @@
             // cards representations
             this.eCards = {} ;
 
+        }
+
+        // (re)initializes the room data, synchronizing it with backend
+        async refresh() {
+
+            const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
+            const data = await resp.json();
+            this.data = data["{{room.id}}"];
+
+        }
+
+        // starts to listen to room events
+        listen() {
+
+            if (this.listens) return ;
+            this.listens = true ;
+
             // Listens when a new user joins the room
             listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
                 await this.refresh() ;
@@ -187,7 +204,6 @@
 
             document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
             
-
             // Listen for remote cursor moves
             listen("RoomManager", `user:*:cursor:move`, (throwerId, data, eventName) => {
 
@@ -199,15 +215,6 @@
                 this.eUsers[user_id].position = position;
 
             });
-
-        }
-
-        // (re)initializes the room data, synchronizing it with backend
-        async refresh() {
-
-            const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
-            const data = await resp.json();
-            this.data = data["{{room.id}}"];
 
         }
 
@@ -377,7 +384,6 @@
 
     document.addEventListener('DOMContentLoaded', async _ => {
 
-
         await call('POST', '/api/v1/rooms/{{room.id}}/join');
 
         const resp = await call('GET', '/auth/me');
@@ -387,6 +393,7 @@
         await ROOM.refresh() ;
         ROOM.render();
 
+        ROOM.listen();
 
     });
 
