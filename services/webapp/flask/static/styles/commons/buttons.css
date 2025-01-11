@@ -11,8 +11,10 @@ button {
     align-items: center;
     gap: 0.5vw;
     padding: 0 1vw 0 0.5vw ;
-    box-shadow: 0.4vw 0.4vw 0.2vw #00000099;
-    transition: 0.1s ease-in-out;
+    box-shadow: 0.4vw 0.4vw 0.2vw var(--black);
+
+    transition: box-shadow 0.2s ease-in-out;
+
     cursor: pointer;
 }
 
@@ -68,11 +70,13 @@ button[grey] .name {
 
 
 button:hover {
-    box-shadow: 0.3vw 0.3vw 0.2vw #00000099;
+    box-shadow: 0.6vw 0.6vw 0.2vw var(--black);
+    filter:brightness(1.05);
 }
 
 button.pressed {
-    box-shadow: 0.05vw 0.05vw 0.2vw #00000099;
+    box-shadow: 0.05vw 0.05vw 0.2vw var(--black);
+    filter:brightness(1.1);
 }
 
 button .name {

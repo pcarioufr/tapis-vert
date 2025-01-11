@@ -26,7 +26,10 @@
 
             this.e.onmousedown = ( _ => {
                 this.e.classList.add("pressed");
-                setTimeout(() => { this.e.classList.remove("pressed");}, 200);
+            });
+            this.e.onmouseup = ( async _ => {
+                await wait(500);
+                this.e.classList.remove("pressed");
             });
 
         }
