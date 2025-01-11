@@ -179,7 +179,7 @@ class RedisMixin():
                 # flush existing fields - specifically matters for dictionary values
                 existing_fields = REDIS_CLIENT.hkeys(self.key)
                 for field in self.FIELDS:
-                    subkeys = [k for k in existing_fields if k.startswith(f"{field}.")]
+                    subkeys = [k for k in existing_fields if k.startswith(f"{field}:")]
                     if subkeys:
                         pipe.hdel(self.key, *subkeys)
 
