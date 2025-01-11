@@ -1,4 +1,4 @@
-    // EVENTS ------ ------ ------ ------ ------ */
+// EVENTS ------ ------ ------ ------ ------ */
 
     /**
     * Each listener is stored as an object:
@@ -9,6 +9,7 @@
     * }
     */
     const LISTENERS = [];
+    let EVENT_QUEUE = [];
 
     /**
     * Fire: triggers any listener whose pattern matches the eventName.
@@ -17,12 +18,18 @@
     * @param {*} data
     */
     function fire(throwerId, eventName, data = null) {
+        let matched = false;
         // Loop through all listener entries
         LISTENERS.forEach(({ listenerId, pattern, callback }) => {
             if (eventMatchesPattern(eventName, pattern)) {
                 callback.call(this, throwerId, data, eventName);
+                matched = true;
             }
         });
+        if (!matched) {
+            EVENT_QUEUE.push({ throwerId, eventName, data });
+            console.log(`Event "${eventName}" queued.`);
+        }
     }
 
     /**
@@ -45,6 +52,16 @@
             pattern,
             callback
         });
+
+        // Catch-up relevant events from the queue
+        for (let i = EVENT_QUEUE.length - 1; i >= 0; i--) {
+            let { throwerId, eventName, data } = EVENT_QUEUE[i];
+            if (eventMatchesPattern(eventName, pattern)) {
+                callback.call(this, throwerId, data, eventName);
+                EVENT_QUEUE.splice(i, 1);
+                console.log(`Event "${eventName}" caught up.`);
+            }
+        }
     }
 
     /**
