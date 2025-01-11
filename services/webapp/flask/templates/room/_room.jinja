@@ -198,6 +198,12 @@
                 const relX = parseFloat(rawX.toFixed(3));
                 const relY = parseFloat(rawY.toFixed(3));
 
+                if (relX < 0 || relX > 100 || relY < 0 || relY > 100) {
+                    if (this.isCursorOutside) { return }
+                    else { this.isCursorOutside = true }
+                }
+                else { this.isCursorOutside = false }
+                
                 await this.websocket.send(`cursor:move`,`${relX}:${relY}`);
 
             }, 100);
