@@ -1,15 +1,22 @@
 // EVENTS ------ ------ ------ ------ ------ */
 
+    // a library for event handling, through a sync event bus
+    // the bus supports an events buffer for listeners 
+
     /**
     * Each listener is stored as an object:
     * {
-    *   listenerId: string,
-    *   pattern: string,  // can be exact name or pattern with wildcards
-    *   callback: function
+    *   listenerId: string // an identifier for the listener - not necessarily unique across listeners
+    *   pattern: string // the event name to match, can be exact name or pattern with wildcards
+    *   callback: function that is called when a matching event is fired
     * }
     */
     const LISTENERS = [];
-    let EVENT_QUEUE = [];
+
+
+    /* The event history, for new listeners registered to catch up on past events. */
+    const EVENT_HISTORY = [];
+    const HISTORY_MAX_LENGTH = 100;
 
     /**
     * Fire: triggers any listener whose pattern matches the eventName.
@@ -17,51 +24,46 @@
     * @param {string} eventName
     * @param {*} data
     */
-    function fire(throwerId, eventName, data = null) {
-        let matched = false;
-        // Loop through all listener entries
-        LISTENERS.forEach(({ listenerId, pattern, callback }) => {
-            if (eventMatchesPattern(eventName, pattern)) {
-                callback.call(this, throwerId, data, eventName);
-                matched = true;
-            }
-        });
-        if (!matched) {
-            EVENT_QUEUE.push({ throwerId, eventName, data });
-            console.log(`Event "${eventName}" queued.`);
+    function fire(throwerId, eventName, data) {
+
+        // Create a new event object
+        const event = { throwerId, eventName, data };
+      
+        // Updates event history
+        EVENT_HISTORY.push(event);
+        if (EVENT_HISTORY.length > HISTORY_MAX_LENGTH) { EVENT_HISTORY.shift(); }
+      
+        // Immediately dispatch to all *current* listeners
+        for ( const { pattern, callback } of LISTENERS ) {
+            if (eventMatchesPattern(eventName, pattern)) 
+                callback(throwerId, data, eventName);
         }
-    }
+
+      }
 
     /**
     * Listen: register a callback for an event name or a wildcard pattern.
     * @param {string} listenerId
     * @param {string} pattern
     * @param {function} callback
+    * @param {bool} replay - whether to replay the event history on listener creation.
+    * Beware, if the callback is async and/or if the callback itself fires events,
+    * newly fired events might interleave with the replay and order is not guaranteed
     */
-    function listen(listenerId, pattern, callback) {
-        if (typeof listenerId !== 'string' || listenerId.trim() === '') {
-            throw new Error("Listener ID must be a non-empty string.");
-        }
-        if (typeof pattern !== 'string' || pattern.trim() === '') {
-            throw new Error("Event pattern must be a non-empty string.");
-        }
+    function listen(listenerId, pattern, callback, replay = true) {
+    
+        LISTENERS.push({ listenerId, pattern, callback });
 
-        // Create a new listener entry
-        LISTENERS.push({
-            listenerId,
-            pattern,
-            callback
-        });
-
-        // Catch-up relevant events from the queue
-        for (let i = EVENT_QUEUE.length - 1; i >= 0; i--) {
-            let { throwerId, eventName, data } = EVENT_QUEUE[i];
-            if (eventMatchesPattern(eventName, pattern)) {
-                callback.call(this, throwerId, data, eventName);
-                EVENT_QUEUE.splice(i, 1);
-                console.log(`Event "${eventName}" caught up.`);
+        if (replay) {
+            const event_history_snapshot = EVENT_HISTORY.slice();
+            for (const event of event_history_snapshot) {
+                if (eventMatchesPattern(event.eventName, pattern)) {
+                    callback(event.throwerId, event.data, event.eventName);
+                    console.log(`Caught up on event: ${event.eventName}`);
+                }
             }
         }
+
     }
 
     /**
@@ -112,4 +114,3 @@
         const regex = new RegExp(regexStr);
         return regex.test(eventName);
     }
-
