@@ -227,15 +227,18 @@ class RedisMixin():
 
     @classmethod
     @tracer.wrap("RedisMixin.patch")
-    def patch(cls, key: str, field: str, value) -> bool:
+    def patch(cls, key: str, field: str, value, add=False) -> bool:
         """
-        Lower-latency update, targetting a single FIELD values.
-        No conflict prevention (the last update wins), although will never revive a deleted subkey
+        Lower-latency update, targetting a single SUBFIELD.
+
         Args:
             - key: The Redis key of the object to patch
             - field: field to update  
               for dictionary fields, use nested syntax: field.subkey, field:subkey:subsubkey, etc.
-            - value: updated value to set. 
+            - value: updated value to set.
+            - add: whether to add a new field or update an existing one. 
+                False: update existing SUBFILED - raise error if does not exist
+                True:  add new SUBFIELD - raise error if already exists
 
         Returns:
             - The True/False, whether the object was patched or not
@@ -246,15 +249,18 @@ class RedisMixin():
             log.warning(f"{cls.__class__} > {key} deleted, skipping patch") 
             return False
 
-
         with REDIS_CLIENT.pipeline() as pipe:
 
             pipe.multi()
 
             if REDIS_CLIENT.hexists(key, field):
-                pipe.hset(key, field, value)
+                if add:
+                    raise ConflictError(f"'{cls.__name__}' already has attribute '{field}'")        
             else:
-                raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
+                if not add:
+                    raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
+
+            pipe.hset(key, field, value)
 
             pipe.hincrby(key, "_version", 1)
             pipe.hset(key, "_edited", utils.now())
@@ -422,8 +428,8 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
         return super().delete()
 
     @classmethod
-    def patch(cls, id: str, field, value) -> bool:
-        return super().patch(cls._key(id), field, value)
+    def patch(cls, id: str, field, value, add=False) -> bool:
+        return super().patch(cls._key(id), field, value, add)
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related=False):
@@ -574,8 +580,8 @@ class RelationMixin(RedisMixin):
         return super().get( cls._key(left_id, right_id) )
     
     @classmethod
-    def patch(cls, left_id: str, right_id: str, field, value) -> bool:
-        return super().patch( cls._key(left_id, right_id), field, value)
+    def patch(cls, left_id: str, right_id: str, field, value, add=False) -> bool:
+        return super().patch( cls._key(left_id, right_id), field, value, add)
 
     @classmethod
     def search(cls, cursor=0, count=1000):

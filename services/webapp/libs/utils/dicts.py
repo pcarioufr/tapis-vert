@@ -37,6 +37,8 @@ def unflatten(d):
         keys = k.split(':')
         temp = result
         for key in keys[:-1]:
-            temp = temp.setdefault(key, {})
+            if key not in temp or not isinstance(temp[key], dict):
+                temp[key] = {}
+            temp = temp[key]
         temp[keys[-1]] = v
     return result

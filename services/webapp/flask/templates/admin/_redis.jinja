@@ -13,7 +13,9 @@
 <body>
     <h1>Redis Client</h1>
     <input type="text" id="searchPattern" placeholder="Enter key pattern (e.g., user:*)" />
+    <input type="text" id="fieldPattern" placeholder="Enter field pattern (e.g., field*)" />
     <button onclick="searchRedis()">Search</button>
+    <button onclick="deleteFields()">Delete Fields</button>
     
     <div id="results"></div>
 
@@ -39,6 +41,19 @@
                 itemDiv.innerHTML = `<strong>Key:</strong> ${item.key}<br><strong>Hashmap:</strong> ${item.hashmap}`;
                 resultsDiv.appendChild(itemDiv);
             });
+        }
+
+        async function deleteFields() {
+            const keyPattern = document.getElementById('searchPattern').value;
+            const fieldPattern = document.getElementById('fieldPattern').value;
+
+            const response = await fetch(
+                `/admin/api/delete_fields?key_pattern=${encodeURIComponent(keyPattern)}&field_pattern=${encodeURIComponent(fieldPattern)}`,
+                { method: 'POST' }
+            );
+            const data = await response.json();
+            searchRedis();
+            alert(`Deleted ${data.total_deleted} fields`);
         }
     </script>
 </body>

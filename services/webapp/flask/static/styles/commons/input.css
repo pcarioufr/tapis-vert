@@ -69,3 +69,39 @@ div.field[text] > svg { /* toggle for password input */
     height: 2.5vw;
     width: 2.5vw;
 }
+
+
+
+div.field[extended-text] textarea {
+    width: 20vw;
+    padding: 0.5vw;
+    font-size: 1.5vw;
+    text-align: center;
+    border: 1px solid var(--beige);
+    border-radius: 1.5vw;
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--beige);
+    backdrop-filter: blur(10px);
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+div.extended-text-input[button] {
+    display: flex;
+}
+
+div.extended-text-input[button] textarea {
+    border-radius: 1.5vw 0 0 1.5vw ;
+}
+div.extended-text-input[button] button {
+    border-radius: 0 1.5vw 1.5vw 0 ;
+}
+
+
+div.field[text] textarea:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+div.field[text] textarea:focus {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.5);
+}

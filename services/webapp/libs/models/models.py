@@ -95,7 +95,7 @@ class Room(ObjectMixin):
     '''
     '''
 
-    FIELDS = {"name", "round", "cards"}
+    FIELDS = {"name", "round", "cards", "messages"}
 
     RIGHTS = {} 
     LEFTS = {
@@ -138,12 +138,11 @@ class Room(ObjectMixin):
 
             i = i+1
 
+        self.messages = None
         self.cards = cards
         self.save()
 
         return round, cards
-
-        return round
 
 
 class UsersRooms(RelationMixin):
