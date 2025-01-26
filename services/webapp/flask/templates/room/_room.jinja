@@ -32,6 +32,8 @@
 
     {% include 'room/table.jinja' %}
     {% include 'room/cards.jinja' %}
+    {% include 'room/chat.jinja' %}
+
     {% include 'room/footer-self.jinja' %}
     {% include 'room/footer-room.jinja' %}
 
@@ -67,6 +69,10 @@
 
             // cards representations
             this.eCards = {} ;
+
+            // room's conversation
+            this.eConversation = new Conversation(document.body) ;
+
 
         }
 
@@ -138,7 +144,8 @@
             listen( "RoomManager", "round:new", async (throwerId, user_id) => {
                 
                 values(this.eCards).forEach(cardObj => cardObj.remove());
-                
+                this.eConversation.flush();
+
                 await this.refresh() ;
                 new Toast("info", "New round started", "swap-box-line");
                 this.render() ;
@@ -185,6 +192,17 @@
                 this.eCards[card_id].flipped = update;
 
             })
+
+            // Listens when a new user leaves the room
+            listen( "RoomManager", "message:new", (throwerId, message) => {
+                
+                console.log(message);
+                console.log(`Received message ${message.author} : ${message.content}`);
+
+                this.eConversation.addMessage(message.author, message.content);
+
+            })
+
 
             // Track user {{user.id}} cursor and update other users
 
@@ -286,6 +304,19 @@
 
             });
 
+            // RENDER MESSAGES ----
+
+            console.log('RENDER MESSAGES')
+            console.log(this.data.messages)
+            entries(this.data.messages).forEach( ([message_id, message]) => {
+
+                console.log('render message')
+                message = JSON.parse(message);
+                this.eConversation.addMessage(message.author, message.content);
+
+            });
+
+
         }
 
 
@@ -384,7 +415,7 @@
     };
 
 
-    let ROOM = new RoomManager() // Room Manager
+    window.ROOM = new RoomManager() // Room Manager
 
     const SELF = new SelfFooterEntry()
 
@@ -396,10 +427,10 @@
         const data = await resp.json();
         SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
 
-        await ROOM.refresh() ;
-        ROOM.render();
+        await window.ROOM.refresh() ;
+        window.ROOM.render();
 
-        ROOM.listen();
+        window.ROOM.listen();
 
     });
 

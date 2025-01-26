@@ -5,7 +5,7 @@ import flask, flask_login
 
 from models import Room, User, Code
 
-import utils
+import utils, json
 log = utils.get_logger(__name__)
 
 
@@ -64,6 +64,36 @@ def room_join(room_id=None):
         utils.publish(room_id, "user:joined", user_id)
 
     return flask.jsonify(room=room.to_dict()), 200
+
+
+@room_api.route("/v1/rooms/<room_id>/message", methods=['POST'])
+@flask_login.login_required
+def room_message(room_id=None):
+    '''Join a room'''
+
+    if room_id is None:
+        return flask.jsonify(), 400
+
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    user_id = flask_login.current_user.id
+
+    if not room.users().exists(user_id):
+        return flask.jsonify(), 401
+    
+    content = flask.request.args.get("content")
+    if content is None:
+        return flask.jsonify(), 400
+
+    message = json.dumps( { "content": content, "author": user_id } )
+
+    room.patch(room_id, f"messages:{utils.now(True)}", message, True)
+
+    utils.publish(room_id, f"message:new", message)
+
+    return flask.jsonify(), 200
 
 
 @room_api.route("/v1/rooms/<room_id>", methods=['PATCH'])

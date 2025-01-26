@@ -1,0 +1,57 @@
+
+
+.conversation {
+
+    position: relative;
+
+    display: flex;
+    flex-direction: column ;
+    align-items: flex-start;
+
+    width: 80%;
+    margin: auto;
+}
+
+.conversation .messages {
+
+    position: relative;
+
+    display: flex;
+    flex-direction: column ;
+    align-items: flex-start;
+
+    gap: 1vw;
+    margin-right: auto;
+
+}
+
+.conversation .messages .message {
+
+    position: relative;
+    display: flex;
+
+    padding: 0.5vw;
+    gap: 2vw;
+
+}
+
+.conversation .messages .message .author {
+
+    position: relative;
+
+}
+
+.conversation .messages .message .content {
+
+    position: relative;
+
+}
+
+
+.conversation .new {
+
+    position: relative;
+
+    margin: auto;
+
+}
