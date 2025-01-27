@@ -83,7 +83,7 @@ def room_message(room_id=None):
     if not room.users().exists(user_id):
         return flask.jsonify(), 401
     
-    content = flask.request.args.get("content")
+    content = flask.request.json.get("content")
     if content is None:
         return flask.jsonify(), 400
 

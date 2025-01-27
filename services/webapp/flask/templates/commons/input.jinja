@@ -1,4 +1,4 @@
-    <!-- INPUTS -->
+<!-- INPUTS -->
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/commons/input.css') }}" />
 
@@ -61,8 +61,9 @@
         </div>
     </template>
 
+
     <script>
-    class TextInput extends Input {
+    class TextInput extends Input { 
         
         constructor(eParent=null) {
             
@@ -119,6 +120,38 @@
 
     }
 
+    </script>
 
+    <template id=t-extended-text-input>
+        <div class="extended-text-input">
+            <textarea style="resize: none;"></textarea>
+            <!-- button goes here -->
+        </div>
+    </template>
+
+    <script>
+
+    class ExtendedTextInput extends Input { 
+        
+        constructor(eParent=null) {
+            
+            super(eParent)
+            this.tag("extended-text")
+
+            this.select(".c-title").after(build("t-extended-text-input"))
+
+        }
+        
+        get value()       { return this.select("textarea").value }
+        set value(value)  { this.select("textarea").value = value }
+
+        set placeholder(placeholder) { this.input.e.setAttribute("placeholder", placeholder) }
+
+        set button(button) { 
+            this.select(".extended-text-input").setAttribute("button","")
+            this.select(".extended-text-input").append(button.e) 
+        }
+
+    }
     </script>
 

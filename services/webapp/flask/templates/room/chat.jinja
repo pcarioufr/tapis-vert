@@ -24,7 +24,7 @@
 
 
             // New message
-            this.input = new TextInput();
+            this.input = new ExtendedTextInput();
             this.input.title = "message";
 
             let send = new Button()
@@ -33,7 +33,7 @@
             send.color = "green"
 
             send.callback = () => {
-                call("POST", "/api/v1/rooms/{{room.id}}/message", {content: this.input.value});
+                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
             }
 
             this.input.button = send;
@@ -65,7 +65,7 @@
     <template id="t-message">
         <div class="message">
             <div class="author"></div>
-            <div class="content"></div>
+            <div class="content" style="white-space: pre-wrap;"></div>
         </div>
     </template>
 
