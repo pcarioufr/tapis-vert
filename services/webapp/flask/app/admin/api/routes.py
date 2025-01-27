@@ -8,6 +8,7 @@ import utils
 log = utils.get_logger(__name__)
 
 import redis, os
+import fnmatch
 redis_client = redis.Redis(
     host=os.environ.get("REDIS_HOST"),
     db=os.environ.get("REDIS_DATA_DB"),
@@ -140,3 +141,26 @@ def search_keys():
             break
 
     return flask.jsonify(results), 200
+
+
+@admin_api.route("/delete_fields", methods=["POST"])
+def remove_fields_for_keys():
+
+    key_pattern = flask.request.args.get("key_pattern")
+    field_pattern = flask.request.args.get("field_pattern")
+    if not key_pattern or not field_pattern:
+        return flask.jsonify({"error": "Missing key_pattern or field_pattern"}), 400
+
+    matched_keys = list(redis_client.scan_iter(key_pattern))
+    total_deleted = 0
+    details = {}
+
+    for k in matched_keys:
+        fields = redis_client.hkeys(k)
+        matching_fields = [f for f in fields if fnmatch.fnmatch(f, field_pattern)]
+        if matching_fields:
+            deleted = redis_client.hdel(k, *matching_fields)
+            total_deleted += deleted
+            details[k] = deleted
+
+    return flask.jsonify({"status": "ok", "total_deleted": total_deleted, "details": details}), 200
