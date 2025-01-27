@@ -15,7 +15,8 @@
     }
 
 
-    async function call(method, route, params = {}, headers = {}) {
+    
+    async function call(method, route, params = {}, headers = {}, body = {} ) {
 
         // Build query string manually
         let first = true;
@@ -25,8 +26,17 @@
             route += `${key}=${params[key]}`;
         });
 
+        if (method !== 'GET' && Object.keys(body).length > 0) {
+            console.log("body",body)
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify(body);
+        } else {
+            console.log("body = null")
+            body = null; // e.g. no body for GET or if no body fields were provided
+        }
+
         try {
-            const resp = await fetch(route, { method: method, headers: headers });
+            const resp = await fetch(route, { method: method, headers: headers, body: body });
             return handle_response(resp);
         } catch (error) {
             throw error; /* TODO */ // currently re-throw the error
