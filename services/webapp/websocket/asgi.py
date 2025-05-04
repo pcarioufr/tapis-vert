@@ -1,6 +1,4 @@
 from ddtrace import tracer
-from ddtrace.contrib.asyncio import context_provider
-tracer.configure(context_provider=context_provider)
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
