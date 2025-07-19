@@ -95,7 +95,7 @@ apply_template_replacements() {
                 
                 # Log the replacement
                 relative_file="${file#${DEPLOY_TMP}/}"
-                info "Replaced ${count} occurrence(s) of ${template_var} -> ${actual_value} in ${relative_file}"
+                info "Replaced ${count}x${template_var} -> ${actual_value} in ${relative_file}"
             fi
         done
     done

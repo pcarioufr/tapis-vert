@@ -11,6 +11,9 @@ load_config() {
         
         set -a # Enable automatic export of all variables
         source /data/config/.env
+
+        export SSH_HOST="${DEPLOY_USER}@${SUBDOMAIN}.${DOMAIN}"
+
         set +a # Disable automatic export
         
         debug "Loaded and exported all configuration variables from /data/config/.env"

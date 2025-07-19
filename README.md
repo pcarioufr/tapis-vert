@@ -115,7 +115,7 @@ Available outputs:
 - `public_ip_v4`: IPv4 address of the deployed server
 - `public_ip_v6`: IPv6 address of the deployed server
 
-> **Note**: After successful deployment, the infrastructure outputs are automatically updated in [`config/.env`](config/.env) in the auto-generated section. Use `box dns update` to update DNS records manually.
+> **Note**: After successful deployment, the infrastructure outputs are automatically updated in [`config/.env`](config/.env). Use `box dns update` to update DNS records manually.
 
 ### 3. Operate Application
 

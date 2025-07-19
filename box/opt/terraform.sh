@@ -13,15 +13,26 @@ update_config_with_outputs() {
     PUBLIC_IP_V6=$(terraform ${TF_OPTS} output -raw public_ip_v6 2>/dev/null)
     
     if [ -n "$PUBLIC_IP_V4" ]; then
-        # Update the auto-generated section in config/.env
-        sed -i.bak "/# TERRAFORM OUTPUTS/,/^$/c\\
-# =============================================================================\\
-# TERRAFORM OUTPUTS (AUTO-GENERATED - DO NOT EDIT MANUALLY)\\
-# =============================================================================\\
-SSH_HOST=\"ubuntu@${PUBLIC_IP_V4}\"\\
-PUBLIC_IP_V4=\"${PUBLIC_IP_V4}\"\\
-PUBLIC_IP_V6=\"${PUBLIC_IP_V6}\"\\
-" /data/config/.env
+        # Update variables in config/.env file
+        update_env_var() {
+            local var_name="$1"
+            local var_value="$2"
+            local config_file="/data/config/.env"
+            
+            if grep -q "^${var_name}=" "$config_file"; then
+                # Variable exists, update it
+                sed "s/^${var_name}=.*/${var_name}=\"${var_value}\"/" "$config_file" > "/tmp/env_update.$$"
+                cat "/tmp/env_update.$$" > "$config_file"
+                rm -f "/tmp/env_update.$$"
+            else
+                # Variable doesn't exist, add it
+                echo "${var_name}=\"${var_value}\"" >> "$config_file"
+            fi
+        }
+        
+        # Update the terraform output variables
+        update_env_var "PUBLIC_IP_V4" "${PUBLIC_IP_V4}"
+        update_env_var "PUBLIC_IP_V6" "${PUBLIC_IP_V6}"
         
         notice "Updated SSH_HOST to ubuntu@${PUBLIC_IP_V4}"
         notice "Updated PUBLIC_IP_V4 to ${PUBLIC_IP_V4}"
