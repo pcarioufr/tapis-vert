@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redis-orm"
+version = "0.1.0"
+description = "A lightweight Redis-based ORM with relationship support"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Pierre Cariou", email = "pierre.cariou@infomaniak.com"},
+]
+keywords = ["redis", "orm", "database", "nosql", "optimistic-locking", "relationships"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "redis>=4.5.0",
+    "nanoid>=2.0.0",
+]
+
+[project.optional-dependencies]
+tracing = ["ddtrace>=3.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pcariou/redis-orm"
+Repository = "https://github.com/pcariou/redis-orm.git"
+Issues = "https://github.com/pcariou/redis-orm/issues"
+Documentation = "https://github.com/pcariou/redis-orm#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"] 

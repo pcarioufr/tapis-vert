@@ -5,29 +5,29 @@ start_time=$(date +%s.%3N)
 for f in /opt/box/libs/* ; do source $f; done
 export PATH+=':/opt/box/bin'
 
-main_usage() {
-    echo "----------------- box -----------------" 
-    echo "wrappers around various CLIs" 
-    echo "box [-h] [-d] [command] ... "
-    echo "    -h              : this helper"
-    echo "    hello           : hello world"
-    echo "    backup          : backup & restore tools"
-    echo "    transfer        : transfer data from grosserver1.0 to grosserver2.0"
-    echo "    ssh ...         : ssh wrapper"
-    echo "    deploy ...      : deploy tools"
-    echo "    terraform ...   : terraform wrappers"
+# Load and export configuration
+load_config() {
+    if [ -f /data/config/.env ]; then
+        
+        set -a # Enable automatic export of all variables
+        source /data/config/.env
+
+        export SSH_HOST="${DEPLOY_USER}@${SUBDOMAIN}.${DOMAIN}"
+
+        set +a # Disable automatic export
+        
+        debug "Loaded and exported all configuration variables from /data/config/.env"
+    else
+        error "Config file /data/config/.env not found"
+        exit 1
+    fi
 }
 
-while getopts "hd" option; do
-case ${option} in
-    h) main_usage && exit 0 ;;
-    *) usage && exit 1 ;;
-    esac
-done
+load_config
 
-if [ -n "${DEBUG}" ] ; then notice "debug mode on" ; fi 
+# Show debug status if enabled
+[ "${DEBUG}" = "1" ] && debug "debug mode active inside container"
 
-shift $(($OPTIND-1))
 CMD=${1} && shift 1
 
 debug command=$CMD

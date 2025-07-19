@@ -2,8 +2,13 @@ box/home/*
 !box/home/.bashrc
 
 # terraform
+/config/*
+!/config/example.env
 
 **/.terraform*
 terraform.tfstate*
 
 .DS_Store
+*.code-workspace
+
+.vscode/*

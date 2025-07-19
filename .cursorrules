@@ -1,0 +1,126 @@
+# Tapis Vert Project Rules
+
+## Project Architecture
+This is a cloud-native application with three layers:
+- **Infrastructure**: Terraform on OpenStack (Infomaniak)
+- **Application**: Docker Compose services  
+- **Deployment**: "The Box" containerized environment
+
+## Working Directory and Setup
+Always work from the `box/` directory and set up the alias:
+```bash
+cd box/
+alias box=./box.sh
+```
+
+Use `-d` flag for debug output: `box -d deploy`, `box -d terraform plan`, etc.
+Use `-p port` flag for port exposure: `box -p 8000 admin tunnel` (maps host port to same container port)
+
+## Testing and Development
+### Integration Testing
+- **Full test suite**: `box test init` - Complete room/user/round integration test
+- **Clean database**: `box test delete` - Wipe Redis for clean testing
+- **Debug mode**: `box -d test init` - Run tests with debug output
+
+### Ad-hoc Testing
+- **Arbitrary scripts**: `box/opt/adhoc.sh` - Safe for Cursor to edit for temporary testing needs
+- **Container environment**: Runs within box container with full access to services and configuration
+- **Disposable**: This script is meant for experimentation and can be freely modified
+
+## Admin Interface Access
+Secure admin access via SSH tunnel (localhost only):
+```bash
+box -p 8000 admin tunnel  # Creates tunnel, access via localhost:8000
+box admin ping            # Tests admin API directly on server
+```
+Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` (API)
+
+## Infrastructure Operations (Terraform)
+- State managed in Terraform Cloud (org: pcarioufr, workspace: tapis-vert)
+- Always authenticate first: `box terraform login`
+- Initialize: `box terraform init`
+- Standard workflow: `box terraform plan` → `box terraform apply`
+- Get IPs: `box terraform output public_ip_v4` / `box terraform output public_ip_v6`
+- Remember to update DNS records after deployment
+
+## SSH and Server Access
+- Generate SSH keys: `box ssh -n`
+- SSH access: `box ssh`
+- Run remote commands: `box ssh "command"`
+- SSH tunneling: `box ssh -L port:localhost:port`
+- Configure SSH_HOST in `box/.env`
+
+## Application Deployment Workflow
+
+### 1. Code Deployment (pushes code only, doesn't restart services)
+- Full deployment: `box deploy`
+- Dry run (test without deploying): `box deploy -n`
+- Specific directory: `box deploy -d webapp`
+- Configuration patch: `box deploy -p .env`
+
+### 2. Service Restart (separate step, always required after deployment)
+```bash
+box ssh
+cd services/
+docker compose down && docker compose up -d
+# OR restart specific services:
+# docker compose restart webapp
+```
+
+## Configuration Management
+- Uses centralized configuration in `config/.env` with two sections:
+  - Manual configuration (OpenStack credentials, application settings)
+  - Auto-generated section (Terraform outputs like IP addresses)
+- Configuration is loaded by `box/opt/main` and exported to all scripts
+- Config file is mounted in box container for read/write access
+- `services/.env` is auto-generated from config variables during deployment
+- Template files use `{{variable}}` syntax and ALL files are processed for templates during deployment (source files stay untouched)
+- Terraform outputs are automatically written back to config/.env after successful apply
+- DNS records can be synced with Infomaniak API using `box dns sync`
+
+## Important Notes
+- Deployment only pushes code - services keep running in previous state
+- Always restart services manually after deployment to apply changes
+- Configuration managed centrally in `config/` directory
+- The Box provides all deployment tools - don't use terraform/docker directly
+
+## Deployment Best Practices
+- **Prefer minimal deployments**: Use `box deploy -p path` for scoped changes instead of full deployments
+- **Partial deployment support**: Use `box deploy -p nginx/nginx.conf` for single files or `box deploy -p webapp/` for directories
+- **For single file changes**: Use `box deploy -p path/to/file` for efficient targeted deployments
+- **Always test in staging**: Use `box deploy -n` for dry runs, combine with `-p` for targeted testing
+- **Service restart strategy**: Only restart affected services, not entire stack
+
+## Documentation
+- **For End Users**: `docs/user/` - How to play the game, game rules, user guide
+- **For Developers/DevOps**: `docs/dev-ops/` - Technical documentation, APIs, architecture, deployment
+- **For Administrators**: `docs/admin/` - User/room management, admin interface, Redis debugging
+
+### Quick Documentation Guide:
+- **Understanding the game**: See `docs/user/README.md` and `docs/game-rules.md` 
+- **Working on code**: Start with `docs/dev-ops/README.md` for overview and index
+- **API development**: See `docs/dev-ops/api-reference.md` for complete REST/WebSocket API docs
+- **Frontend changes**: See `docs/dev-ops/frontend-guide.md` for UI framework and patterns
+- **System architecture**: See `docs/dev-ops/architecture-overview.md` for technical deep-dive
+- **Database/ORM work**: See `services/webapp/libs/redis-orm/README.md` (external package with complete documentation and test suite)
+- **Infrastructure/Deployment**: See `docs/dev-ops/` for complete DevOps guide
+- **Admin tasks**: See `docs/admin/` for user/room management and debugging
+- **Game mechanics**: Complete Top 10 rules and examples in `docs/game-rules.md`
+
+## When User Asks To:
+- **Setup project**: Tell them to copy config/example.env to config/.env and edit values
+- **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
+- **Deploy application**: Use `box deploy` for full deployment or `box deploy -p path` for partial deployments, then remind about service restart
+- **Update single file**: Use `box deploy -p path/to/file` for efficient targeted deployment
+- **Update config**: Edit config/.env, then use `box deploy` to apply changes
+- **Update DNS**: Use `box dns update`
+- **Access server**: Use `box ssh`
+- **Check application**: SSH in and use docker compose commands
+- **Access admin interface**: Use `box -p 8000 admin tunnel` then visit `http://localhost:8000/admin/list`
+- **Debug admin service**: Use `box admin ping` to test server-side admin API
+
+## File Structure
+- `terraform/`: Infrastructure as code
+- `services/`: Application services and Docker Compose
+- `box/`: Deployment environment and scripts
+- `config/.env`: Single configuration file with all environment variables 

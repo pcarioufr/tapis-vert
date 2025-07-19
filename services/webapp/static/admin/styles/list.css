@@ -1,0 +1,74 @@
+
+.tables {
+    display: flex;
+    flex-direction: column;
+    gap: 5vh;
+    width: 90vw;
+    align-items: center;
+}
+.table {
+    width: 100%;
+    border: 1px solid var(--beige);
+    border-radius: 1vw;
+    box-shadow: 1vw 1vw 1vw rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+h1 {
+    text-align: center;
+    background-color: var(--dbrown);
+    font-size: 5vw;
+    padding: 1vw;
+    margin: 0;
+    left: 2vw;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid var(--beige);
+    text-align: left;
+}
+th {
+    background-color: var(--dbrown);
+    font-weight: bold;
+}
+td {
+    background-color: var(--dbeige);
+}
+tr:hover {
+    background-color: var(--dbeige);
+    color: var(--dblue);
+}
+
+.header{
+    display: flex;
+    background-color: var(--dbrown);
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5vw 2vw 0.5vw 2vw ;
+}
+
+.new{
+    display: flex;
+    gap: 2vw;
+    align-items: center;
+}
+
+
+table tbody td {
+    position: relative;
+}    
+
+table tbody tr .action-tray {
+    text-align: center;
+    visibility: hidden; /* Initially hide the button */
+    position: absolute;
+    right: 1vw ;
+    top: calc(50% - 1.5vw);
+}
+
+table tbody tr:hover .action-tray {
+    visibility: visible; /* Show the button when hovering over a row */
+}

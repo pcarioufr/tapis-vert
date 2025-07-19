@@ -1,0 +1,181 @@
+{% extends 'commons/layout.jinja' %}
+
+{% block head %}
+
+    <title>Tapis Vert::Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin/styles/list.css') }}" />
+
+{% endblock %}
+
+{% block body %}
+
+    <div class="tables" id=tables>
+        <!-- [ <div class="container"></div> ] -->
+    </div>
+
+    <template id=t-table>
+        <div class="table">
+            <div class="header">
+                <h1></h1>
+                <div class="new">
+                    <!-- <input></input> -->
+                </div>
+            </div>
+            <table>
+                <thead> <tr> <!-- [ <th></th> ]--> </tr>    </thead>
+                <tbody> <!-- [ <tr> [ <td></td> ] </tr> --> </tbody>                
+            </table>
+        </div>
+    </template>
+
+    <template id=t-action-tray>
+        <div class="action-tray">
+            <!-- <button></button> -->
+        </div>
+    </template>
+
+    <script type="module">
+
+        class Table extends Element {
+
+            /**
+             * Creates an instance of Table.
+                super(build("t-table"), document.getElementById("tables"))
+             * @param {Array<string>} headers - The headers of the table.
+             * @param {string} path - The API path for the table data.
+             */
+            constructor(name, headers, path){
+
+                super( build("t-table"), document.getElementById("tables"))
+
+                this.path = path
+
+                this.select("h1").textContent = name;
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    this.select("thead tr").append(th);
+                });
+
+                this.nameInput     = new TextInput()
+                this.select(".new").append(this.nameInput.e)
+                this.nameInput.title = "name"
+                this.nameInput.spellcheck = false
+                this.nameInput.autocomplete = "off"
+
+                this.addButton = new Button()
+                // this.select(".new").append(this.addButton.e)
+                this.nameInput.button = this.addButton
+                this.addButton.icon = "add-circle-line"
+                this.addButton.color = "green"
+                this.addButton.callback = ( async _ => {
+                    await call('POST', `${this.path}`, { name: this.nameInput.value }) 
+                    this.fill()
+                })
+
+
+            }
+
+            async add(items) { 
+
+                const tr = document.createElement('tr');
+                this.select("tbody").append(tr);
+
+                items.forEach( (item, index) => {
+                    
+                    const th = document.createElement('td');
+                    th.innerHTML = item;
+                    tr.append(th);
+
+                    // Check if it's the last item
+                    if (index === items.length - 1) {
+                        
+                        const action = build("t-action-tray")
+                        th.append(action)
+
+                        const del = new Button()
+                        del.callback = async _ => {
+                            await call("DELETE", `${this.path}/${items[0]}`);
+                            await this.fill();
+                        }
+                        del.color = "red"
+                        del.icon = "delete-bin-line"
+                        action.append(del.e)
+                        
+                    }
+
+                });
+
+
+
+            }
+        }
+
+        class UserTable extends Table {
+        
+            constructor() {
+
+                super("Users", [ "id", "name", "code_id", "created at"], "/admin/api/users" )
+
+            }
+
+            async fill() { 
+
+                this.select("tbody").replaceChildren() ;
+
+                const resp = await call('GET', '/admin/api/users') ;
+                const data = await resp.json() ;
+                
+                entries(data).forEach( ([user_id,user]) => {
+
+                    const code_id = user.codes ? Object.keys(user.codes)[0] : null;
+                    // const code_id = user.codes && user.codes.length > 0 ? keys(user.codes)[0] : null ;
+                    this.add([user_id, user.name, code_id, date(user._created)]);
+                })
+
+            }        
+        }
+
+        class RoomTable extends Table {
+        
+            constructor() {
+
+                super("Rooms", [ "id", "name", "users", "created at"], "/admin/api/rooms")
+
+            }
+
+            async fill() { 
+
+                this.select("tbody").replaceChildren()
+
+                const resp = await call('GET', '/admin/api/rooms')
+                const data = await resp.json()
+
+                entries(data).forEach( ([room_id, room]) => {
+
+                    const user_ids = Object.entries(room.users).map( ([user_id, user]) => 
+                        `<a href="/r/${room_id}">${user_id}:${user.relation.role}</a>`
+                    )
+                    .join('<br>');
+
+                    this.add([room_id, room.name, `<pre>${user_ids}</pre>`, date(room._created)]);
+                })
+
+
+            }
+        }
+
+
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const userTable = new UserTable();
+            const roomTable = new RoomTable();
+
+            userTable.fill();
+            roomTable.fill();
+        });
+    </script>
+
+{% endblock %}
+

@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include TESTING.md
+recursive-include redis_orm *.py
+recursive-include tests *.py
+recursive-include docs *
+global-exclude *.pyc
+global-exclude .pytest_cache
+global-exclude __pycache__ 

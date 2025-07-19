@@ -5,9 +5,10 @@ services:
     hostname: box
     build: build/.
     env_file:
-      - .env
+      - ../config/.env
     volumes:
       - ./home/:/home/me # HOME
       - ./opt:/opt/box # BOX scripts
-      - ../services:/data/services # box scripts
-      - ../terraform:/data/terraform
+      - ../services:/data/services # Applications
+      - ../terraform:/data/terraform  # Infrastructure
+      - ../config/.env:/data/config/.env # Config file (read/write)
