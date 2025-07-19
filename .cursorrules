@@ -1,0 +1,65 @@
+# Tapis Vert Project Rules
+
+## Project Architecture
+This is a cloud-native application with three layers:
+- **Infrastructure**: Terraform on OpenStack (Infomaniak)
+- **Application**: Docker Compose services  
+- **Deployment**: "The Box" containerized environment
+
+## Working Directory and Setup
+Always work from the `box/` directory and set up the alias:
+```bash
+cd box/
+alias box=./box.sh
+```
+
+## Infrastructure Operations (Terraform)
+- State managed in Terraform Cloud (org: pcarioufr, workspace: tapis-vert)
+- Always authenticate first: `box terraform login`
+- Initialize: `box terraform init`
+- Standard workflow: `box terraform plan` → `box terraform apply`
+- Get IPs: `box terraform output public_ip_v4` / `box terraform output public_ip_v6`
+- Remember to update DNS records after deployment
+
+## SSH and Server Access
+- Generate SSH keys: `box ssh -n`
+- SSH access: `box ssh`
+- Run remote commands: `box ssh "command"`
+- SSH tunneling: `box ssh -L port:localhost:port`
+- Configure SSH_HOST in `box/.env`
+
+## Application Deployment Workflow
+
+### 1. Code Deployment (pushes code only, doesn't restart services)
+- Full deployment: `box deploy`
+- Specific directory: `box deploy -d webapp`
+- Configuration patch: `box deploy -p .env`
+
+### 2. Service Restart (separate step, always required after deployment)
+```bash
+box ssh
+cd services/
+docker compose down && docker compose up -d
+# OR restart specific services:
+# docker compose restart webapp
+```
+
+## Important Notes
+- Deployment only pushes code - services keep running in previous state
+- Always restart services manually after deployment to apply changes
+- Configuration files: `box/.env` (infrastructure), `services/.env` (application)
+- The Box provides all deployment tools - don't use terraform/docker directly
+
+## When User Asks To:
+- **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
+- **Deploy application**: Use `box deploy` then remind about service restart
+- **Update config**: Use `box deploy -p filename` then restart affected services
+- **Access server**: Use `box ssh`
+- **Check application**: SSH in and use docker compose commands
+
+## File Structure
+- `terraform/`: Infrastructure as code
+- `services/`: Application services and Docker Compose
+- `box/`: Deployment environment and scripts
+- `box/.env`: Infrastructure configuration
+- `services/.env`: Application configuration 
