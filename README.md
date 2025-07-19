@@ -26,16 +26,183 @@ Rounds expire after 1 hour.
 
 # Ops
 
-"Tapis Verts" relies [The Box](https://github.com/pcarioufr/box) for its ops.
+"Tapis Verts" is a cloud-native application with a containerized deployment architecture.
 
-## Deploy the Infra
+## Architecture Overview
 
-The Terraform files assumes access to an OpenStack public cloud (tested with Infomaniak's).
-Edit [`box/.env`](box/.env).
+The deployment follows a three-layer approach:
 
-## Run the Application
+- **Infrastructure**: Defined as code using Terraform, targeting OpenStack public cloud (hosted by Infomaniak)
+- **Application**: Containerized services orchestrated with Docker Compose
+- **Deployment**: Managed through "The Box" - a containerized Linux environment with deployment scripts and dependencies
 
-Edit [`services/.env`](services/.env).
+### Infrastructure Layer (`terraform/`)
+The infrastructure is provisioned on OpenStack public cloud using Terraform configuration files. This includes:
+- Virtual machines and compute resources
+- Network configuration and security groups
+- Storage volumes and dependencies
+
+### Application Layer (`services/`)
+The application runs as containerized services defined in Docker Compose:
+- Web application (Flask-based)
+- WebSocket services
+- Redis for data persistence
+- Nginx as reverse proxy
+
+### Deployment Layer (`box/`)
+The Box provides a containerized Linux environment that includes:
+- Deployment scripts and automation tools
+- Dependencies and utilities for managing the application
+- Configuration management for both infrastructure and services
+
+## Getting Started
+
+First, navigate to the box folder and set up the box command alias:
+```bash
+cd box/
+alias box=./box.sh
+```
+
+### 1. Initialize Terraform with Terraform Cloud
+
+The infrastructure state is managed in Terraform Cloud (organization: `pcarioufr`, workspace: `tapis-vert`). You'll need a Terraform Cloud token to initialize and manage the infrastructure.
+
+#### Set up Terraform Cloud Authentication
+```bash
+# Log in to Terraform Cloud (opens browser for token creation)
+box terraform login
+```
+
+#### Initialize Terraform
+```bash
+# Initialize terraform with the remote backend
+box terraform init
+```
+
+### 2. Operate Infrastructure
+
+#### Configure OpenStack Credentials
+Configure OpenStack credentials and settings in [`box/.env`](box/.env).
+
+#### Infrastructure Management Commands
+```bash
+# Plan infrastructure changes
+box terraform plan
+
+# Apply infrastructure changes
+box terraform apply
+
+# Destroy infrastructure (when needed)
+box terraform destroy
+```
+
+#### Output Variables
+Get infrastructure information after deployment:
+```bash
+# Get all outputs in JSON format
+box terraform output
+
+# Get specific IP addresses
+box terraform output public_ip_v4
+box terraform output public_ip_v6
+```
+
+Available outputs:
+- `public_ip_v4`: IPv4 address of the deployed server
+- `public_ip_v6`: IPv6 address of the deployed server
+
+> **Note**: After deployment, ensure the public IP addresses are updated in your domain's DNS zone records to point to the deployed infrastructure.
+
+### 3. Operate Application
+
+#### SSH Keypair Management
+
+Before deploying or accessing the remote server, you need to set up SSH keypairs for secure authentication.
+
+```bash
+# Generate a new SSH keypair for deployment access
+box ssh -n
+
+# Reset known hosts (if connection issues occur)
+box ssh -r
+```
+
+The SSH keypair is used for:
+- Automated deployment scripts
+- Manual SSH access to the deployed server
+- Secure file transfers and remote commands
+
+> **Note**: Make sure to configure `SSH_HOST` in [`box/.env`](box/.env) with your server's address.
+
+#### SSH Access and Tunneling
+
+```bash
+# Open SSH shell to the remote server
+box ssh
+
+# Run a specific command remotely
+box ssh "docker ps"
+
+# Create SSH tunnel (e.g., for accessing services)
+box ssh -L 8000:localhost:8000
+box ssh -L 0.0.0.0:8000:localhost:8000
+```
+
+#### Configure Application Services
+Configure application settings in [`services/.env`](services/.env).
+
+#### Application Deployment
+
+Deploy your application services to the remote server using the deployment scripts.
+
+##### Full Deployment
+```bash
+# Deploy all services and configuration
+box deploy
+```
+
+This will:
+- Copy all contents from `services/` to `/home/ubuntu/services/` on the remote server
+- Include the application code, Docker Compose files, and environment configuration
+- Purge the destination folder before deployment to ensure a clean state
+
+##### Targeted Deployment
+```bash
+# Deploy only a specific service directory (e.g., webapp)
+box deploy -d webapp
+
+# Deploy only the nginx configuration
+box deploy -d nginx
+```
+
+##### Configuration Patching
+```bash
+# Update only the environment file without full redeployment
+box deploy -p .env
+
+# Update a specific configuration file
+box deploy -p nginx/nginx.conf
+```
+
+> **Note**: Patching (`-p`) updates individual files without purging the destination, useful for quick configuration changes.
+
+##### Restarting Services After Deployment
+
+The deployment commands only push code to the server - the application continues running in its previous state. To apply the changes, you need to restart the services manually:
+
+```bash
+# SSH into the server
+box ssh
+
+# Navigate to the services directory and restart
+cd services/
+docker compose down
+docker compose up -d
+
+# Or restart specific services
+docker compose restart webapp
+docker compose restart nginx
+```
 
 
 # Resources
