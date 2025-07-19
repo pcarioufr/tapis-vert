@@ -67,8 +67,8 @@ docker compose down && docker compose up -d
 ## When User Asks To:
 - **Setup project**: Tell them to copy config/example.env to config/.env and edit values
 - **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
-- **Deploy application**: Use `box deploy` then remind about service restart
-- **Update config**: Edit config/.env, then use `box deploy -p .env` if needed
+- **Deploy application**: Use `box deploy` (always processes templates) then remind about service restart
+- **Update config**: Edit config/.env, then use `box deploy` to apply changes
 - **Update DNS**: Use `box dns update`
 - **Access server**: Use `box ssh`
 - **Check application**: SSH in and use docker compose commands

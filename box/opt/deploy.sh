@@ -105,69 +105,59 @@ apply_template_replacements() {
 
 usage() {
     echo "----------------- box deploy -----------------" 
-    echo "Deploy content to server." 
-    echo "box deploy [-h] [-n] [-d directory] [-p file]"
+    echo "Deploy application to server with template processing." 
+    echo "box deploy [-h] [-n]"
     echo "    -h (opt)      : this helper"
-    echo "    -n (opt)      : dry run - prepare files but don't deploy"
-    echo "    -d (opt)      : directory to deploy within ./service (e.g. webapp)"
-    echo "    -p (opt)      : specific file to patch ./service (e.g. .env)"
+    echo "    -n (opt)      : dry run - process templates but don't deploy"
 }
 
-SRC="/data/services/* /data/services/.env"
-DST=/home/ubuntu/services
+# Deployment paths (always deploy everything)
+DST="/home/ubuntu/services"
 DEPLOY_TMP="/home/me/.tmp/deploy"
 
-while getopts "hnd:p:" option; do
+while getopts "hn" option; do
 case ${option} in
     h) usage && exit 0 ;;
     n) 
         DRY_RUN=1
-        warning "running deployment in dry run mode"
-    ;;
-    d) 
-        SRC="/data/services/${OPTARG}/*"
-        DST="/home/ubuntu/services/${OPTARG}"
-    ;;
-    p) 
-        PATCH=1
-        SRC="/data/services/${OPTARG}"
-        DST="/home/ubuntu/services/${OPTARG}"
+        warning "Dry run mode - will process templates but not deploy"
     ;;
     *) usage && exit 1 ;;
     esac
 done
 shift $(($OPTIND-1))
 
-# Prepare deployment files unless we're doing a specific file patch
-if [ "$PATCH" != "1" ]; then
-    prepare_deployment
+# STEP 1: Always process templates (prepare deployment files)
+info "Processing templates and preparing deployment files"
+prepare_deployment
+
+# STEP 2: If dry run, show what would be deployed and stop
+if [ -n "$DRY_RUN" ]; then
+    success "Dry run complete. Processed files ready in ${DEPLOY_TMP}"
+    info "Files that would be deployed:"
+    find "$DEPLOY_TMP" -type f | sed "s|^${DEPLOY_TMP}|  |"
+    exit 0
 fi
 
+# STEP 3: Deploy the processed content
 debug "using SSH_HOST=$SSH_HOST"
 SSH_PORT="-p 22"
 SCP_PORT="-P 22"
 
-# Use prepared deployment files for full deployment, original source for patches
-if [ "$PATCH" != "1" ]; then
-    ACTUAL_SRC="${DEPLOY_TMP}/*"
+# Purge remote folder before deployment
+notice "Purging remote ${DST} folder on ${SSH_HOST}"
+ssh ${SSH_HOST} ${SSH_PORT} "mkdir -p ${DST} > /dev/null 2>&1"
+ssh ${SSH_HOST} ${SSH_PORT} "sudo rm -rf ${DST}/* > /dev/null 2>&1"
+
+# Deploy processed files (including hidden files like .env)
+info "Uploading ${DEPLOY_TMP}/* (including hidden files) -> ${SSH_HOST}:${DST}"
+shopt -s dotglob  # Include hidden files in glob patterns
+cmd=$(scp -pr ${SCP_PORT} ${DEPLOY_TMP}/* ${SSH_HOST}:${DST} 2>&1)
+shopt -u dotglob  # Reset to default
+
+if [ $? -eq 0 ]; then
+    success "Deployment complete"
 else
-    ACTUAL_SRC="${SRC}"
+    error "scp failed: $cmd"
+    exit 1
 fi
-
-# Deploy files unless in dry run mode
-if [ -n "$DRY_RUN" ]; then
-    success "Dry run complete. Files prepared in ${DEPLOY_TMP}"
-    exit 0
-fi
-
-# Purge remote folder for full deployments (only when actually deploying)
-if [ "$PATCH" != "1" ]; then
-    notice "purge ${DST} folder content on ${SSH_HOST} server"
-    ssh ${SSH_HOST} ${SSH_PORT} "mkdir ${DST} > /dev/null 2>&1"
-    ssh ${SSH_HOST} ${SSH_PORT} "sudo rm -r ${DST}/* > /dev/null 2>&1"
-fi
-
-info "upload ${ACTUAL_SRC} -> ${SSH_HOST}:${DST}"
-cmd=$(scp -pr ${SCP_PORT} ${ACTUAL_SRC} ${SSH_HOST}:${DST} 2>&1)
-
-[ $? -eq 0 ] || error "scp failed" && echo $cmd

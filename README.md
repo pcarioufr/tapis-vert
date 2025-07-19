@@ -159,12 +159,12 @@ All application settings are configured in [`config/.env`](config/.env) and auto
 
 Deploy your application services to the remote server using the deployment scripts.
 
-##### Full Deployment
+##### Application Deployment
 ```bash
-# Deploy all services and configuration
+# Deploy all services and configuration with template processing
 box deploy
 
-# Dry run - prepare files but don't deploy (useful for testing)
+# Dry run - process templates but don't deploy (useful for testing)
 box deploy -n
 ```
 
@@ -176,28 +176,7 @@ This will:
 - Purge the destination folder before deployment to ensure a clean state
 - Source files remain untouched with their template variables
 
-##### Targeted Deployment
-```bash
-# Deploy only a specific service directory (e.g., webapp)
-box deploy -d webapp
-
-# Deploy only the nginx configuration
-box deploy -d nginx
-```
-
-##### Configuration Patching
-```bash
-# Update only the environment file without full redeployment
-box deploy -p .env
-
-# Update a specific configuration file
-box deploy -p nginx/nginx.conf
-
-# Dry run a patch deployment
-box deploy -n -p .env
-```
-
-> **Note**: Patching (`-p`) updates individual files without purging the destination, useful for quick configuration changes.
+> **Note**: Deployment always processes templates and deploys all services. Individual file updates should be done by editing source files and running a full deployment.
 
 ##### Restarting Services After Deployment
 
