@@ -61,6 +61,10 @@ First, navigate to the box folder and set up the box command alias:
 ```bash
 cd box/
 alias box=./box.sh
+
+# Optional: Use -d flag for debug output
+box -d terraform plan
+box -d deploy -n
 ```
 
 ### 1. Initialize Terraform with Terraform Cloud
@@ -82,7 +86,7 @@ box terraform init
 ### 2. Operate Infrastructure
 
 #### Configure OpenStack Credentials
-Configure OpenStack credentials and settings in [`box/.env`](box/.env).
+Configure OpenStack credentials and settings in [`config/.env`](config/.env).
 
 #### Infrastructure Management Commands
 ```bash
@@ -111,7 +115,7 @@ Available outputs:
 - `public_ip_v4`: IPv4 address of the deployed server
 - `public_ip_v6`: IPv6 address of the deployed server
 
-> **Note**: After deployment, ensure the public IP addresses are updated in your domain's DNS zone records to point to the deployed infrastructure.
+> **Note**: After successful deployment, the infrastructure outputs are automatically updated in [`config/.env`](config/.env) in the auto-generated section. Use `box dns update` to update DNS records manually.
 
 ### 3. Operate Application
 
@@ -132,7 +136,7 @@ The SSH keypair is used for:
 - Manual SSH access to the deployed server
 - Secure file transfers and remote commands
 
-> **Note**: Make sure to configure `SSH_HOST` in [`box/.env`](box/.env) with your server's address.
+> **Note**: Make sure to configure `SSH_HOST` in [`config/.env`](config/.env) with your server's address.
 
 #### SSH Access and Tunneling
 
@@ -149,7 +153,7 @@ box ssh -L 0.0.0.0:8000:localhost:8000
 ```
 
 #### Configure Application Services
-Configure application settings in [`services/.env`](services/.env).
+All application settings are configured in [`config/.env`](config/.env) and automatically generated for services during deployment.
 
 #### Application Deployment
 
@@ -159,12 +163,18 @@ Deploy your application services to the remote server using the deployment scrip
 ```bash
 # Deploy all services and configuration
 box deploy
+
+# Dry run - prepare files but don't deploy (useful for testing)
+box deploy -n
 ```
 
 This will:
-- Copy all contents from `services/` to `/home/ubuntu/services/` on the remote server
-- Include the application code, Docker Compose files, and environment configuration
+- Copy source files to a temporary deployment directory (`~/.tmp/deploy/`)
+- Process ALL files for template replacement (replace `{{variables}}` with actual config values)
+- Generate `services/.env` from configuration in the deployment copy
+- Deploy the processed files from temp directory to `/home/ubuntu/services/` on the remote server
 - Purge the destination folder before deployment to ensure a clean state
+- Source files remain untouched with their template variables
 
 ##### Targeted Deployment
 ```bash
@@ -182,6 +192,9 @@ box deploy -p .env
 
 # Update a specific configuration file
 box deploy -p nginx/nginx.conf
+
+# Dry run a patch deployment
+box deploy -n -p .env
 ```
 
 > **Note**: Patching (`-p`) updates individual files without purging the destination, useful for quick configuration changes.
@@ -204,6 +217,19 @@ docker compose restart webapp
 docker compose restart nginx
 ```
 
+## DNS Management
+
+Manage your domain's DNS records automatically with the Infomaniak API:
+
+```bash
+# View current DNS zone records
+box dns get
+
+# Update subdomain records with config values (DOMAIN, SUBDOMAIN, PUBLIC_IP_V4, PUBLIC_IP_V6)
+box dns update
+```
+
+> **Note**: Configure `INFOMANIAK_TOKEN` in [`config/.env`](config/.env) for automatic DNS sync after infrastructure deployment. The DNS operations work on the `DOMAIN` (DNS zone) and will automatically find and update existing A/AAAA records for the specified subdomain. If records don't exist, they will be created automatically.
 
 # Resources
 

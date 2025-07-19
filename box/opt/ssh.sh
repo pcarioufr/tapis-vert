@@ -45,7 +45,6 @@ then
 fi
 
 notice "using SSH_HOST=$SSH_HOST"
-notice "update box/.env"
 
 COMMAND=${*}
 

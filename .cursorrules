@@ -13,6 +13,8 @@ cd box/
 alias box=./box.sh
 ```
 
+Use `-d` flag for debug output: `box -d deploy`, `box -d terraform plan`, etc.
+
 ## Infrastructure Operations (Terraform)
 - State managed in Terraform Cloud (org: pcarioufr, workspace: tapis-vert)
 - Always authenticate first: `box terraform login`
@@ -32,6 +34,7 @@ alias box=./box.sh
 
 ### 1. Code Deployment (pushes code only, doesn't restart services)
 - Full deployment: `box deploy`
+- Dry run (test without deploying): `box deploy -n`
 - Specific directory: `box deploy -d webapp`
 - Configuration patch: `box deploy -p .env`
 
@@ -44,16 +47,29 @@ docker compose down && docker compose up -d
 # docker compose restart webapp
 ```
 
+## Configuration Management
+- Uses centralized configuration in `config/.env` with two sections:
+  - Manual configuration (OpenStack credentials, application settings)
+  - Auto-generated section (Terraform outputs like IP addresses)
+- Configuration is loaded by `box/opt/main` and exported to all scripts
+- Config file is mounted in box container for read/write access
+- `services/.env` is auto-generated from config variables during deployment
+- Template files use `{{variable}}` syntax and ALL files are processed for templates during deployment (source files stay untouched)
+- Terraform outputs are automatically written back to config/.env after successful apply
+- DNS records can be synced with Infomaniak API using `box dns sync`
+
 ## Important Notes
 - Deployment only pushes code - services keep running in previous state
 - Always restart services manually after deployment to apply changes
-- Configuration files: `box/.env` (infrastructure), `services/.env` (application)
+- Configuration managed centrally in `config/` directory
 - The Box provides all deployment tools - don't use terraform/docker directly
 
 ## When User Asks To:
+- **Setup project**: Tell them to copy config/example.env to config/.env and edit values
 - **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
 - **Deploy application**: Use `box deploy` then remind about service restart
-- **Update config**: Use `box deploy -p filename` then restart affected services
+- **Update config**: Edit config/.env, then use `box deploy -p .env` if needed
+- **Update DNS**: Use `box dns update`
 - **Access server**: Use `box ssh`
 - **Check application**: SSH in and use docker compose commands
 
@@ -61,5 +77,4 @@ docker compose down && docker compose up -d
 - `terraform/`: Infrastructure as code
 - `services/`: Application services and Docker Compose
 - `box/`: Deployment environment and scripts
-- `box/.env`: Infrastructure configuration
-- `services/.env`: Application configuration 
+- `config/.env`: Single configuration file with all environment variables 

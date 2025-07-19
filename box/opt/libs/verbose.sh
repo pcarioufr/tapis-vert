@@ -4,19 +4,13 @@
 # https://askubuntu.com/questions/678915/whats-the-difference-between-and-in-bash
 # https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
 stacktrace() {
-
-    local frame=1 trace="" LINE SUB FILE
+    local LINE SUB FILE
     
-    while read LINE SUB FILE < <(caller "$frame"); do
-        FILEa=(${FILE//// })
-        trace="${trace}${FILEa[-1]}:${SUB}:${LINE}>"
-        ((frame++))
-    done
-
-    trace="${trace::-1} |"
-    trace="${trace//main/}" 
-    echo ${trace}
-
+    # Just get the immediate caller (filename:line)
+    read LINE SUB FILE < <(caller 1)
+    FILEa=(${FILE//// })
+    filename="${FILEa[-1]}"
+    echo "${filename%.sh}:${LINE} |"
 }
 
 NC='\033[0m' # No Color
