@@ -25,32 +25,9 @@ load_config() {
 
 load_config
 
-main_usage() {
-    echo "----------------- box -----------------" 
-    echo "wrappers around various CLIs" 
-    echo "box [-h] [-d] [command] ... "
-    echo "    -h              : this helper"
-    echo "    -d              : enable debug mode"
-    echo "    hello           : hello world"
-    echo "    ssh ...         : ssh wrapper"
-    echo "    deploy ...      : deploy tools"
-    echo "    terraform ...   : terraform wrappers"
-    echo "    dns ...         : DNS zone management"
-    echo "    admin ...       : admin access tools"
-}
+# Show debug status if enabled
+[ "${DEBUG}" = "1" ] && debug "debug mode active inside container"
 
-while getopts "hd" option; do
-case ${option} in
-    h) main_usage && exit 0 ;;
-    d) 
-        export DEBUG=1 
-        notice "debug mode on" ;
-    ;;
-    *) usage && exit 1 ;;
-    esac
-done
-
-shift $(($OPTIND-1))
 CMD=${1} && shift 1
 
 debug command=$CMD
