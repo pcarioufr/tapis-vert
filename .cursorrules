@@ -14,6 +14,15 @@ alias box=./box.sh
 ```
 
 Use `-d` flag for debug output: `box -d deploy`, `box -d terraform plan`, etc.
+Use `-p port` flag for port exposure: `box -p 8000 admin tunnel` (maps host port to same container port)
+
+## Admin Interface Access
+Secure admin access via SSH tunnel (localhost only):
+```bash
+box -p 8000 admin tunnel  # Creates tunnel, access via localhost:8000
+box admin ping            # Tests admin API directly on server
+```
+Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` (API)
 
 ## Infrastructure Operations (Terraform)
 - State managed in Terraform Cloud (org: pcarioufr, workspace: tapis-vert)
@@ -96,6 +105,8 @@ docker compose down && docker compose up -d
 - **Update DNS**: Use `box dns update`
 - **Access server**: Use `box ssh`
 - **Check application**: SSH in and use docker compose commands
+- **Access admin interface**: Use `box -p 8000 admin tunnel` then visit `http://localhost:8000/admin/list`
+- **Debug admin service**: Use `box admin ping` to test server-side admin API
 
 ## File Structure
 - `terraform/`: Infrastructure as code

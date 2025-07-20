@@ -5,82 +5,78 @@ for f in /opt/box/libs/* ; do source $f; done
 usage() {
     echo "----------------- box admin -----------------" 
     echo "Admin access utility for Tapis Vert."
-    echo "box admin [-h] [command]"
+    echo "box [-p port] admin [-h] command"
+    echo "    -h (opt)      : this helper"
     echo ""
     echo "Commands:"
     echo "    tunnel        : Create SSH tunnel for admin access"
-    echo "                    Maps localhost:8002 → server admin interface"
-    echo "    list          : Quick admin interface link after tunnel"
-    echo "    api           : Test admin API connectivity"
-    echo "    -h            : Show this help"
+    echo "                    Port specified via required -p flag"
+    echo "    ping          : Test admin API directly on server via SSH" 
+    echo "                    No port flag needed - tests server directly"
     echo ""
-    echo "Usage examples:"
-    echo "    box admin tunnel     # Start tunnel, then visit http://localhost:8002/admin/list"
-    echo "    box admin api        # Test admin API via tunnel"
+    echo "Examples:"
+    echo "    box -p 8000 admin tunnel    # Access via localhost:8000"
+    echo "    box -p 8001 admin tunnel    # Access via localhost:8001"  
+    echo "    box admin ping              # Test admin API on server"
 }
 
 admin_tunnel() {
-    notice "Creating SSH tunnel for admin access..."
-    notice "Local admin interface will be available at:"
-    notice "  → http://localhost:8002/admin/list"
-    notice "  → http://localhost:8002/admin/redis"
-    notice ""
-    notice "Press Ctrl+C to close tunnel"
-    notice "using SSH_HOST=$SSH_HOST"
-    
-    # Create tunnel: local 8002 → remote localhost:8002 (admin nginx)
-    ssh -f ${SSH_HOST} -p 22 -L 8002:localhost:8002 -N
-}
-
-admin_list() {
-    notice "Admin interface URLs (after creating tunnel):"
-    notice "  → Main Dashboard: http://localhost:8002/admin/list"
-    notice "  → Redis Debug:    http://localhost:8002/admin/redis"
-    notice ""
-    notice "To create tunnel: box admin tunnel"
-}
-
-admin_api() {
-    notice "Testing admin API connectivity..."
-    
-    # Check if tunnel is active
-    if ! curl -s --connect-timeout 2 http://localhost:8002/admin/api/rooms > /dev/null; then
-        error "Admin tunnel not active. Run: box admin tunnel"
+    # Check if port was specified with -p flag
+    if [ -z "${EXPOSED_PORT}" ]; then
+        error "No port specified for admin tunnel"
+        error "Usage: box -p <port> admin tunnel"
+        error "Example: box -p 8000 admin tunnel"
         exit 1
     fi
     
-    notice "✅ Admin tunnel is active"
-    notice "Testing admin API endpoints..."
-    
-    echo "📊 Rooms:"
-    curl -s http://localhost:8001/admin/api/rooms | head -c 200
-    echo ""
-    
-    echo "👥 Users:"
-    curl -s http://localhost:8001/admin/api/users | head -c 200
-    echo ""
-    
-    echo "🔑 Codes:"
-    curl -s http://localhost:8001/admin/api/codes | head -c 200
-    echo ""
+    info "Creating SSH tunnel for admin access on port ${EXPOSED_PORT}..."
+    info "Press Ctrl+C to close tunnel"
+
+    # Create tunnel: container 0.0.0.0:PORT → remote localhost:8002 (admin nginx)
+    # External port mapping is handled by docker -p flag
+    SSH_PORT="-p 22"
+    ssh ${SSH_HOST} ${SSH_PORT} -i /home/me/.ssh/id_rsa -L 0.0.0.0:${EXPOSED_PORT}:localhost:8002 -N
 }
 
-# Parse arguments
-case "${1}" in
+admin_ping() {
+    info "Testing admin API directly on server..."
+    
+    # Test admin API ping directly on server via SSH
+    if ssh ${SSH_HOST} -p 22 -i /home/me/.ssh/id_rsa "curl -s --connect-timeout 3 http://localhost:8002/admin/api/ping" > /dev/null 2>&1; then
+        RESPONSE=$(ssh ${SSH_HOST} -p 22 -i /home/me/.ssh/id_rsa "curl -s http://localhost:8002/admin/api/ping")
+        success "Admin API is working! Response: $RESPONSE"
+    else
+        error "Admin API not responding on server"
+        error "Check if admin service is running: ssh → docker compose logs flask-admin"
+        exit 1
+    fi
+}
+
+
+while getopts "h" option; do
+case ${option} in
+    h) usage && exit 0 ;;
+    *) usage && exit 1 ;;
+    esac
+done
+shift $(($OPTIND-1))
+
+# Parse commands
+COMMAND=${1}
+
+case "${COMMAND}" in
     tunnel)
         admin_tunnel
         ;;
-    list)
-        admin_list
+    ping)
+        admin_ping
         ;;
-    api)
-        admin_api
-        ;;
-    -h|--help|"")
+    "")
         usage
+        exit 1
         ;;
     *)
-        error "Unknown command: ${1}"
+        error "Unknown command: ${COMMAND}"
         usage
         exit 1
         ;;

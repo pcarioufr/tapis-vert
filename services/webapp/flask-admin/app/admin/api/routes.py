@@ -7,6 +7,13 @@ from models import Room, User, Code, UserCodes
 import utils
 log = utils.get_logger(__name__)
 
+
+@admin_api.route("/ping", methods=['GET'])
+def ping():
+    """Admin API health check endpoint"""
+    log.info("admin ping successful")
+    return flask.jsonify(response="pong", service="admin"), 200
+
 import redis, os
 import fnmatch
 redis_client = redis.Redis(
