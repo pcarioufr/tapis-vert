@@ -12,14 +12,55 @@ The admin system provides tools for:
 
 ## Admin Access
 
+### 🔒 Security Note
+Admin routes are **only accessible from the server itself** (localhost) for security reasons. External access is completely blocked.
+
 ### Admin Interface URLs
-- **Main Admin Dashboard**: `/admin/list` - Tables for users, rooms, and codes
-- **Redis Debugging Interface**: `/admin/redis` - Raw Redis key inspection
+- **Main Admin Dashboard**: `http://localhost:8001/admin/list` - Tables for users, rooms, and codes
+- **Redis Debugging Interface**: `http://localhost:8001/admin/redis` - Raw Redis key inspection
 
 ### Prerequisites
-- Administrative access to the application
+- SSH access to the server
 - Understanding of the data models (User, Room, Code)
 - Familiarity with Redis key patterns for debugging
+
+### Access Methods
+
+#### 1. Admin Utility (Recommended)
+```bash
+# Create admin tunnel (easiest method)
+box admin tunnel
+
+# Then access admin interface at:
+# http://localhost:8001/admin/list
+# http://localhost:8001/admin/redis
+```
+
+#### 2. Manual SSH Tunnel
+```bash
+# Create tunnel manually
+box ssh -L 8001:localhost:8001
+
+# Then access admin interface at:
+# http://localhost:8001/admin/list
+```
+
+#### 3. Direct Server Access via curl
+```bash
+# SSH into the server
+box ssh
+
+# Use curl to interact with admin API directly
+curl http://localhost:8001/admin/api/rooms
+curl http://localhost:8001/admin/api/users
+curl -X POST "http://localhost:8001/admin/api/rooms?name=NewRoom"
+```
+
+#### 4. Test Admin API (after tunnel)
+```bash
+# Test admin connectivity
+box admin api
+```
 
 ## Admin User Interface
 
@@ -68,7 +109,7 @@ Advanced debugging interface for direct Redis operations:
 
 #### Create User
 ```http
-POST /admin/api/users?name={user_name}
+POST http://localhost:8001/admin/api/users?name={user_name}
 ```
 
 **Parameters:**
@@ -91,7 +132,7 @@ POST /admin/api/users?name={user_name}
 
 #### Get User
 ```http
-GET /admin/api/users/{user_id}
+GET http://localhost:8001/admin/api/users/{user_id}
 ```
 
 **Response:**
@@ -106,7 +147,7 @@ GET /admin/api/users/{user_id}
 
 #### Delete User
 ```http
-DELETE /admin/api/users/{user_id}
+DELETE http://localhost:8001/admin/api/users/{user_id}
 ```
 
 **Features:**
@@ -116,7 +157,7 @@ DELETE /admin/api/users/{user_id}
 
 #### List All Users
 ```http
-GET /admin/api/users
+GET http://localhost:8001/admin/api/users
 ```
 
 **Response:**
@@ -139,7 +180,7 @@ GET /admin/api/users
 
 #### Create Room
 ```http
-POST /admin/api/rooms?name={room_name}
+POST http://localhost:8001/admin/api/rooms?name={room_name}
 ```
 
 **Parameters:**
@@ -161,7 +202,7 @@ POST /admin/api/rooms?name={room_name}
 
 #### Get Room
 ```http
-GET /admin/api/rooms/{room_id}
+GET http://localhost:8001/admin/api/rooms/{room_id}
 ```
 
 **Response:**
@@ -186,7 +227,7 @@ GET /admin/api/rooms/{room_id}
 
 #### Delete Room
 ```http
-DELETE /admin/api/rooms/{room_id}
+DELETE http://localhost:8001/admin/api/rooms/{room_id}
 ```
 
 **Features:**
@@ -195,7 +236,7 @@ DELETE /admin/api/rooms/{room_id}
 
 #### List All Rooms
 ```http
-GET /admin/api/rooms
+GET http://localhost:8001/admin/api/rooms
 ```
 
 **Response:**
@@ -220,7 +261,7 @@ GET /admin/api/rooms
 
 #### List All Codes
 ```http
-GET /admin/api/codes
+GET http://localhost:8001/admin/api/codes
 ```
 
 **Response:**
@@ -250,7 +291,7 @@ GET /admin/api/codes
 
 #### Search Redis Keys
 ```http
-GET /admin/api/search?pattern={key_pattern}
+GET http://localhost:8001/admin/api/search?pattern={key_pattern}
 ```
 
 **Parameters:**
@@ -277,7 +318,7 @@ GET /admin/api/search?pattern={key_pattern}
 
 #### Delete Redis Fields
 ```http
-POST /admin/api/delete_fields
+POST http://localhost:8001/admin/api/delete_fields
 ```
 
 **Request Body:**
@@ -305,7 +346,7 @@ POST /admin/api/delete_fields
    
 2. **Via API**:
    ```bash
-   curl -X POST "/admin/api/users?name=NewUser"
+   curl -X POST "http://localhost:8001/admin/api/users?name=NewUser"
    ```
 
 #### User Cleanup
@@ -323,7 +364,7 @@ POST /admin/api/delete_fields
 
 2. **Via API**:
    ```bash
-   curl -X POST "/admin/api/rooms?name=NewGameRoom"
+   curl -X POST "http://localhost:8001/admin/api/rooms?name=NewGameRoom"
    ```
 
 #### Room Maintenance

@@ -1,0 +1,13 @@
+# Admin App Dependencies - Minimal Set for Admin Functions
+gunicorn==23.0.0
+Werkzeug==3.0.4
+
+flask==3.0.3
+# No Flask-Login needed - admin is localhost only
+
+ddtrace==3.6.0
+
+redis==4.5.1
+
+# No QR code generation needed for admin
+nanoid==2.0.0

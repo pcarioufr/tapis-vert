@@ -1,0 +1,70 @@
+<!-- VIEWS ------ ------ ------ ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='public/styles/table.css') }}">
+
+
+    <!-- Table -->
+
+    <template id=t-table>
+        <div class="table" id="table">
+            <!-- <div class="area" id="table-area"> -->
+                <!-- SVG Crown-->
+                <!-- [ Pawns ] -->
+            <!-- </div> -->
+            <div class="playground" id="table-playground">
+                <!-- [ Cards ] -->
+            </div>
+        </div>
+    </template>
+    <script>
+    class Table extends Element {
+
+        constructor(){
+
+            super( build("t-table"), document.body)
+
+            this.svg = new SVG("crown-line")
+            // this.select(".area").append(this.svg.e)
+
+        }
+
+        empty() { this.e.querySelectorAll('*').forEach( n => n.remove() ); }
+
+    }
+    </script>
+
+
+    <!-- Deck -->
+
+    <template id=t-deck>
+        <div class="deck">
+            <div class="c-card"> <!-- Card --> </div>
+        </div>
+    </template>
+
+    <script>
+
+    class Deck extends Element {
+
+        constructor(){
+
+            super( build("t-deck") );
+            this.table = document.getElementById("table-playground");
+        }
+
+        active(bool)  { 
+            bool ?
+                this.table.append(this.e) :
+                this.e.remove() ;
+        }
+
+        set pawn(element)  {
+            this.select(".pawn-slot").append(element)
+        }
+
+        set card(element) {
+            this.select(".c-card").append(element)
+        }
+
+    }
+    </script>

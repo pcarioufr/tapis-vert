@@ -18,10 +18,11 @@ The infrastructure is provisioned on OpenStack public cloud using Terraform conf
 
 ### Application Layer (`services/`)
 The application runs as containerized services defined in Docker Compose:
-- Web application (Flask-based)
-- WebSocket services
-- Redis for data persistence
-- Nginx as reverse proxy
+- **Public Web App** (Flask-based) - User-facing functionality
+- **Admin Web App** (Flask-based) - Admin-only, localhost access
+- WebSocket services for real-time communication
+- Redis for data persistence and pub/sub
+- Nginx as reverse proxy with admin route blocking
 
 ### Deployment Layer (`box/`)
 The Box provides a containerized Linux environment that includes:
@@ -212,9 +213,15 @@ The deployment system processes template variables in ALL files:
 # Check application status
 box ssh "cd services && docker compose ps"
 
-# View logs
-box ssh "cd services && docker compose logs webapp"
+# View public app logs
+box ssh "cd services && docker compose logs flask-public"
+
+# View admin app logs  
+box ssh "cd services && docker compose logs flask-admin"
+
+# View other service logs
 box ssh "cd services && docker compose logs redis"
+box ssh "cd services && docker compose logs nginx"
 ```
 
 ### Resource Monitoring
@@ -277,6 +284,10 @@ tapis-vert/
 ├── services/           # Application services
 │   ├── compose.yml
 │   ├── webapp/
+│   │   ├── flask-public/     # User-facing app
+│   │   ├── flask-admin/      # Admin-only app (localhost)
+│   │   ├── libs/             # Shared libraries
+│   │   └── websocket/        # WebSocket service
 │   ├── redis/
 │   └── nginx/
 ├── box/               # Deployment environment
@@ -303,6 +314,31 @@ tapis-vert/
 - Configuration secrets stored securely
 - SSH keys managed properly
 - Access logging enabled
+
+## Admin Access
+
+The admin interface is completely separate from the public application and only accessible via localhost for security.
+
+### Quick Admin Access
+```bash
+# Create admin tunnel 
+box admin tunnel
+
+# Then visit in browser:
+# http://localhost:8001/admin/list
+```
+
+### Admin Commands
+```bash
+# Show admin URLs
+box admin list
+
+# Test admin API connectivity  
+box admin api
+
+# Manual tunnel (alternative)
+box ssh -L 8001:localhost:8001
+```
 
 ---
 

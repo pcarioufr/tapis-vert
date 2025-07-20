@@ -36,6 +36,7 @@ main_usage() {
     echo "    deploy ...      : deploy tools"
     echo "    terraform ...   : terraform wrappers"
     echo "    dns ...         : DNS zone management"
+    echo "    admin ...       : admin access tools"
 }
 
 while getopts "hd" option; do

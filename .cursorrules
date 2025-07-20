@@ -64,6 +64,13 @@ docker compose down && docker compose up -d
 - Configuration managed centrally in `config/` directory
 - The Box provides all deployment tools - don't use terraform/docker directly
 
+## Deployment Best Practices
+- **Prefer minimal deployments**: Use `box deploy -p path` for scoped changes instead of full deployments
+- **Partial deployment support**: Use `box deploy -p nginx/nginx.conf` for single files or `box deploy -p webapp/` for directories
+- **For single file changes**: Use `box deploy -p path/to/file` for efficient targeted deployments
+- **Always test in staging**: Use `box deploy -n` for dry runs, combine with `-p` for targeted testing
+- **Service restart strategy**: Only restart affected services, not entire stack
+
 ## Documentation
 - **For End Users**: `docs/user/` - How to play the game, game rules, user guide
 - **For Developers/DevOps**: `docs/dev-ops/` - Technical documentation, APIs, architecture, deployment
@@ -83,7 +90,8 @@ docker compose down && docker compose up -d
 ## When User Asks To:
 - **Setup project**: Tell them to copy config/example.env to config/.env and edit values
 - **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
-- **Deploy application**: Use `box deploy` (always processes templates) then remind about service restart
+- **Deploy application**: Use `box deploy` for full deployment or `box deploy -p path` for partial deployments, then remind about service restart
+- **Update single file**: Use `box deploy -p path/to/file` for efficient targeted deployment
 - **Update config**: Edit config/.env, then use `box deploy` to apply changes
 - **Update DNS**: Use `box dns update`
 - **Access server**: Use `box ssh`

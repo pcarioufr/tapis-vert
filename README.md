@@ -70,14 +70,14 @@ The master then tries to guess who has which card! 🤔
 
 ### For Developers/Admins
 ```bash
-# Create a new game room
-curl -X POST "https://tapisvert.pcariou.fr/admin/api/rooms?name=MyRoom"
-
 # Start a new round in room abcd-1234
 curl -X POST "https://tapisvert.pcariou.fr/api/v1/rooms/abcd-1234/round"
 
 # Access room as user (for testing)
 https://tapisvert.pcariou.fr/r/abcd-1234?user=pierre
+
+# Admin functions (localhost only - requires SSH tunnel)
+# See docs/admin/ for complete admin documentation
 ```
 
 See **[API Reference](docs/dev-ops/api-reference.md)** for complete documentation.

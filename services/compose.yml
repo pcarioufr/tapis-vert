@@ -10,10 +10,11 @@ services:
       - 80:80
       - 443:443
       - 8448:8448
+      - 127.0.0.1:8002:8002  # Admin server (localhost only)
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/reload.sh:/usr/local/bin/reload.sh
-      - ./webapp/flask/static:/data/static
+      - ./webapp/static:/data/static
       - certbot:/etc/letsencrypt # Certificates
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; reload.sh ; done & sleep 5 & wait $${!}; reload.sh & nginx -g \"daemon off;\"'"
     labels:
@@ -27,12 +28,14 @@ services:
       docker:
         ipv4_address: 169.254.255.100
 
-  flask:
-    container_name: flask
-    build: ./webapp/flask/.build/.
+  flask-public:
+    container_name: flask-public
+    build: ./webapp/flask-public/.build/.
     volumes:
-      - ./webapp/flask:/flask
+      - ./webapp/flask-public:/flask
       - ./webapp/libs:/opt/libs:ro
+      - ./webapp/static:/flask/static:ro
+      - ./webapp/templates:/flask/templates:ro
     environment:
       - PYTHONPATH=/opt/libs
       - HOST
@@ -41,7 +44,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_DATA_DB=1
       - REDIS_PUBSUB_DB=9
-      - DD_SERVICE=flask
+      - DD_SERVICE=flask-public
       - DD_ENV
       - DD_VERSION
       - DD_CLIENT_TOKEN
@@ -54,13 +57,46 @@ services:
       - DD_TRACE_AGENT_PORT=8126
       - MP_TOKEN
     labels:
-      com.datadoghq.ad.logs: '[{"source": "python", "service": "flask", "log_processing_rules": [{"type": "multi_line", "name": "log_start_with_date", "pattern" : "\\[?\\d{4}-\\d{2}-\\d{2}"}]}]'
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "flask-public", "log_processing_rules": [{"type": "multi_line", "name": "log_start_with_date", "pattern" : "\\[?\\d{4}-\\d{2}-\\d{2}"}]}]'
     expose:
       - 8001
     command: ddtrace-run gunicorn -w 2 -b :8001 --timeout 60 wsgi:app
     networks:
       docker:
         ipv4_address: 169.254.255.20
+
+  flask-admin:
+    container_name: flask-admin
+    build: ./webapp/flask-admin/.build/.
+    volumes:
+      - ./webapp/flask-admin:/flask
+      - ./webapp/libs:/opt/libs:ro
+      - ./webapp/static:/flask/static:ro
+      - ./webapp/templates:/flask/templates:ro
+    environment:
+      - PYTHONPATH=/opt/libs
+      - HOST=127.0.0.1
+      - LEVEL
+      - FLASK_SECRET
+      - REDIS_HOST=redis
+      - REDIS_DATA_DB=1
+      - REDIS_PUBSUB_DB=9
+      - DD_SERVICE=flask-admin
+      - DD_ENV
+      - DD_VERSION
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_ANALYTICS_ENABLED=true
+      - DD_AGENT_HOST=datadog
+      - DD_TRACE_AGENT_PORT=8126
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "flask-admin", "log_processing_rules": [{"type": "multi_line", "name": "log_start_with_date", "pattern" : "\\[?\\d{4}-\\d{2}-\\d{2}"}]}]'
+    expose:
+      - 8002
+    command: ddtrace-run gunicorn -w 1 -b 0.0.0.0:8002 --timeout 60 wsgi:app
+    networks:
+      docker:
+        ipv4_address: 169.254.255.21
 
   redis:
     container_name: redis

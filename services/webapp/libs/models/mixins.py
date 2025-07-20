@@ -234,7 +234,7 @@ class RedisMixin():
         Args:
             - key: The Redis key of the object to patch
             - field: field to update  
-              for dictionary fields, use nested syntax: field.subkey, field:subkey:subsubkey, etc.
+              for dictionary fields, use nested syntax: field:subkey, field:subkey:subsubkey, etc.
             - value: updated value to set.
             - add: whether to add a new field or update an existing one. 
                 False: update existing SUBFILED - raise error if does not exist
