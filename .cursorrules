@@ -64,6 +64,22 @@ docker compose down && docker compose up -d
 - Configuration managed centrally in `config/` directory
 - The Box provides all deployment tools - don't use terraform/docker directly
 
+## Documentation
+- **For End Users**: `docs/user/` - How to play the game, game rules, user guide
+- **For Developers/DevOps**: `docs/dev-ops/` - Technical documentation, APIs, architecture, deployment
+- **For Administrators**: `docs/admin/` - User/room management, admin interface, Redis debugging
+
+### Quick Documentation Guide:
+- **Understanding the game**: See `docs/user/README.md` and `docs/game-rules.md` 
+- **Working on code**: Start with `docs/dev-ops/README.md` for overview and index
+- **API development**: See `docs/dev-ops/api-reference.md` for complete REST/WebSocket API docs
+- **Frontend changes**: See `docs/dev-ops/frontend-guide.md` for UI framework and patterns
+- **System architecture**: See `docs/dev-ops/architecture-overview.md` for technical deep-dive
+- **Database/ORM work**: See `docs/dev-ops/redis-orm.md` (includes current implementation and future TODOs)
+- **Infrastructure/Deployment**: See `docs/dev-ops/` for complete DevOps guide
+- **Admin tasks**: See `docs/admin/` for user/room management and debugging
+- **Game mechanics**: Complete Top 10 rules and examples in `docs/game-rules.md`
+
 ## When User Asks To:
 - **Setup project**: Tell them to copy config/example.env to config/.env and edit values
 - **Deploy infrastructure**: Use terraform commands (plan → apply → output IPs)
