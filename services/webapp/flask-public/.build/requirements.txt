@@ -11,3 +11,6 @@ redis==4.5.1
 
 qrcode[pil]==8.0
 nanoid==2.0.0
+
+# Local redis-orm package (editable install)
+-e /tmp/redis-orm

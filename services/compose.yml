@@ -30,7 +30,9 @@ services:
 
   flask-public:
     container_name: flask-public
-    build: ./webapp/flask-public/.build/.
+    build: 
+      context: ./webapp
+      dockerfile: flask-public/.build/Dockerfile
     volumes:
       - ./webapp/flask-public:/flask
       - ./webapp/libs:/opt/libs:ro
@@ -67,7 +69,9 @@ services:
 
   flask-admin:
     container_name: flask-admin
-    build: ./webapp/flask-admin/.build/.
+    build:
+      context: ./webapp
+      dockerfile: flask-admin/.build/Dockerfile
     volumes:
       - ./webapp/flask-admin:/flask
       - ./webapp/libs:/opt/libs:ro
@@ -120,7 +124,9 @@ services:
 
   websocket:
     container_name: websocket
-    build: ./webapp/websocket/.build/.
+    build:
+      context: ./webapp
+      dockerfile: websocket/.build/Dockerfile
     environment:
       - PYTHONPATH=/opt/libs
       - DD_SERVICE="web-socket"

@@ -5,6 +5,7 @@ import flask, flask_login
 import datetime
 
 import utils
+import nanoid
 log = utils.get_logger(__name__)
 
 
@@ -33,7 +34,11 @@ def visitor_id():
     # Ensure Session a Visitor ID
     if 'visitor_id' not in flask.session:
 
-        visitor_id = f"v-{utils.new_id()}"
+        # Generate simple visitor ID (shorter than game IDs)
+        def generate_visitor_id():
+            return f"v-{nanoid.non_secure_generate('0123456789abcdef', 8)}"
+            
+        visitor_id = generate_visitor_id()
         flask.session['visitor_id'] = visitor_id
         log.info(f"assign a visitor_id {visitor_id}")
 

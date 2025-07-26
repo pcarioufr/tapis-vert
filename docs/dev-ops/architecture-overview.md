@@ -99,13 +99,14 @@ REDIS_PUBSUB_DB = 4       # Real-time messaging
 
 ### Data Models
 
-#### **Custom ORM System**
-The application implements a custom Redis ORM with:
+#### **External Redis ORM Package**
+The application uses a custom Redis ORM implemented as an external package (`services/webapp/libs/redis-orm/`):
 
 - **ObjectMixin**: Base class for Redis-backed objects
-- **RelationMixin**: Handles relationships between objects
+- **RelationMixin**: Handles relationships between objects  
 - **Automatic key generation**: Uses prefixed keys for organization
 - **Type conversion**: Handles JSON serialization/deserialization
+- **Complete Documentation**: See package README for detailed usage, testing, and contribution guides
 
 #### **Core Models**
 ```python
@@ -278,6 +279,7 @@ services/webapp/
 │   └── templates/   # Jinja2 templates
 ├── websocket/       # FastAPI WebSocket application
 ├── libs/            # Shared libraries
+│   ├── redis-orm/   # External Redis ORM package (see `services/webapp/libs/redis-orm/`)
 │   ├── models/      # Data models and ORM
 │   └── utils/       # Utility functions
 ```
@@ -295,7 +297,8 @@ services/webapp/
 - `asgi.py`: FastAPI application entry point
 
 #### **Shared Libraries**
-- `models/`: Custom Redis ORM implementation
+- `redis-orm/`: External Redis ORM package (see `services/webapp/libs/redis-orm/`)
+- `models/`: Application-specific model definitions using the external ORM
 - `utils/`: Common utilities (logging, IDs, time)
 
 ## Extensibility

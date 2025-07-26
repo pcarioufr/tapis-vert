@@ -27,9 +27,18 @@ Complete REST and WebSocket API documentation with examples:
 Technical deep-dive into system design:
 - Microservices architecture with component diagrams
 - Technology stack details (Flask, FastAPI, Redis, JavaScript)
-- Data architecture and custom Redis ORM
+- Data architecture and external Redis ORM package
 - Communication patterns and message flow
 - Security, deployment, and monitoring setup
+
+### 🐍 **[Flask Applications](flask-apps.md)**
+Complete Flask application architecture and development guide:
+- Public app: User-facing game functionality with authentication
+- Admin app: System management interface (localhost only)
+- Shared template system and static asset management
+- Security isolation and network access patterns
+- Build dependencies, Docker configuration, and deployment
+- Asset management, troubleshooting, and development workflows
 
 ### 🎨 **[Frontend Guide](frontend-guide.md)**
 Frontend implementation and UI framework:
@@ -39,15 +48,12 @@ Frontend implementation and UI framework:
 - Performance optimizations and browser support
 - Troubleshooting and development practices
 
-### 🗄️ **[Redis ORM Documentation](redis-orm.md)**
-Custom Redis-based object-relational mapping:
-- ObjectMixin and RelationMixin patterns
-- Key management and data serialization
-- Relationship handling between entities
-- Usage examples and best practices
-- **Appendix**: Future improvements and alternative designs (TODO items)
-
-
+### 🗄️ **[Redis ORM Package](../../services/webapp/libs/redis-orm/README.md)**
+External Redis ORM package with complete documentation:
+- ObjectMixin and RelationMixin patterns  
+- Testing strategy and Docker test suite
+- Performance considerations and known issues
+- Publishing and contribution guidelines
 
 ### 🚀 **[Infrastructure & Deployment Guide](infrastructure.md)**
 Complete DevOps setup and operations:

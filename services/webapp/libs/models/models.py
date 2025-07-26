@@ -1,10 +1,23 @@
-from .mixins import ObjectMixin, RelationMixin
+# Import from the redis-orm core package
+from core import ObjectMixin, RelationMixin
 
 import random, json
+import nanoid
 from ddtrace import tracer
 
-import utils
-log = utils.get_logger(__name__)
+from utils import get_logger
+log = get_logger(__name__)
+
+# ID generators for models
+S_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+def new_sid() -> str:
+    '''Generates Random ID, suited for Secret IDs'''
+    return nanoid.generate(S_ALPHABET, 24)
+
+ALPHABET = '0123456789abcdef'
+def new_id(size=10) -> str:
+    '''Generates Random ID, suited for Internal Object IDs'''
+    return nanoid.non_secure_generate(ALPHABET, size)
 
 class User(ObjectMixin):
     '''
@@ -68,7 +81,7 @@ class Code(ObjectMixin):
     * user: reference to user
     '''
 
-    ID_GENERATOR = utils.new_sid
+    ID_GENERATOR = new_sid
 
     LEFTS = {
         "user": "models.UserCodes"
@@ -108,7 +121,7 @@ class Room(ObjectMixin):
 
         users = self.users().all()
 
-        round = utils.new_id()
+        round = new_id()
         self.round = round
 
         cards = {}
@@ -124,7 +137,7 @@ class Room(ObjectMixin):
             if relation.role == "player":
 
                 while True:
-                    card_id = utils.new_id(4)
+                    card_id = new_id(4)
                     if card_id not in card_ids:
                         break
                 card_ids.append(card_id)

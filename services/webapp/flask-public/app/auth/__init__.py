@@ -10,7 +10,33 @@ login = flask_login.LoginManager()
 login.session_protection = "strong"
 # login.login_view = "auth.login" TODO
 
-from utils import new_name
+import random
+
+# Anonymous user name generation
+colors = [
+    "Almond", "Amethyst", "Apricot", "Aqua", "Azure", "Beige", "Black", "Blue", 
+    "Bronze", "Brown", "Burgundy", "Byzantine", "Cerulean", "Champagne", 
+    "Charcoal", "Cherry", "Cobalt", "Coral", "Crimson", "Cyan", "Emerald", 
+    "Fuchsia", "Gold", "Gray", "Green", "Indigo", "Ivory", "Jade", "Lavender", 
+    "Lemon", "Lilac", "Lime", "Magenta", "Maroon", "Mint", "Navy", "Olive", 
+    "Orange", "Peach", "Periwinkle", "Pink", "Plum", "Purple", "Red", 
+    "Rose", "Ruby", "Salmon", "Sapphire", "Silver", "Teal", "Yellow"
+]
+
+animals = [
+    "Aardvark", "Albatross", "Alligator", "Antelope", "Armadillo", "Badger", 
+    "Bat", "Beaver", "Bison", "Buffalo", "Camel", "Capybara", "Caribou", 
+    "Chameleon", "Cheetah", "Chipmunk", "Cobra", "Cougar", "Coyote", "Crab", 
+    "Crocodile", "Deer", "Dingo", "Dolphin", "Dragonfly", "Eagle", "Elephant", 
+    "Elk", "Ferret", "Flamingo", "Fox", "Frog", "Gazelle", "Giraffe", "Goat", 
+    "Gorilla", "Grasshopper", "Hamster", "Hedgehog", "Heron", "Hippo", 
+    "Horse", "Hyena", "Iguana", "Jaguar", "Jellyfish", "Kangaroo", "Koala", 
+    "Lemur", "Leopard"
+]
+
+def new_name(seed: str):
+    random.seed(seed)
+    return f"{random.choice(colors)} {random.choice(animals)}"
 
 class AnonymousWebUser(flask_login.AnonymousUserMixin):
 

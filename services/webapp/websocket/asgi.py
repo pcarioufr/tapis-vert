@@ -9,6 +9,10 @@ log = utils.get_logger(__name__)
 
 app = FastAPI()
 
+# Initialize Redis ORM for models
+from models import init_redis_orm
+init_redis_orm()
+
 # Adding the CORS middleware to the app
 app.add_middleware(
     CORSMiddleware,

@@ -15,6 +15,10 @@ def init_admin_app():
 
     app.config.from_object('app.config.Config')
 
+    # Initialize Redis ORM with app configuration
+    from models import init_redis_orm
+    init_redis_orm()
+
     with app.app_context():
         # Register ADMIN blueprints only
         app.register_blueprint(admin_web, url_prefix="/admin")

@@ -22,7 +22,7 @@ Technical documentation for developers and DevOps engineers:
 - **[Architecture Guide](dev-ops/architecture-overview.md)** - Technical deep-dive into system design
 - **[Frontend Guide](dev-ops/frontend-guide.md)** - UI framework and development patterns
 - **[Infrastructure & Deployment](dev-ops/infrastructure.md)** - Complete DevOps setup and operations guide
-- **[Redis ORM Docs](dev-ops/redis-orm.md)** - Custom database abstraction layer with future improvements appendix
+- **[Redis ORM Package](../services/webapp/libs/redis-orm/README.md)** - External Redis ORM package with comprehensive documentation, testing, and publishing guides
 
 ### 🛠️ **For Administrators** - [admin/](admin/)
 Administrative tools and procedures for managing the application:

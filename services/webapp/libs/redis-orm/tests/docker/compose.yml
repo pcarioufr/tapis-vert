@@ -1,0 +1,52 @@
+services:
+  redis:
+    container_name: redis-orm-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  python-tests:
+    container_name: redis-orm-python
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DATA_DB=1  # Use DB 1 for tests
+      - PYTHONPATH=/app:/app/core
+    volumes:
+      - ..:/app
+    working_dir: /app
+    command: >
+      sh -c "
+        echo '🚀 Starting Redis ORM Tests...' &&
+        echo '📡 Redis connection ready (via health check)' &&
+        echo '🧪 Running pytest...' &&
+        pytest -v tests_py/ --tb=short &&
+        echo '📊 Running example models...' &&
+        python models.py &&
+        echo '🎉 All tests completed successfully!'
+      "
+    networks:
+      - test-network
+
+volumes:
+  redis_test_data:
+
+networks:
+  test-network:
+    driver: bridge 
