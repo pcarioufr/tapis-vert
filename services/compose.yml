@@ -24,6 +24,10 @@ services:
       - DD_ENV
       - DD_VERSION
       - DD_AGENT_HOST=datadog
+    depends_on:
+      - flask-public
+      - flask-admin
+      - websocket
     networks:
       docker:
         ipv4_address: 169.254.255.100
@@ -141,9 +145,9 @@ services:
       - DD_TRACE_ANALYTICS_ENABLED=true
       - DD_AGENT_HOST=datadog
       - DD_TRACE_AGENT_PORT=8126
-    command: ddtrace-run gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b :8002 asgi:app
+    command: ddtrace-run gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b :8003 asgi:app
     expose:
-      - "8002"
+      - "8003"
     volumes:
       - ./webapp/libs:/opt/libs:ro
       - ./webapp/websocket:/websocket
