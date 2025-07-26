@@ -19,12 +19,14 @@ usage() {
     echo "    terraform ...   : terraform wrappers"
     echo "    dns ...         : DNS zone management"
     echo "    admin ...       : admin access tools"
-    echo "    (no command)    : opens a bash shell"
+    echo "    test            : integration test suite"
+    echo "    (no command)    : opens a bash shell in the container"
     echo ""
     echo "Examples:"
     echo "    box -d deploy -p webapp     # Debug mode for partial deployment"
     echo "    box -p 8000 admin tunnel    # Expose port 8000 for admin tunnel"
     echo "    box -p 8001 admin tunnel    # Use different port to avoid conflicts"
+    echo "    box -d test                 # Run integration tests with debug output"
 }
 
 # Port mappings and environment variables for docker compose run

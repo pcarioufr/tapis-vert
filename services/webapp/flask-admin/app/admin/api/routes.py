@@ -23,6 +23,37 @@ redis_client = redis.Redis(
 )
 
 
+@admin_api.route("/flush", methods=['POST'])
+def flush_redis():
+    """Flush (clear) the entire Redis database"""
+    try:
+        # Get count before flushing for logging
+        current_db = redis_client.connection_pool.connection_kwargs.get('db', 0)
+        key_count = redis_client.dbsize()  # Much simpler way to get key count
+        
+        # Flush the current database
+        redis_client.flushdb()
+        
+        # Verify it's empty
+        remaining_keys = redis_client.dbsize()
+        
+        log.info(f"Redis database flushed: {key_count} keys deleted, {remaining_keys} remaining")
+        
+        return flask.jsonify({
+            "status": "ok", 
+            "message": "Redis database flushed successfully",
+            "keys_deleted": key_count,
+            "remaining_keys": remaining_keys
+        }), 200
+        
+    except Exception as e:
+        log.error(f"Failed to flush Redis database: {str(e)}")
+        return flask.jsonify({
+            "status": "error", 
+            "message": f"Failed to flush Redis database: {str(e)}"
+        }), 500
+
+
 @admin_api.route("/rooms", methods=['POST'])
 @admin_api.route("/rooms/<room_id>", methods=['GET', 'PATCH', 'DELETE'])
 def rooms(room_id=None):

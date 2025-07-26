@@ -16,6 +16,17 @@ alias box=./box.sh
 Use `-d` flag for debug output: `box -d deploy`, `box -d terraform plan`, etc.
 Use `-p port` flag for port exposure: `box -p 8000 admin tunnel` (maps host port to same container port)
 
+## Testing and Development
+### Integration Testing
+- **Full test suite**: `box test init` - Complete room/user/round integration test
+- **Clean database**: `box test delete` - Wipe Redis for clean testing
+- **Debug mode**: `box -d test init` - Run tests with debug output
+
+### Ad-hoc Testing
+- **Arbitrary scripts**: `box/opt/adhoc.sh` - Safe for Cursor to edit for temporary testing needs
+- **Container environment**: Runs within box container with full access to services and configuration
+- **Disposable**: This script is meant for experimentation and can be freely modified
+
 ## Admin Interface Access
 Secure admin access via SSH tunnel (localhost only):
 ```bash
@@ -91,7 +102,7 @@ docker compose down && docker compose up -d
 - **API development**: See `docs/dev-ops/api-reference.md` for complete REST/WebSocket API docs
 - **Frontend changes**: See `docs/dev-ops/frontend-guide.md` for UI framework and patterns
 - **System architecture**: See `docs/dev-ops/architecture-overview.md` for technical deep-dive
-- **Database/ORM work**: See `docs/dev-ops/redis-orm.md` (includes current implementation and future TODOs)
+- **Database/ORM work**: See `services/webapp/libs/redis-orm/README.md` (external package with complete documentation and test suite)
 - **Infrastructure/Deployment**: See `docs/dev-ops/` for complete DevOps guide
 - **Admin tasks**: See `docs/admin/` for user/room management and debugging
 - **Game mechanics**: Complete Top 10 rules and examples in `docs/game-rules.md`

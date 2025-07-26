@@ -138,13 +138,14 @@ usage() {
     echo "box deploy [-h] [-n] [-p path]"
     echo "    -h (opt)      : this helper"
     echo "    -n (opt)      : dry run - process templates but don't deploy"
-    echo "    -p path (opt) : deploy only specified file or directory"
+    echo "    -p path (opt) : deploy only specified file or directory (no trailing slash)"
     echo ""
     echo "Examples:"
     echo "    box deploy                           # Deploy everything"
     echo "    box deploy -p nginx/nginx.conf      # Deploy single file"
-    echo "    box deploy -p webapp/                # Deploy webapp directory"
-    echo "    box deploy -n -p nginx/              # Dry run for nginx directory"
+    echo "    box deploy -p webapp                 # Deploy webapp directory"
+    echo "    box deploy -p webapp/libs/utils      # Deploy nested directory"
+    echo "    box deploy -n -p nginx               # Dry run for nginx directory"
 }
 
 # Deployment paths (always deploy everything)
