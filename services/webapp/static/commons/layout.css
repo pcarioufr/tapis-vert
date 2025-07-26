@@ -58,12 +58,12 @@ html { height: 100% }
 
 @font-face {
     font-family: salsifont;
-    src: url("../fonts/CabinSketch-Regular.ttf");
+    src: url("fonts/CabinSketch-Regular.ttf");
 }
 
 @font-face {
     font-family: salsifont-bold;
-    src: url("../fonts/CabinSketch-Bold.ttf");
+    src: url("fonts/CabinSketch-Bold.ttf");
 }
 
 * {
