@@ -1,0 +1,14 @@
+# Core Flask and web dependencies
+Flask==3.1.0
+Flask-Login==0.6.3
+gunicorn==23.0.0
+
+# Redis and data handling
+redis==5.2.1
+qrcode[pil]==8.0
+
+# Monitoring and observability  
+ddtrace==3.6.0
+
+# Local package installations
+-e /tmp/redis-orm 

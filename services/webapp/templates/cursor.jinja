@@ -1,0 +1,61 @@
+<!-- CURSORS ------ ------ ------ ------ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/cursor.css') }}">
+
+    <template id=t-remote-cursor>
+        <div class="remote-cursor">
+            <!-- <svg></svg> goes here -->
+            <div class="name"></div>
+        </div>
+    </template>
+
+
+    <script>
+
+
+    class RemoteCursor extends Element {
+
+        constructor(eParent) {
+
+            super( build("t-remote-cursor"), eParent);
+
+            this.svg = new SVG("map-pin-user-line", "cursor") ;
+            this.e.prepend(this.svg.e) ;
+
+            this.hidden = true ;
+            this.e.style.opacity = "0" ;
+
+        }
+
+        set name(name) { 
+            this.select(".name").innerText = name 
+        }
+        set color(color) {
+        
+            this.svg.style.fill      = getColorForUser(user_id);
+            this.select(".name").style.color   = getColorForUser(user_id);
+            this.svg.e.style.fill = color ;
+        }
+
+        set position(position) {
+   
+            this.hidden = false ;
+            if (position[0] < 0 || position[0] > 100 || position[1] < 0 || position[1] > 100) {
+                this.e.style.opacity = "0";
+                return;
+            }
+            this.e.style.opacity = "1";
+            this.e.style.left = position[0] + "%";
+            this.e.style.top  = position[1] + "%";
+            
+        }
+
+    }
+
+    function getColorForUser(userId) {
+        const h = Math.abs(hashString(userId)) % 360;
+        return `hsl(${h}, 80%, 60%)`;
+    }
+
+
+    </script>

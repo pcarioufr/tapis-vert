@@ -52,20 +52,35 @@ Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` 
 
 ## Application Deployment Workflow
 
-### 1. Code Deployment (pushes code only, doesn't restart services)
-- Full deployment: `box deploy`
-- Dry run (test without deploying): `box deploy -n`
-- Specific directory: `box deploy -d webapp`
-- Configuration patch: `box deploy -p .env`
+### Complete Deployment Process (REQUIRED ORDER):
 
-### 2. Service Restart (separate step, always required after deployment)
+#### 1. Code Deployment (pushes code to server)
+**ALWAYS REQUIRED FIRST** - Code must be on server before any Docker operations:
 ```bash
-box ssh
-cd services/
-docker compose down && docker compose up -d
-# OR restart specific services:
-# docker compose restart webapp
+box deploy                    # Full deployment 
+box deploy -p webapp/         # Deploy specific directory
+box deploy -p path/to/file    # Deploy single file
+box deploy -n                 # Dry run (test without deploying)
 ```
+
+#### 2. Docker Build (on remote server only, AFTER deployment)
+**IMPORTANT**: Only run AFTER `box deploy` has pushed the updated code to server:
+```bash
+box ssh "cd services && docker compose build"           # Build all containers
+box ssh "cd services && docker compose build flask"     # Build specific service
+box ssh "cd services && docker compose pull"            # Pull updated base images
+```
+
+#### 3. Service Restart (final step, applies changes)
+```bash
+box ssh "cd services && docker compose down && docker compose up -d"    # Restart all
+box ssh "cd services && docker compose restart flask"                   # Restart specific
+```
+
+### Critical Notes:
+- **NEVER skip step 1** - `box deploy` must happen first to get code on server
+- **Docker builds happen on remote server only** - Never run locally  
+- **Order matters**: Deploy → Build → Restart
 
 ## Configuration Management
 - Uses centralized configuration in `config/.env` with two sections:
@@ -79,10 +94,13 @@ docker compose down && docker compose up -d
 - DNS records can be synced with Infomaniak API using `box dns sync`
 
 ## Important Notes
-- Deployment only pushes code - services keep running in previous state
+- **Deploy first, always**: `box deploy` must happen before any server operations
+- Deployment only pushes code - services keep running in previous state  
 - Always restart services manually after deployment to apply changes
 - Configuration managed centrally in `config/` directory
 - The Box provides all deployment tools - don't use terraform/docker directly
+- **Docker builds happen on remote server only** - Never run `docker build` or `docker compose build` locally
+- **Required workflow**: Deploy → Build (if needed) → Restart
 
 ## Deployment Best Practices
 - **Prefer minimal deployments**: Use `box deploy -p path` for scoped changes instead of full deployments

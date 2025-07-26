@@ -1,0 +1,86 @@
+    <!-- CHAT -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chat.css') }}">
+    
+    <template id="t-conversation">
+        <div class="conversation">
+            <div class="messages">
+                <!-- messages go here-->
+            </div>
+            <div class="new"></div>
+        </div>
+    </template>
+
+    <script>
+    
+    class Conversation extends Element {
+
+        constructor(eParent=null) {
+
+            super(build("t-conversation"), eParent);
+
+            // Conversations messages
+            this.eMessages = [];
+
+
+            // New message
+            this.input = new ExtendedTextInput();
+            this.input.title = "message";
+
+            let send = new Button()
+            send.name = "send"
+            send.icon = "send-plane-2-line"
+            send.color = "green"
+
+            send.callback = () => {
+                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
+            }
+
+            this.input.button = send;
+
+            this.select(".new").append(this.input.e)
+
+        }
+
+        addMessage(author, message) {
+
+            console.log(`Adding message ${author} : ${message}`)
+
+            const msg = new Message(this.select(".messages"));
+            this.eMessages.push(msg);
+            msg.author  = author;
+            msg.message = message;
+
+        }
+
+        flush() {
+            this.eMessages.forEach( m => m.remove() );
+            this.eMessages = [];
+        }
+
+    }
+
+    </script>
+
+    <template id="t-message">
+        <div class="message">
+            <div class="author"></div>
+            <div class="content" style="white-space: pre-wrap;"></div>
+        </div>
+    </template>
+
+    <script>
+
+    class Message extends Element {
+
+        constructor(eParent) {
+            super(build("t-message"));
+            eParent.append(this.e);
+        }
+
+        set message(message) { this.select(".content").innerText = message ; }
+        set author(author)   { this.select(".author").innerText = author ; }
+
+    }
+
+    </script>
