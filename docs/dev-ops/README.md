@@ -121,6 +121,20 @@ When modifying the application:
 - **Admin Interface**: See [Admin Documentation](../admin/) for complete documentation
 - **Infrastructure & Deployment**: See [Infrastructure Guide](infrastructure.md) for complete DevOps documentation
 
+## Known Issues & TODOs
+
+### API Validation
+- **URGENT**: Add role validation to user PATCH endpoint (`/api/v1/rooms/<room_id>/user/<user_id>`)
+  - Valid roles should be: `"master"`, `"player"`, `"watcher"`
+  - Currently accepts invalid values like `"viewer"` without returning 400 error
+  - This causes silent failures where users don't appear in rooms
+  - **Location**: `services/webapp/flask-public/app/room/api/routes.py:room_user()`
+
+### Documentation
+- **Document all valid role values** in API reference
+- **Add input validation examples** to API documentation  
+- **Document error codes** for invalid role assignments
+
 ---
 
 *For user-facing documentation about how to play the game, see [`docs/user/`](../user/)* 
