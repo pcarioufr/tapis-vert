@@ -33,12 +33,12 @@ Technical deep-dive into system design:
 
 ### 🐍 **[Flask Applications](flask-apps.md)**
 Complete Flask application architecture and development guide:
-- Public app: User-facing game functionality with authentication
-- Admin app: System management interface (localhost only)
-- Shared template system and static asset management
-- Security isolation and network access patterns
-- Build dependencies, Docker configuration, and deployment
-- Asset management, troubleshooting, and development workflows
+- Unified Flask app: Single application with public and admin functionality
+- Blueprint-based architecture: Public and admin route separation
+- Nginx-based security: Admin routes protected at load balancer level
+- Authentication library: Modular auth system in libs/
+- Template and static asset organization
+- Build dependencies, Docker configuration, and deployment workflows
 
 ### 🎨 **[Frontend Guide](frontend-guide.md)**
 Frontend implementation and UI framework:
@@ -65,9 +65,10 @@ Complete DevOps setup and operations:
 
 ### 🛠️ **[Admin Documentation](../admin/)**
 Complete administrative tools and interfaces:
-- User and room management APIs
-- Admin web interface documentation
+- User and room management APIs (at `/admin/api/`)
+- Admin web interface documentation (at `/admin/`)
 - Redis debugging and maintenance tools
+- SSH tunnel access for security (localhost only)
 - Common administrative tasks and best practices
 
 ## Development Setup
@@ -120,6 +121,20 @@ When modifying the application:
 - **Log Monitoring**: Integrated Datadog logging and tracing
 - **Admin Interface**: See [Admin Documentation](../admin/) for complete documentation
 - **Infrastructure & Deployment**: See [Infrastructure Guide](infrastructure.md) for complete DevOps documentation
+
+## Known Issues & TODOs
+
+### API Validation
+- **URGENT**: Add role validation to user PATCH endpoint (`/api/v1/rooms/<room_id>/user/<user_id>`)
+  - Valid roles should be: `"master"`, `"player"`, `"watcher"`
+  - Currently accepts invalid values like `"viewer"` without returning 400 error
+  - This causes silent failures where users don't appear in rooms
+  - **Location**: `services/webapp/flask/app/public/api/routes.py:room_user()`
+
+### Documentation
+- **Document all valid role values** in API reference
+- **Add input validation examples** to API documentation  
+- **Document error codes** for invalid role assignments
 
 ---
 

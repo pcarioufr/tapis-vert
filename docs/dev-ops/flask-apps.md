@@ -1,259 +1,285 @@
-# Flask Applications - Build & Architecture
+# Flask Application - Unified Architecture
 
 ## Overview
 
-The Tapis Vert webapp consists of two separate Flask applications with distinct purposes and security models:
+The Tapis Vert webapp is now a **single unified Flask application** with modular blueprint-based architecture for different functional areas:
 
-- **Public App**: User-facing game application 
-- **Admin App**: System management interface (localhost only)
+- **Public Blueprint**: User-facing game functionality (`/` and `/api`)
+- **Admin Blueprint**: System management interface (`/admin` and `/admin/api`)
+- **Authentication Library**: Shared auth system in `libs/auth/`
 
-## Public App (flask-public)
+## Architecture
 
-### Purpose
-User-facing application with complete game functionality.
+### Unified Flask App (flask)
 
-### Features Included
-- ✅ User authentication (Flask-Login)
-- ✅ Room management and game logic
-- ✅ QR code generation for room sharing
-- ✅ Real-time WebSocket communication
-- ✅ Complete UI assets and templates
-- ✅ Datadog analytics integration
+The application uses a single Flask instance with multiple blueprints for logical separation:
 
-### Dependencies
-- **gunicorn**: WSGI server
-- **flask**: Web framework
-- **Flask-Login**: User session management
-- **redis**: Data storage and pub/sub
-- **qrcode[pil]**: QR code generation for room sharing
-- **nanoid**: Unique ID generation
-- **ddtrace**: Datadog APM integration
+```
+services/webapp/flask/
+├── app/
+│   ├── __init__.py          # App factory with centralized setup
+│   ├── config.py            # Configuration management
+│   ├── routines.py          # Shared render_template utilities
+│   ├── admin/               # Admin blueprint
+│   │   ├── __init__.py      # Blueprint definition
+│   │   ├── api/             # Admin API routes (/admin/api/*)
+│   │   └── web/             # Admin web routes (/admin/*)
+│   │       ├── routes.py    # Route definitions
+│   │       └── routines.py  # before_request handlers
+│   └── public/              # Public blueprint  
+│       ├── __init__.py      # Blueprint definition
+│       ├── api/             # Public API routes (/api/*)
+│       │   └── routes.py    # Includes auth routes (/api/auth/*)
+│       └── web/             # Public web routes (/*)
+│           ├── routes.py    # Route definitions
+│           └── routines.py  # before_request, auth, session handling
+├── static/                  # Unified static assets
+│   ├── fonts/               # Font files (CabinSketch)
+│   ├── libs/                # JavaScript libraries
+│   └── styles/              # All CSS files
+└── templates/               # Unified template system
+    ├── layout.jinja         # Base layout template
+    ├── components/          # Reusable template components
+    ├── admin/               # Admin master templates
+    │   ├── list.jinja       # Admin dashboard
+    │   └── redis.jinja      # Redis debugging
+    └── public/              # Public master templates
+        └── room.jinja       # Game room interface
+```
 
-### Build
+### Security Model
+
+Security is handled at the **Nginx level** rather than application separation:
+
+- **Public routes** (`/`, `/api`): Open to internet
+- **Admin routes** (`/admin`, `/admin/api`): Blocked by Nginx (`deny all`)
+- **Admin access**: Only via SSH tunnel (`box -p 8000 admin tunnel`)
+
+### Blueprint Architecture
+
+#### Public Blueprint
+- **Web routes** (`/`): Game room interface, QR codes
+- **API routes** (`/api`): Room management, game actions, auth endpoints
+- **Auth routes** (`/api/auth/*`): Login, logout, me, test
+- **Features**: Full game functionality, user authentication, real-time updates
+
+#### Admin Blueprint  
+- **Web routes** (`/admin`): Dashboard, Redis debugging interface
+- **API routes** (`/admin/api`): User/room CRUD, system management
+- **Security**: Localhost only (Nginx blocked + SSH tunnel required)
+
+### Authentication Library
+
+Authentication is now a **reusable library** in `libs/auth/`:
+
+```python
+# libs/auth/__init__.py
+from auth import login, code_auth, AnonymousWebUser
+
+# Usage in any blueprint:
+from auth import code_auth
+user = code_auth(code_id)
+```
+
+**Benefits**:
+- ✅ **Cross-blueprint usage**: Both public and admin can use auth functions
+- ✅ **No blueprint overhead**: Pure library, no route registration
+- ✅ **Testable independently**: Can unit test auth logic separately
+- ✅ **Professional separation**: Libraries vs blueprints serve different purposes
+
+## Dependencies
+
+### Core Flask Dependencies
+```
+Flask==3.1.0
+Flask-Login==0.6.3
+gunicorn==23.0.0
+```
+
+### Data & Redis
+```
+redis==5.2.1
+-e /tmp/redis-orm  # Custom Redis ORM (editable install)
+```
+
+### Features & Utilities  
+```
+qrcode==8.0        # QR code generation
+ddtrace==2.18.0    # Datadog APM monitoring
+```
+
+## Build & Deployment
+
+### Docker Build
 ```bash
-cd services/webapp/flask-public/
-docker build -t tapis-vert-public .
+cd services/webapp/flask/
+docker build -f .build/Dockerfile -t tapis-vert-flask .
 ```
 
-### Security
-- Accessible from internet (port 8001)
-- No admin functionality included
-- Complete separation from admin code
+### Build Context
+- **Context**: `services/webapp/` (parent directory)
+- **Dockerfile**: `flask/.build/Dockerfile`
+- **Copy paths**: All relative to webapp directory
 
-## Admin App (flask-admin)
-
-### Purpose
-Admin-only application for system management. **Localhost access only.**
-
-### Features Included
-- ✅ User and room CRUD operations
-- ✅ Redis key inspection and debugging
-- ✅ System monitoring and maintenance
-- ✅ Minimal UI for admin tasks
-
-### Features Excluded (Security)
-- ❌ No user authentication (localhost only)
-- ❌ No QR code generation
-- ❌ No client-side analytics
-- ❌ No game logic or user-facing features
-
-### Dependencies
-- **gunicorn**: WSGI server
-- **flask**: Web framework (minimal features)
-- **redis**: Data storage access
-- **nanoid**: ID utilities for admin operations
-- **ddtrace**: Server-side monitoring only
-
-### Build
+### Deployment Workflow
 ```bash
-cd services/webapp/flask-admin/
-docker build -t tapis-vert-admin .
+# 1. Deploy code to server (REQUIRED FIRST)
+box deploy                    # Full deployment
+box deploy -p flask/          # Deploy Flask app only
+
+# 2. Build on remote server (AFTER code deployment)
+box ssh "cd services && docker compose build flask"
+
+# 3. Restart to apply changes
+box ssh "cd services && docker compose restart flask"
 ```
 
-### Security
-- **LOCALHOST ONLY** (127.0.0.1:8002)
-- Blocked from external access by nginx
-- Minimal attack surface
-- No user-facing dependencies
+**⚠️ Critical**: Never run `docker build` locally - builds happen on remote server only.
 
-## Webapp Architecture
+## Template System
 
-### Directory Structure
+### Unified Templates
+All templates are now in a single directory with logical organization:
 
+- **`layout.jinja`**: Base layout for all pages
+- **`components/`**: Reusable UI components (buttons, inputs, etc.)
+- **`admin/`**: Master templates called from Python (admin routes)
+- **`public/`**: Master templates called from Python (public routes)
+
+### Static Asset Management
+
+All static files unified under `/static/`:
+
+- **`/static/fonts/`**: Typography (CabinSketch font family)
+- **`/static/libs/`**: JavaScript libraries (http.js, events.js, etc.)
+- **`/static/styles/`**: All CSS files (layout.css, buttons.css, etc.)
+
+### Query Parameter Management
+
+Automatic URL cleanup system:
+
+```python
+# In before_request:
+flask.g.query_params = dict(flask.request.args)  # Mutable copy
+del flask.g.query_params['code_id']  # Remove after auth
+
+# In render_template:
+query_params=getattr(flask.g, 'query_params', dict(flask.request.args))
+
+# Frontend automatically syncs URL:
+// JavaScript updates browser URL to match backend intent
+window.history.replaceState({}, '', newUrl);
 ```
-services/webapp/
-├── static/                    # 🎨 Shared static assets
-│   ├── commons/              # Shared fonts, libs, styles
-│   │   ├── fonts/           # Font files
-│   │   ├── libs/            # JavaScript libraries
-│   │   ├── styles/          # Common CSS components
-│   │   └── layout.css       # Main layout CSS
-│   ├── public/              # Public app specific assets
-│   │   └── styles/          # Room/game specific CSS
-│   └── admin/               # Admin app specific assets
-│       └── styles/          # Admin interface CSS
-├── templates/                # 🎯 Shared template system  
-│   ├── commons/             # Shared template components
-│   │   ├── layout.jinja     # Main layout template
-│   │   ├── elements.jinja   # UI components
-│   │   └── buttons.jinja    # Button components
-│   ├── public/              # Public app templates
-│   │   └── room/            # Game room templates
-│   └── admin/               # Admin app templates
-│       └── admin/           # Admin interface templates
-├── flask-public/            # 🌐 Public-facing Flask app
-├── flask-admin/             # 🔒 Admin-only Flask app
-├── libs/                    # 📚 Shared Python libraries
-└── websocket/               # 🔌 WebSocket server
-```
-
-### Template System
-
-#### Template Organization
-All templates follow a hierarchical structure:
-- `commons/layout.jinja` - Main layout extended by all pages
-- `commons/elements.jinja` - Shared UI components
-- `public/room/_room.jinja` - Game room interface  
-- `admin/admin/_list.jinja` - Admin dashboard
-
-#### Template Inheritance
-```jinja
-{% extends 'commons/layout.jinja' %}     <!-- All pages extend main layout -->
-{% include 'commons/elements.jinja' %}  <!-- Shared components -->
-{% include 'public/room/cards.jinja' %} <!-- App-specific includes -->
-```
-
-#### Static File References
-```jinja
-<!-- Commons assets (shared by all apps) -->
-{{ url_for('static', filename='commons/layout.css') }}
-{{ url_for('static', filename='commons/libs/websocket.js') }}
-
-<!-- App-specific assets -->
-{{ url_for('static', filename='public/styles/cards.css') }}
-{{ url_for('static', filename='admin/styles/list.css') }}
-```
-
-### Volume Mounts
-Each Flask app gets shared access to:
-- **App code**: `./flask-{app}:/flask` (read-write)
-- **Shared libs**: `./libs:/opt/libs:ro` (read-only)
-- **Shared static**: `./static:/flask/static:ro` (read-only)
-- **Shared templates**: `./templates:/flask/templates:ro` (read-only)
-
-## Application Separation
-
-### Why Two Apps?
-
-1. **Security Isolation**: Admin functionality completely separated from user-facing code
-2. **Minimal Attack Surface**: Admin app has minimal dependencies and no user authentication
-3. **Network Isolation**: Admin app only accessible via localhost/SSH tunnel
-4. **Independent Scaling**: Each app can be scaled independently based on usage patterns
-
-### Shared Components
-
-Both apps share:
-- Redis ORM package (`services/webapp/libs/redis-orm/`) - External package
-- Application data models (`services/webapp/libs/models/`) - App-specific model definitions  
-- Utility functions (`services/webapp/libs/utils/`)
-- Templates and static assets via volume mounts
-- Common styling through `commons/` directory
-
-### Nginx Routing
-
-```nginx
-# Public app (internet-facing)
-location / {
-    proxy_pass http://webapp-public:8001;
-}
-
-# Admin app (localhost only)
-server {
-    listen 127.0.0.1:8002;
-    location /admin/ {
-        proxy_pass http://webapp-admin:8002;
-    }
-}
-```
-
-## Access Patterns
-
-### Public App
-- Direct internet access via nginx
-- User authentication via Flask-Login
-- Session management for game state
-
-### Admin App  
-- SSH tunnel required: `box -p 8000 admin tunnel`
-- No authentication (localhost trust model)
-- Direct Redis access for debugging
-- System administration tasks
 
 ## Development
 
-### Running Locally
+### Local Development
 ```bash
-# Start all services
-cd services/
-docker compose up -d
+# Deploy for development  
+box deploy -n        # Dry run (test templates)
+box deploy          # Deploy to server
 
-# Access public app
-curl http://localhost:8001
+# Debug mode
+box -d deploy       # Verbose deployment output
+```
 
-# Access admin app (via tunnel)
+### Admin Access
+```bash
+# Create SSH tunnel for admin access
 box -p 8000 admin tunnel
-curl http://localhost:8000/admin/ping
+
+# Visit admin interface
+open http://localhost:8000/admin/list
 ```
 
-### Testing Admin Access
+### API Testing
 ```bash
-# Test admin API directly on server
-box admin ping
+# Test auth endpoints
+curl http://localhost:8000/api/auth/test
 
-# Test via tunnel
-box -p 8000 admin tunnel
-# Then in browser: http://localhost:8000/admin/list
+# Test admin API (via tunnel only)
+curl http://localhost:8000/admin/api/rooms
 ```
 
-## Asset Management
+## Key Features
 
-### Adding Shared Assets
-For components used by both apps:
-```bash
-# Add to commons directory
-echo "/* shared styles */" > services/webapp/static/commons/styles/new-component.css
+### Authentication Flow
+1. **QR Code Login**: `GET /room/abc?code_id=xyz123`
+2. **Auto-login**: `code_authentication()` processes code
+3. **URL Cleanup**: `code_id` automatically removed from URL
+4. **Session Management**: Flask-Login handles user sessions
 
-# Include in commons/layout.jinja
-<link rel="stylesheet" href="{{ url_for('static', filename='commons/styles/new-component.css') }}">
+### Real-time Integration
+- **WebSocket coordination**: FastAPI WebSocket service handles real-time
+- **HTTP API**: Flask handles all REST endpoints and web pages
+- **Redis coordination**: Both services share Redis for state/pub-sub
+
+### Template Variables
+All templates receive comprehensive context:
+```python
+render_template(template,
+    level=utils.LOG_LEVEL,           # Debug level
+    host=app.config["HOST"],         # Host configuration  
+    query_params=flask.g.query_params,  # Desired URL params
+    session=flask.session,           # User session
+    # ... Datadog, analytics, etc.
+)
 ```
-
-### Adding App-Specific Assets
-For features specific to one app:
-```bash
-# Add to app-specific directory
-echo "/* public only */" > services/webapp/static/public/styles/new-feature.css
-
-# Include in app-specific template
-<link rel="stylesheet" href="{{ url_for('static', filename='public/styles/new-feature.css') }}">
-```
-
-### Benefits of Shared Architecture
-1. **🎯 Single Source of Truth**: Shared assets in one place
-2. **🔄 No Duplication**: Common styles/scripts shared between apps
-3. **🎨 Easy Theming**: Update commons to change both apps
-4. **📦 Clean Separation**: App-specific assets clearly organized
-5. **🚀 Fast Development**: Changes apply to both apps instantly
 
 ## Troubleshooting
 
-### Template Not Found
-- Check if template path uses correct subdirectory (`public/`, `admin/`, `commons/`)
-- Verify template extends `commons/layout.jinja`
+### Common Issues
 
-### Static Asset 404
-- Confirm asset is in correct subdirectory
-- Check `url_for('static', filename='...')` path includes subdirectory
+**Import Errors**: Ensure relative imports in Flask app:
+```python
+# ✅ Correct
+from .admin import admin_web
+from auth import code_auth
 
-### Hot Reload Issues
-- Restart containers to pick up new volume mounts
-- Check Docker volume mounts in `compose.yml` 
+# ❌ Wrong  
+from admin import admin_web
+from .auth import code_auth  # (auth is now a library)
+```
+
+**Template Not Found**: Check template path updates:
+```python
+# ✅ New paths
+render_template("admin/list.jinja")    # Admin master template
+render_template("public/room.jinja")   # Public master template
+
+# ❌ Old paths
+render_template("admin/admin/_list.jinja")
+render_template("public/room/_room.jinja")
+```
+
+**Static Files 404**: Use correct static paths:
+```html
+<!-- ✅ New unified paths -->
+<link href="{{ url_for('static', filename='styles/layout.css') }}" />
+<script src="{{ url_for('static', filename='libs/http.js') }}"></script>
+
+<!-- ❌ Old nested paths -->
+<link href="{{ url_for('static', filename='commons/layout.css') }}" />
+```
+
+**Auth Routes 404**: Use new API prefix:
+```javascript
+// ✅ New auth API routes
+await call('POST', '/api/auth/login', {...})
+await call('GET', '/api/auth/me')
+
+// ❌ Old direct auth routes  
+await call('POST', '/auth/login', {...})
+```
+
+### Development Tips
+
+- **Blueprint separation**: Public and admin logic cleanly separated
+- **Library pattern**: Auth can be imported by any blueprint  
+- **Centralized setup**: App factory handles all initialization
+- **Template organization**: Components vs master templates clearly defined
+- **Security by infrastructure**: Nginx handles admin access control
+
+---
+
+*This unified architecture provides better maintainability while preserving security through infrastructure-level access controls.* 

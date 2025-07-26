@@ -10,8 +10,8 @@ Tapis Vert uses a **microservices architecture** with three main components:
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Web Browser   │    │   Load Balancer  │    │      Redis      │
 │                 │    │     (nginx)      │    │   Database      │
-│  - Flask UI     │◄──►│                  │    │                 │
-│  - WebSocket JS │    │                  │    │  - Game State   │
+│  - Flask UI     │◄──►│  - Public Routes │    │                 │
+│  - WebSocket JS │    │  - Admin Blocked │    │  - Game State   │
 └─────────────────┘    └──────────────────┘    │  - Pub/Sub      │
                                 ▲              │  - Sessions     │
                                 │              └─────────────────┘
@@ -21,8 +21,11 @@ Tapis Vert uses a **microservices architecture** with three main components:
                        │  Services        │◄────────────┘
                        │                  │
                        │ ┌─────────────┐  │
+                       │ │ Unified     │  │
                        │ │ Flask App   │  │
                        │ │ (HTTP API)  │  │
+                       │ │ • Public    │  │
+                       │ │ • Admin     │  │
                        │ └─────────────┘  │
                        │                  │
                        │ ┌─────────────┐  │
@@ -36,15 +39,19 @@ Tapis Vert uses a **microservices architecture** with three main components:
 
 ### Backend Services
 
-#### **Flask Application (HTTP Layer)**
+#### **Unified Flask Application (HTTP Layer)**
 - **Framework**: Flask with Flask-Login for session management
-- **Purpose**: Serves web pages, handles API requests, user authentication
-- **Port**: 5000 (development)
+- **Purpose**: Unified app serving both public and admin functionality
+- **Port**: 8001 (production)
+- **Architecture**: Blueprint-based with two main areas:
+  - **Public Blueprint** (`/`, `/api`): Game functionality, user authentication
+  - **Admin Blueprint** (`/admin`, `/admin/api`): System management (Nginx-blocked)
 - **Features**:
-  - Blueprint-based modular architecture
-  - Jinja2 templating for server-side rendering
-  - Session-based authentication with magic links
-  - RESTful API endpoints
+  - Single Flask instance with multiple blueprints
+  - Jinja2 templating with unified template system
+  - Authentication library (`libs/auth/`) shared across blueprints
+  - RESTful API endpoints with auth routes at `/api/auth/*`
+- **Security**: Admin access via SSH tunnel only (`box -p 8000 admin tunnel`)
 
 #### **FastAPI Application (WebSocket Layer)**
 - **Framework**: FastAPI with WebSocket support

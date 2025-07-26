@@ -1,0 +1,93 @@
+{% block debug %}{% endblock %}
+
+<!DOCTYPE html>
+
+<html lang="fr">
+
+<head>
+
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="copyright"content="pcariou.fr">
+    <meta name="language" content="FR">
+    <meta name="robots" content="index,follow" />
+    <meta charset="utf-8">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/layout.css') }}" />
+
+    {# COMMONS/LIBS #}
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/http.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/events.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/cookies.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/misc.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='libs/tests.js') }}"></script>
+
+    {# COMMONS/ELEMENTS #}
+    {% include 'components/elements.jinja' %}
+    {% include 'components/buttons.jinja' %}
+    {% include 'components/qrcode.jinja' %}
+    {% include 'components/footer.jinja' %}
+    {% include 'components/input.jinja' %}
+    {% include 'components/cursor.jinja' %}
+    {% include 'components/toast.jinja' %}
+
+    {% block head %}{% endblock %}
+
+    {% include 'components/datadog.jinja' %}
+
+</head>
+
+<body>
+    
+    <link rel="shortcut icon" type="image/png" sizes="any" href="/favicon.png"/>
+
+    <!-- ASSESS MOBILE ------ ------ ------ ------ -->
+    <script> 
+        
+        {# const HEADERS = {"X-CSRFToken":"{{ csrf_token() }}"} #}
+
+        let SIZE_S = window.matchMedia("(pointer:none), (max-width: 800px)")
+        function assessLayout() { 
+            SIZE_S.matches ? document.body.id = "S" : document.body.id = "M" 
+        }
+        assessLayout() ; 
+        SIZE_S.addEventListener("change", _ => assessLayout() )
+
+    </script>
+
+    <!-- URL PARAM MANAGEMENT ------ ------ ------ ------ -->
+    <script>
+        // Get desired query params from backend
+        const desiredParams = {{ query_params | tojson }};
+        
+        // Get current URL params
+        const currentParams = {};
+        const urlParams = new URLSearchParams(window.location.search);
+        for (const [key, value] of urlParams) {
+            currentParams[key] = value;
+        }
+        
+        // Compare and update URL if different
+        const paramsChanged = JSON.stringify(currentParams) !== JSON.stringify(desiredParams);
+        
+        if (paramsChanged) {
+            // Build new URL with desired params
+            const newParams = new URLSearchParams(desiredParams);
+            const newUrl = window.location.pathname + (newParams.toString() ? '?' + newParams.toString() : '');
+            
+            // Update URL without reload (replaceState, not pushState)
+            window.history.replaceState({}, '', newUrl);
+            console.log('Updated URL params:', desiredParams);
+        }
+    </script>
+
+    <header> </header> 
+    <div class="page"> 
+    
+    {% block body %}{% endblock %}
+
+    <div id=toasts> </div>
+    </div> 
+
+</body>
+
+</html>

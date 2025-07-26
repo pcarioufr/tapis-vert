@@ -18,11 +18,10 @@ The infrastructure is provisioned on OpenStack public cloud using Terraform conf
 
 ### Application Layer (`services/`)
 The application runs as containerized services defined in Docker Compose:
-- **Public Web App** (Flask-based) - User-facing functionality
-- **Admin Web App** (Flask-based) - Admin-only, localhost access
-- WebSocket services for real-time communication
-- Redis for data persistence and pub/sub
-- Nginx as reverse proxy with admin route blocking
+- **Unified Flask App** (Flask-based) - Single app with public and admin blueprints
+- **WebSocket Service** (FastAPI-based) - Real-time communication
+- **Redis** - Data persistence and pub/sub messaging
+- **Nginx** - Reverse proxy with admin route blocking (SSH tunnel access only)
 
 ### Deployment Layer (`box/`)
 The Box provides a containerized Linux environment that includes:
@@ -325,7 +324,7 @@ The admin interface is completely separate from the public application and only 
 box admin tunnel
 
 # Then visit in browser:
-# http://localhost:8001/admin/list
+# http://localhost:8000/admin/list
 ```
 
 ### Admin Commands
@@ -337,7 +336,7 @@ box admin list
 box admin api
 
 # Manual tunnel (alternative)
-box ssh -L 8001:localhost:8001
+box ssh -L 8000:localhost:8001
 ```
 
 ---

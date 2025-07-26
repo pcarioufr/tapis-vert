@@ -1,0 +1,141 @@
+    <!-- BUTTONS -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/buttons.css') }}">
+
+    <template id="t-button">
+        <button noselect>
+            <span class="name"></span>
+            <!-- Button: Logout -->
+        </button>
+    </template>
+
+    <script>
+
+    class Button extends Element {
+
+        constructor(eParent = null) {
+            super(build("t-button"), eParent);
+                        
+            this.span = this.select("span.name");
+            this.svg = new SVG();
+            this.span.after(this.svg.e)
+
+            this._callback = noop ;
+
+            this.onclick = ( _ => this._callback() )
+
+            this.e.onmousedown = ( _ => {
+                this.e.classList.add("pressed");
+            });
+            this.e.onmouseup = ( async _ => {
+                await wait(500);
+                this.e.classList.remove("pressed");
+            });
+
+        }
+
+        set name(name)   { this.span.innerText = name ; }
+        set icon(icon)   { this.svg.icon = icon ; }
+        set color(color) { 
+            
+            this.untag("red") ;
+            this.untag("green") ;
+            this.untag("grey") ;
+
+            switch(color) {
+                case "red":    this.tag("red")    ; break ;
+                case "green":  this.tag("green")  ; break ;
+                case "grey":   this.tag("grey")   ; break ;
+                default:
+                    console.error(`${color} isn't supported option for button ${this.e}`);
+            }
+
+        }
+
+        set callback(callback) {
+            if (typeof callback === 'function') {  this._callback = callback ; } 
+            else { throw new Error("onCallback must be a function") ; }
+        }
+
+
+    }
+    </script>
+
+
+    <template id="t-switch">
+        <div class="switch" noselect>
+            <div class="toggle-switch">
+                <input type="checkbox" /> <!-- ID will be dynamically generated -->
+                <label class="slider"></label>
+            </div>
+            <div class="stateText"></div>
+        </div>
+    </template>
+
+    <script>
+
+    class Switch extends Element {
+
+        constructor(eParent = null) {
+            super(build("t-switch"), eParent);
+            
+            // Generate a unique ID for this instance
+            let id = random_id("switch-") ;
+            
+            this.text = this.select(".stateText");
+            this.checkbox = this.select("input");
+            this.label = this.select("label");
+
+            // Set the generated ID on the input and label
+            this.checkbox.id = id;
+            this.label.setAttribute('for', id);
+
+            this._onCallback = noop;
+            this._onText = null;
+            
+            this._offCallback = noop;
+            this._offText = null;
+
+            this.checkbox.addEventListener('change', _ => this.updateState() ) ;
+
+            this.onclick = ( _ => {
+                this.checkbox.checked = !this.checkbox.checked;
+                this.updateState();
+            })
+
+        }
+
+        updateState() {
+            if (this.checkbox.checked) {
+                this.text.innerText = this._onText;
+                this._onCallback();
+            } else {
+                this.text.innerText = this._offText;
+                this._offCallback();
+            }
+        }
+
+        set checked(bool) { this.checkbox.checked = bool ; }
+
+        set onCallback(callback) {
+            if (typeof callback === 'function') {  this._onCallback = callback ; } 
+            else { throw new Error("onCallback must be a function") ; }
+        }
+
+        set offCallback(callback) {
+            if (typeof callback === 'function') {  this._offCallback = callback ; } 
+            else { throw new Error("offCallback must be a function") ; }
+        }
+
+        set onText(text)    { 
+            this._onText  = text ;
+            if (this.checkbox.checked) this.text.innerText = this._onText ;
+        }
+        set offText(text)   { 
+            this._offText = text ;
+            if (!this.checkbox.checked) this.text.innerText = this._offText ;
+        }
+
+
+    }
+    </script>
