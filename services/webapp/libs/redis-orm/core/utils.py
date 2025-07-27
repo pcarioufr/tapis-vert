@@ -40,12 +40,14 @@ def flatten(data: Dict[str, Any], prefix: str = "", out: Dict[str, Any] = None) 
     """
     if out is None:
         out = {}
+        
     if isinstance(data, dict):
         for k, v in data.items():
             new_key = f"{prefix}:{k}".strip(":")
             flatten(v, new_key, out)
     else:
         out[prefix] = data
+        
     return out
 
 
@@ -67,5 +69,7 @@ def unflatten(d: Dict[str, Any]) -> Dict[str, Any]:
             if key not in temp or not isinstance(temp[key], dict):
                 temp[key] = {}
             temp = temp[key]
-        temp[keys[-1]] = v
+        final_key = keys[-1]
+        temp[final_key] = v
+    
     return result 

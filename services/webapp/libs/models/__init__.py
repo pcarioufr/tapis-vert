@@ -15,5 +15,5 @@ def init_redis_orm():
     set_redis_client(client)
 
 # Models will be imported after Redis ORM is initialized in Flask app factories
-from .models import User, Code, Room
+from .models import User, Code, Room, new_id
 from .models import UserCodes, UsersRooms

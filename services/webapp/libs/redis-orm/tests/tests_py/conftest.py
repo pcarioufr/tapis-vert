@@ -6,14 +6,7 @@ Uses real Redis instance for all testing.
 import os
 import pytest
 import redis
-import sys
-sys.path.insert(0, '/app')
-try:
-    from core import set_redis_client, reset_connection
-except ImportError:
-    # Fallback for development installs
-    import core
-    from core import set_redis_client, reset_connection
+from core import set_redis_client, reset_connection
 
 
 def pytest_configure():

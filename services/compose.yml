@@ -11,6 +11,7 @@ services:
       - 443:443
       - 8448:8448
       - 127.0.0.1:8002:8002  # Admin server (localhost only)
+      - 127.0.0.1:8003:8003  # RedisInsight server (localhost only)
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/reload.sh:/usr/local/bin/reload.sh
@@ -71,6 +72,24 @@ services:
       docker:
         ipv4_address: 169.254.255.10
 
+  redisinsight:
+    container_name: redisinsight
+    image: "redis/redisinsight:latest"
+    expose:
+      - 5540
+    volumes:
+      - redisinsight:/data
+    environment:
+      - RI_REDIS_ALIAS=redis:6379
+      
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "redisinsight", "service": "redisinsight"}]'
+    depends_on:
+      - redis
+    networks:
+      docker:
+        ipv4_address: 169.254.255.11
+
   websocket:
     container_name: websocket
     build:
@@ -126,6 +145,8 @@ volumes:
   certbot:
     driver: local
   redis:
+    driver: local
+  redisinsight:
     driver: local
 
 networks:

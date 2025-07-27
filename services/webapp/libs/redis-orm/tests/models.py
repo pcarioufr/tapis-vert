@@ -18,8 +18,8 @@ class User(ObjectMixin):
     FIELDS = {"name", "email", "profile", "metadata"}
     
     RIGHTS = {
-        "posts": "UserPosts",
-        "comments": "UserComments", 
+        "posts": "tests.models.UserPosts",
+        "comments": "tests.models.UserComments", 
     }
 
 
@@ -29,11 +29,11 @@ class Post(ObjectMixin):
     FIELDS = {"title", "content", "metadata", "tags"}
     
     LEFTS = {
-        "author": "UserPosts"
+        "author": "tests.models.UserPosts"
     }
     
     RIGHTS = {
-        "comments": "PostComments"
+        "comments": "tests.models.PostComments"
     }
 
 
@@ -43,8 +43,8 @@ class Comment(ObjectMixin):
     FIELDS = {"content", "text", "created_at", "author_id"}
     
     LEFTS = {
-        "author": "UserComments",
-        "post": "PostComments"
+        "author": "tests.models.UserComments",
+        "post": "tests.models.PostComments"
     }
 
 

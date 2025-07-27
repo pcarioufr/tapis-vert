@@ -19,26 +19,27 @@ update_config_with_outputs() {
             local var_value="$2"
             local config_file="/data/config/.env"
             
+            debug "Updating env var ${var_name}=${var_value} in ${config_file}"
+            
             if grep -q "^${var_name}=" "$config_file"; then
                 # Variable exists, update it
+                debug "Found existing ${var_name}, updating value"
                 sed "s/^${var_name}=.*/${var_name}=\"${var_value}\"/" "$config_file" > "/tmp/env_update.$$"
                 cat "/tmp/env_update.$$" > "$config_file"
                 rm -f "/tmp/env_update.$$"
+                info "Updated ${var_name} to ${var_value}"
             else
                 # Variable doesn't exist, add it
+                debug "No existing ${var_name}, adding new entry"
                 echo "${var_name}=\"${var_value}\"" >> "$config_file"
+                info "Added new variable ${var_name}=${var_value}"
             fi
         }
         
         # Update the terraform output variables
         update_env_var "PUBLIC_IP_V4" "${PUBLIC_IP_V4}"
         update_env_var "PUBLIC_IP_V6" "${PUBLIC_IP_V6}"
-        
-        notice "Updated SSH_HOST to ubuntu@${PUBLIC_IP_V4}"
-        notice "Updated PUBLIC_IP_V4 to ${PUBLIC_IP_V4}"
-        if [ -n "$PUBLIC_IP_V6" ]; then
-            notice "Updated PUBLIC_IP_V6 to ${PUBLIC_IP_V6}"
-        fi
+
     else
         debug "No terraform outputs found, skipping config update"
     fi
@@ -93,7 +94,7 @@ if [ "$CMD" == "apply" ] && [ $TERRAFORM_EXIT_CODE -eq 0 ]; then
     #     notice "INFOMANIAK_TOKEN not configured, skipping DNS sync"
     # fi
     
-    notice "Infrastructure updated. Run 'box dns update' to update DNS records manually."
+    success "Infrastructure updated. Run 'box dns update' to update DNS records manually."
 fi
 
 exit $TERRAFORM_EXIT_CODE

@@ -28,10 +28,16 @@ load_config
 # Show debug status if enabled
 [ "${DEBUG}" = "1" ] && debug "debug mode active inside container"
 
-CMD=${1} && shift 1
+# Get command and shift arguments
+if [ -z "$1" ]; then
+    error "No command specified"
+    exit 1
+fi
+CMD="$1"
+shift 1
 
 debug command=$CMD
-/opt/box/${CMD}.sh $@
+/opt/box/${CMD}.sh "$@"
 
 end_time=$(date +%s.%3N)
 debug "$(echo $end_time - $start_time | bc)s"

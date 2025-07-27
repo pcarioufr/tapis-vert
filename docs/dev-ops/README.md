@@ -131,6 +131,35 @@ When modifying the application:
   - This causes silent failures where users don't appear in rooms
   - **Location**: `services/webapp/flask/app/public/api/routes.py:room_user()`
 
+### User/Card Management
+- **ISSUE**: `this.eUsers[card.player_id].assignCard` error when card references non-existent user
+- **ISSUE**: `this.data.users[card.player_id].name` error when card owner doesn't exist in users
+- **Location**: `services/webapp/templates/public/room.jinja` card rendering logic (lines ~475, ~493)
+- **Cause**: Cards reference player_ids that may no longer exist in room (user left, network issues, etc.)
+- **Fix needed**: Add safe navigation (`?.`) or user existence checks before accessing user properties
+- **Impact**: Causes JavaScript errors during room rendering, breaks game state display
+
+### Redis ORM Issues
+- **FIXED**: Empty marker corruption in `unflatten()` process
+- **Problem**: `save()` created empty marker fields (`'cards': ''`) that overwrote nested card data during `unflatten()`
+- **Location**: `services/webapp/libs/redis-orm/core/mixins.py` (save method) vs `core/utils.py` (unflatten method)
+- **Impact**: Intermittent card property loss - cards randomly lost 1-3 properties after messaging operations
+- **Root Cause**: Empty markers processed before nested fields, causing data overwrite in `unflatten()` reconstruction
+- **Fix Applied**: Skip empty marker fields (`v != ''`) in save() mapping to prevent storage of meaningless empty entries
+- **Verification**: Integration test passes 8/8 assertions with 3/3 cards retaining all properties after messaging
+- **Status**: ✅ RESOLVED - No more card data corruption
+
+- **REMAINING**: `patch()` vs `unflatten()` inconsistency for complex nested operations
+- **Current Workaround**: Messages stored as JSON blob in single field to avoid nested field corruption
+- **TODO**: After validating current fix stability, investigate patch() nested field handling for future enhancements
+
+### Message Storage Architecture  
+- **Current Implementation**: Messages stored as JSON blob in `room.messages` field
+- **Reason**: Temporary workaround for Redis ORM nested field corruption issue
+- **Technical Debt**: JSON blob approach bypasses ORM benefits (type safety, relationship handling, atomic updates)
+- **Future Enhancement**: Once ORM `patch()` vs `unflatten()` inconsistency is resolved, migrate to proper ORM array structure
+- **Migration Path**: Implement message as separate model with Room relationship, or fix ORM to support native arrays
+
 ### Documentation
 - **Document all valid role values** in API reference
 - **Add input validation examples** to API documentation  

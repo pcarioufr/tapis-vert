@@ -145,7 +145,7 @@
         get value()       { return this.select("textarea").value }
         set value(value)  { this.select("textarea").value = value }
 
-        set placeholder(placeholder) { this.input.e.setAttribute("placeholder", placeholder) }
+        set placeholder(placeholder) { this.select("textarea").setAttribute("placeholder", placeholder) }
 
         set button(button) { 
             this.select(".extended-text-input").setAttribute("button","")

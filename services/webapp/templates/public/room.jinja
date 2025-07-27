@@ -30,409 +30,942 @@
 
     <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
 
-        {% include 'components/table.jinja' %}
     {% include 'components/cards.jinja' %}
+    {% include 'components/table.jinja' %}
     {% include 'components/chat.jinja' %}
 
-    {% include 'components/footer-self.jinja' %}
-    {% include 'components/footer-room.jinja' %}
+    <!-- Room Model - Inlined for easier development -->
+    <script>
+    // Room Model - Business Logic & State Management
+    // Responsibilities: Manage room state, handle WebSocket, process business logic, call view methods, NO DOM manipulation
+
+    class Room {
+        
+        constructor(roomId, userId) {
+            this.roomId = roomId;
+            this.userId = userId;
+            
+            // Room state - mirrors backend data
+            this.data = {};
+            
+            // RoomView reference (set by RoomView constructor)
+            this.view = null;
+            
+            // WebSocket connection
+            this.websocket = new EventWebSocket(`/ws/${roomId}/${userId}`);
+            this.connected = false;
+            
+            // Setup WebSocket reconnection handler
+            listen("Room", "ws:reconnected", async (throwerId, websocket) => {
+                this.websocket = websocket;
+                console.log("Room using new websocket");
+                await this.refresh();
+                this.view?.render();
+            });
+        }
+        
+        // Fetches room data from backend
+        async refresh() {
+            const resp = await call('GET', `/api/v1/rooms/${this.roomId}`);
+            const data = await resp.json();
+            this.data = data[this.roomId];
+            return this.data;
+        }
+        
+        // User joins the room
+        async join() {
+            await call('POST', `/api/v1/rooms/${this.roomId}/join`);
+        }
+        
+        // Master starts a new round
+        async newRound() {
+            await call('POST', `/api/v1/rooms/${this.roomId}/round`);
+        }
+        
+        // Changes user's role
+        async changeRole(role) {
+            await call("PATCH", `/api/v1/rooms/${this.roomId}/user/${this.userId}`, {"role": role});
+        }
+        
+        // Connects to room events (WebSocket listeners)
+        // All event handling centralized here - calls view methods for UI updates
+        connect() {
+            if (this.connected) return;
+            this.connected = true;
+            
+            // USER EVENTS
+            
+            listen("Room", "user:joined", async (throwerId, user_id) => {
+                await this.refresh();
+                this.view?.onUserJoined(user_id);
+            });
+            
+            listen("Room", "user:left", async (throwerId, user_id) => {
+                await this.refresh();
+                this.view?.onUserLeft(user_id);
+            });
+            
+            listen("Room", "user:online", (throwerId, user_id) => {
+                if (this.data.users[user_id]) {
+                    this.data.users[user_id].relation.status = "online";
+                }
+                this.view?.onUserStatusChange(user_id, "online");
+            });
+            
+            listen("Room", "user:offline", (throwerId, user_id) => {
+                if (this.data.users[user_id]) {
+                    this.data.users[user_id].relation.status = "offline";
+                }
+                this.view?.onUserStatusChange(user_id, "offline");
+            });
+            
+            listen("Room", "user:player", (throwerId, user_id) => {
+                if (this.data.users[user_id]) {
+                    this.data.users[user_id].relation.role = "player";
+                }
+                this.view?.onUserRoleChange(user_id, "player");
+            });
+            
+            listen("Room", "user:watcher", (throwerId, user_id) => {
+                if (this.data.users[user_id]) {
+                    this.data.users[user_id].relation.role = "watcher";
+                }
+                this.view?.onUserRoleChange(user_id, "watcher");
+            });
+            
+            listen("Room", "user:master", (throwerId, user_id) => {
+                if (this.data.users[user_id]) {
+                    this.data.users[user_id].relation.role = "master";
+                }
+                this.view?.onUserRoleChange(user_id, "master");
+            });
+            
+            // ROUND EVENTS
+            
+            listen("Room", "round:new", async (throwerId, user_id) => {
+                await this.refresh();
+                this.view?.onNewRound();
+            });
+            
+            // CARD EVENTS
+            
+            listen("Room", "cards:*:peeked:*", (throwerId, update, eventName) => {
+                const [_1, card_id, _3, user_id] = eventName.split(':');
+                
+                if (this.data.cards[card_id]) {
+                    if (!this.data.cards[card_id].peeked) {
+                        this.data.cards[card_id].peeked = {};
+                    }
+                    this.data.cards[card_id].peeked[user_id] = update;
+                }
+                this.view?.onCardPeeked(card_id, user_id, update);
+            });
+            
+            listen("Room", "cards:*:flipped", (throwerId, update, eventName) => {
+                const [_1, card_id, _3] = eventName.split(':');
+                
+                if (this.data.cards[card_id]) {
+                    this.data.cards[card_id].flipped = update;
+                }
+                this.view?.onCardFlipped(card_id, update);
+            });
+            
+            listen("Room", "cards:*:scored", (throwerId, update, eventName) => {
+                const [_1, card_id, _3] = eventName.split(':');
+                
+                // Parse the score value (comes as string "None" or "1"-"10")
+                const scoreValue = update === "None" ? null : parseInt(update);
+                
+                if (this.data.cards[card_id]) {
+                    this.data.cards[card_id].scored = scoreValue;
+                }
+                this.view?.onCardScored(card_id, scoreValue);
+            });
+            
+            // MESSAGE EVENTS
+            
+            listen("Room", "message:new", (throwerId, message) => {
+                console.log(`Received message ${message.author} : ${message.content} at ${message.timestamp}`);
+                this.view?.onMessageNew(message);
+            });
+            
+            listen("Room", "message:reaction", (throwerId, reactionData) => {
+                console.log('Received reaction update:', reactionData);
+                
+                // Update room data
+                const messageData = this.data.messages?.[reactionData.message_id];
+                if (messageData) {
+                    // Initialize reactions if needed
+                    if (!messageData.reactions) {
+                        messageData.reactions = {};
+                    }
+                    
+                    // Initialize emoji dict if needed
+                    if (!messageData.reactions[reactionData.emoji]) {
+                        messageData.reactions[reactionData.emoji] = {};
+                    }
+                    
+                    // Apply the reaction change
+                    if (reactionData.action === "add") {
+                        messageData.reactions[reactionData.emoji][reactionData.user_id] = "True";
+                    } else if (reactionData.action === "remove") {
+                        delete messageData.reactions[reactionData.emoji][reactionData.user_id];
+                        
+                        // Clean up empty emoji dicts
+                        if (Object.keys(messageData.reactions[reactionData.emoji]).length === 0) {
+                            delete messageData.reactions[reactionData.emoji];
+                        }
+                    }
+                }
+                this.view?.onMessageReaction(reactionData);
+            });
+            
+            // CURSOR EVENTS
+            
+            listen("Room", "user:*:cursor:move", (throwerId, data, eventName) => {
+                const [_1, user_id, _3, _4] = eventName.split(':');
+                const position = data.split(':');
+                
+                if (user_id !== this.userId) {
+                    this.view?.onCursorMove(user_id, position);
+                }
+            });
+            
+            this.setupCursorTracking();
+        }
+        
+        // Sets up cursor tracking (sends local cursor position to other users)
+        setupCursorTracking() {
+            let isCursorOutside = false;
+            
+            const sendCursorPos = throttle(async (clientX, clientY) => {
+                const table = document.getElementById("table");
+                if (!table) return;
+                
+                const rect = table.getBoundingClientRect();
+                const rawX = (clientX - rect.left) / rect.width * 100;
+                const rawY = (clientY - rect.top) / rect.height * 100;
+                const relX = parseFloat(rawX.toFixed(3));
+                const relY = parseFloat(rawY.toFixed(3));
+                
+                if (relX < 0 || relX > 100 || relY < 0 || relY > 100) {
+                    if (isCursorOutside) return;
+                    isCursorOutside = true;
+                } else {
+                    isCursorOutside = false;
+                }
+                
+                await this.websocket.send(`cursor:move`, `${relX}:${relY}`);
+            }, 100);
+            
+            document.addEventListener('mousemove', e => {
+                sendCursorPos(e.clientX, e.clientY);
+            });
+        }
+        
+        // Gets the current user's role
+        getCurrentUserRole() {
+            return this.data.users?.[this.userId]?.relation?.role;
+        }
+        
+        // Checks if current user is a master
+        isCurrentUserMaster() {
+            return this.getCurrentUserRole() === 'master';
+        }
+        
+        // Gets user name by ID
+        getUserName(user_id) {
+            return this.data.users?.[user_id]?.name || user_id;
+        }
+    }
+    </script>
+
+    <!-- RoomView - Inlined for easier development -->
+    <script>
+    // RoomView - UI Rendering & DOM Manipulation
+    // Responsibilities: Render room state to DOM, manage UI components, receive callbacks from Room, NO business logic, NO event listening
+
+    class RoomView {
+        
+        constructor(room) {
+            this.room = room;
+            this.room.view = this;  // Register self with Room
+            
+            // UI Components
+            this.eTable = new Table();
+            this.eChat = new ChatContainer(document.body);
+            this.eUsers = {};  // { user_id: userUIObject }
+            this.eCards = {};  // { card_id: cardUIObject }
+            
+            // NEW ROUND BUTTON (attached to table)
+            this.newRoundButton = new FloatingButton('refresh-line', this.eTable.e);
+            this.newRoundButton.addClass('new-round');
+            this.newRoundButton.callback = async () => {
+                await this.room.newRound();
+            };
+            this.newRoundButton.e.style.display = 'none';
+            
+            {% if user.is_authenticated %}
+            // ROLE SELECTION BUTTONS (attached to table)
+            this.roleButtons = {};
+            this.roleButtons.master = new FloatingButton('crown-line', this.eTable.e);
+            this.roleButtons.master.addClass('role-button');
+            this.roleButtons.master.e.setAttribute('data-role', 'master');
+            
+            this.roleButtons.player = new FloatingButton('chess-line', this.eTable.e);
+            this.roleButtons.player.addClass('role-button');
+            this.roleButtons.player.e.setAttribute('data-role', 'player');
+            
+            this.roleButtons.watcher = new FloatingButton('glasses-fill', this.eTable.e);
+            this.roleButtons.watcher.addClass('role-button');
+            this.roleButtons.watcher.e.setAttribute('data-role', 'watcher');
+            
+            // Set up role button callbacks
+            this.roleButtons.master.callback = () => this.selectRole('master');
+            this.roleButtons.player.callback = () => this.selectRole('player');
+            this.roleButtons.watcher.callback = () => this.selectRole('watcher');
+            {% else %}
+            this.roleButtons = {};
+            {% endif %}
+        }
+        
+        {% if user.is_authenticated %}
+        // Handle role selection
+        selectRole(role) {
+            // Update visual state of role buttons
+            Object.values(this.roleButtons).forEach(btn => {
+                btn.removeClass('selected');
+            });
+            this.roleButtons[role].addClass('selected');
+            
+            // Make API call to change role
+            this.room.changeRole(role);
+        }
+        {% endif %}
+        
+        // Update chat margin based on table height
+        updateChatMargin() {
+            const table = document.getElementById('table');
+            if (table) {
+                const tableHeight = table.offsetHeight;
+                // Set CSS custom property for chat to use
+                document.documentElement.style.setProperty('--table-height', `${tableHeight}px`);
+            }
+        }
+        
+        // Called once after first render to initialize UI state
+        onFirstLoad() {
+            {% if user.is_authenticated %}
+            const userRole = this.room.getCurrentUserRole();
+            
+            // Show/hide new round button based on role
+            if (userRole === "master" || userRole === "player") {
+                this.newRoundButton.e.style.display = 'flex';
+            } else {
+                this.newRoundButton.e.style.display = 'none';
+            }
+            
+            // Set current role as selected in role buttons
+            if (userRole && this.roleButtons[userRole]) {
+                this.roleButtons[userRole].addClass('selected');
+            }
+            {% else %}
+            this.newRoundButton.e.style.display = 'none';
+            {% endif %}
+        }
+        
+        // Event callbacks - called by Room after data is updated
+        
+        onUserJoined(user_id) {
+            if (user_id !== this.room.userId) {
+                new Toast("info", `${this.room.getUserName(user_id)} joined the room`, "login-circle");
+            }
+            this.render();
+        }
+        
+        onUserLeft(user_id) {
+            if (user_id !== this.room.userId) {
+                new Toast("info", `${this.room.getUserName(user_id)} left the room`, "logout-circle");
+            }
+            this.render();
+        }
+        
+        onUserStatusChange(user_id, status) {
+            if (this.eUsers[user_id]) {
+                this.eUsers[user_id].status = status;
+            }
+            if (user_id !== this.room.userId) {
+                const icon = status === "online" ? "login-circle" : "logout-circle";
+                new Toast("info", `${this.room.getUserName(user_id)} is ${status}`, icon);
+            }
+        }
+        
+        onUserRoleChange(user_id, role) {
+            if (this.eUsers[user_id]) {
+                this.eUsers[user_id].role = role;
+            }
+            
+            const roleMessages = {
+                player: "is now a room player",
+                watcher: "is now a room spectator",
+                master: "is now a room master"
+            };
+            const roleIcons = {
+                player: "chess-line",
+                watcher: "glasses-fill",
+                master: "crown-line"
+            };
+            
+            if (user_id !== this.room.userId) {
+                new Toast("info", `${this.room.getUserName(user_id)} ${roleMessages[role]}`, roleIcons[role]);
+            }
+            
+            // Update UI when current user's role changes
+            if (user_id === this.room.userId) {
+                {% if user.is_authenticated %}
+                // Show/hide new round button based on role
+                if (role === "master" || role === "player") {
+                    this.newRoundButton.e.style.display = 'flex';
+                } else {
+                    this.newRoundButton.e.style.display = 'none';
+                }
+                
+                // Update role button visual state
+                Object.values(this.roleButtons).forEach(btn => {
+                    btn.removeClass('selected');
+                });
+                if (this.roleButtons[role]) {
+                    this.roleButtons[role].addClass('selected');
+                }
+                {% endif %}
+            }
+        }
+        
+        onNewRound() {
+            // Clear cards and chat
+            values(this.eCards).forEach(cardObj => cardObj.remove());
+            this.eChat.flush();
+            new Toast("info", "New round started", "swap-box-line");
+            this.render();
+        }
+        
+        onCardPeeked(card_id, user_id, peeked) {
+            if (!this.eCards[card_id]) return;
+            
+            const card = this.room.data.cards[card_id];
+            if (!card) return;
+            
+            // If the card peeked is self's
+            if (user_id === this.room.userId) {
+                this.eCards[card_id].peekedL = peeked;
+            }
+            // If the card peeked is other user's
+            else {
+                switch (peeked) {
+                    case "True":
+                        this.eCards[card_id].peekedU = "True";
+                        break;
+                    case "False":
+                        // Check if any other users (excluding current viewer) are still peeking
+                        const others = fromEntries(
+                            entries(card.peeked).filter(([key, _]) => key !== this.room.userId)
+                        );
+                        const anyPeeking = values(others).some(val => val === "True");
+                        this.eCards[card_id].peekedU = anyPeeking ? "True" : "False";
+                        break;
+                }
+            }
+        }
+        
+        onCardFlipped(card_id, flipped) {
+            if (this.eCards[card_id]) {
+                this.eCards[card_id].flipped = flipped;
+            }
+        }
+        
+        onCardScored(card_id, scoreValue) {
+            if (this.eCards[card_id]) {
+                this.eCards[card_id].scored = scoreValue;
+            }
+        }
+        
+        onMessageNew(message) {
+            console.log('RoomView received new message:', message);
+            const authorName = this.room.getUserName(message.author);
+            this.eChat.addMessage(
+                message.author,
+                authorName,
+                message.content,
+                message.timestamp,
+                message.id || null,
+                message.reactions || {}
+            );
+        }
+        
+        onMessageReaction(reactionData) {
+            console.log('RoomView received reaction update:', reactionData);
+            
+            // Room has already updated data, just update UI
+            const messageData = this.room.data.messages?.[reactionData.message_id];
+            if (messageData) {
+                const message = this.eChat.findMessage(reactionData.message_id);
+                if (message) {
+                    message.reactions = messageData.reactions || {};
+                }
+            }
+        }
+        
+        onCursorMove(user_id, position) {
+            console.debug(`RoomView cursor move for user ${user_id} at ${position}`);
+            if (this.eUsers[user_id]) {
+                this.eUsers[user_id].position = position;
+            }
+        }
+        
+        // Renders the entire room state to DOM
+        render() {
+            console.log(this.room.data);
+            
+            this.renderTopic();
+            this.renderUsers();
+            this.renderCards();
+            this.renderMessages();
+            
+            // Update chat margin after rendering
+            setTimeout(() => this.updateChatMargin(), 50);
+        }
+        
+        // Renders the round topic
+        renderTopic() {
+            if (this.room.data.round?.topic) {
+                this.eTable.topic = this.room.data.round.topic;
+            }
+        }
+        
+        // Renders all users
+        renderUsers() {
+            // Remove users who left
+            entries(this.eUsers).forEach(([id, eUser]) => {
+                if (!keys(this.room.data.users).includes(id)) {
+                    this.eUsers[id].remove();
+                    delete this.eUsers[id];
+                }
+            });
+            
+            // Add or update users
+            console.log(this.room.data.users);
+            entries(this.room.data.users).forEach(([user_id, user]) => {
+                // Create user if doesn't exist
+                if (!this.eUsers[user_id]) {
+                    this.createUser(user_id);
+                }
+                
+                // Update user UI
+                this.eUsers[user_id].name = user.name;
+                this.eUsers[user_id].status = user.relation.status;
+                this.eUsers[user_id].role = user.relation.role;
+            });
+        }
+        
+        // Renders all cards
+        renderCards() {
+            console.log(this.room.data.cards);
+            entries(this.room.data.cards).forEach(([card_id, card]) => {
+                // Create card if doesn't exist
+                if (!this.eCards[card_id]) {
+                    this.createCard(card_id);
+                }
+                
+                // Update card UI
+                this.eCards[card_id].value = card.value;
+                this.eCards[card_id].owner = this.room.getUserName(card.player_id);
+                
+                // Update peeked state (self)
+                this.eCards[card_id].peekedL = card.peeked[this.room.userId] || "False";
+                
+                // Update peeked state (others)
+                const others = fromEntries(
+                    entries(card.peeked).filter(([key, _]) => key !== this.room.userId)
+                );
+                const anyPeeking = values(others).some(val => val === "True");
+                this.eCards[card_id].peekedU = anyPeeking ? "True" : "False";
+                
+                // Update flipped state
+                this.eCards[card_id].flipped = card.flipped;
+                
+                // Assign card to user (must be before setting scored)
+                this.eUsers[card.player_id].assignCard(this.eCards[card_id]);
+                
+                // Update scored state (must be after assignCard)
+                this.eCards[card_id].scored = card.scored;
+            });
+        }
+        
+        // Renders all messages
+        renderMessages() {
+            console.log('RENDER MESSAGES');
+            console.log(this.room.data.messages);
+            
+            // Messages are a dict with message_id as keys, sort by timestamp
+            if (this.room.data.messages && typeof this.room.data.messages === 'object') {
+                const messagesArray = Object.entries(this.room.data.messages)
+                    .map(([id, msg]) => ({...msg, id}))
+                    .sort((a, b) => {
+                        const tsA = parseInt(a.timestamp) || 0;
+                        const tsB = parseInt(b.timestamp) || 0;
+                        return tsA - tsB;
+                    });
+                
+                messagesArray.forEach((message) => {
+                    console.log('render message', message);
+                    
+                    const authorName = this.room.getUserName(message.author);
+                    this.eChat.addMessage(
+                        message.author,
+                        authorName,
+                        message.content,
+                        parseInt(message.timestamp),
+                        message.id,
+                        message.reactions || {}
+                    );
+                });
+            }
+        }
+        
+        // Creates a user UI object
+        createUser(user_id) {
+            if (this.eUsers[user_id]) {
+                console.error(`User with id ${user_id} already exists`);
+                return;
+            }
+            
+            console.log(`Create user with id ${user_id}`);
+            
+            const viewerIsMaster = this.room.isCurrentUserMaster();
+            
+            this.eUsers[user_id] = {
+                // User's deck
+                eUserDeck: new Deck(null, viewerIsMaster),
+                
+                // User in room panel
+                eUserRoomPanel: new UserRoomPanel(),
+                
+                // User's cursor on table
+                eRemoteCursor: new RemoteCursor(this.eTable.e, name),
+                
+                remove() {
+                    this.eUserRoomPanel.remove();
+                },
+                
+                set name(name) {
+                    this.eUserRoomPanel.name = name;
+                    this.eRemoteCursor.name = name;
+                },
+                
+                set status(status) {
+                    this.eUserRoomPanel.status = status;
+                },
+                
+                set role(role) {
+                    this.eUserRoomPanel.role = role;
+                    
+                    role === "player" ?
+                        this.eUserDeck.active(true) :
+                        this.eUserDeck.active(false);
+                },
+                
+                set position(position) {
+                    this.eRemoteCursor.position = position;
+                },
+                
+                assignCard(card) {
+                    this.eUserDeck.card = card.eCard.e;
+                    this.eUserDeck.cardId = card.cardId;
+                    card.parentDeck = this.eUserDeck;
+                    this.eUserDeck.enableMasterScoring(card.eCard);
+                }
+            };
+        }
+        
+        // Creates a card UI object
+        createCard(card_id) {
+            if (this.eCards[card_id]) {
+                console.error(`Card with id ${card_id} already exists`);
+                return;
+            }
+            
+            console.log(`Create card with id ${card_id}`);
+            
+            const viewerIsMaster = this.room.isCurrentUserMaster();
+            
+            this.eCards[card_id] = {
+                cardId: card_id,
+                eCard: new Card(card_id),
+                parentDeck: null,
+                
+                remove() {
+                    this.eCard.remove();
+                },
+                
+                set value(value) {
+                    this.eCard.value = value;
+                },
+                
+                set owner(owner) {
+                    this.eCard.owner = owner;
+                },
+                
+                set peekedU(isPeeked) {
+                    isPeeked = isPeeked === "True";
+                    this.eCard.peekedU = isPeeked;
+                },
+                
+                set peekedL(isPeeked) {
+                    isPeeked = isPeeked === "True";
+                    this.eCard.peekedL = isPeeked;
+                },
+                
+                set flipped(isFlipped) {
+                    isFlipped = isFlipped === "True";
+                    this.eCard.flipped = isFlipped;
+                },
+                
+                set scored(scoreValue) {
+                    // Update the deck's score badge if this card is in a deck
+                    if (this.parentDeck) {
+                        this.parentDeck.scored = scoreValue;
+                    }
+                }
+            };
+        }
+    }
+    </script>
+
+
 
 {% endblock %}
 
 {% block body %}
 
 
+    <!-- Account Panel Content Template -->
+    <template id="t-account-panel-content">
+        <span class="panel-title">Account</span>
+        
+        <div class="account-cookies">
+            <div class="cookie-switch-container"></div>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <div class="account-authenticated">
+            <p>Logged in as: <strong>{{user.name}}</strong></p>
+            <div class="logout-container"></div>
+        </div>
+        {% else %}
+        <div class="account-login">
+            <div class="login-container"></div>
+        </div>
+        {% endif %}
+    </template>
+
+
+    <!-- Room Panel Content Template -->
+
+    <!-- Panel User Template -->
+    <template id="t-panel-user">
+        <div class="panel-user">
+            <span class="user-name"></span>
+            <div class="user-status"></div>
+        </div>
+    </template>
+
+    <template id="t-room-panel-content">
+        <span class="panel-title">{{room.name}}</span>
+        
+        <div class="room-invite">
+            <h3>Invite</h3>
+            <div class="qr-container"></div>
+        </div>
+        
+        <div class="room-users">
+            <h3>Users</h3>
+            
+            <div class="user-group" id="panel-users-masters">
+                <div class="group-header"> <span>masters</span> </div>
+                <div class="user-list">
+                    <!-- panel-user Alice -->                </div>
+            </div>
+            
+            <div class="user-group" id="panel-users-players">
+                <div class="group-header"> <span>players</span> </div>
+                <div class="user-list">
+                   <!-- panel-user Bob -->
+                   <!-- panel-user Charlie -->
+                   <!-- panel-user Diana -->
+                </div>
+            </div>
+            
+            <div class="user-group" id="panel-users-watchers">
+                <div class="group-header"> <span>watchers</span> </div>
+                <div class="user-list">
+                    <!-- panel-user Eve -->
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Floating Role Selection Buttons will be created by JavaScript -->
+
+    <!-- UserRoomPanel needs to be in global scope for RoomView.js -->
+    <script>
+    class UserRoomPanel extends Element {
+        
+        constructor(eParent = null) {
+            super(build("t-panel-user"), eParent);
+        }
+        
+        set name(text) {
+            this.select('.user-name').innerText = text;
+        }
+        
+        set status(status) {
+            const statusEl = this.select('.user-status');
+            status === "online" ? 
+                statusEl.setAttribute("online", "") : 
+                statusEl.removeAttribute("online");
+        }
+        
+        set role(role) {
+            // Move user to appropriate role section
+            let targetContainer;
+            switch(role) {
+                case "master":  targetContainer = document.querySelector("#panel-users-masters .user-list"); break;
+                case "player":  targetContainer = document.querySelector("#panel-users-players .user-list"); break;
+                case "watcher": targetContainer = document.querySelector("#panel-users-watchers .user-list"); break;
+                default:
+                    console.error(`Role "${role}" isn't supported option for user`);
+                    return;
+            }
+            if (targetContainer) {
+                targetContainer.append(this.e);
+            }
+        }
+    }
+    </script>
+
     <script type="module">
 
-    // represntations of the room and its elements
-    class RoomManager {
-
-        constructor() {
-
-            this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
-            listen( "RoomManager", "ws:reconnected", async (throwerId, websocket) => {
-                this.websocket = websocket ;
-                console.log("Roommanager using new websocket");
-                await this.refresh() ;
-                this.render() ;
-            })
-
-            // room data - mirrors backend data
-            this.data = {} ;
-
-            // room representations
-            this.eTable = new Table() ;
-            this.eRoomFooterEntry = new RoomFooterEntry() ;
-
-            // users representations
-            this.eUsers = {} ;
-
-            // cards representations
-            this.eCards = {} ;
-
-            // room's conversation
-            this.eConversation = new Conversation(document.body) ;
-
-
+    // USER ACCOUNT PANEL (Left)
+    class AccountPanel extends Panel {
+        
+        constructor(side, icon) {
+            super(side, icon);
+            this.setText('{{user.name if user.is_authenticated else "Account"}}');
+            this.e.classList.add('account-panel');
+            this.setContentFromTemplate('t-account-panel-content');
+            this.initializeComponents();
         }
+        
+        initializeComponents() {
+            // Cookie Switch Setup
+            const cookies = new Cookies();
+            const cookieSwitch = new Switch(this.select('.cookie-switch-container'));
+            
+            cookies.get("ok_cookie") == "yes" ? 
+                cookieSwitch.checked = true : 
+                cookieSwitch.checked = false;
+            
+            cookieSwitch.onCallback = (_ => cookies.set("ok_cookie", "yes"));
+            cookieSwitch.onText = "I Accept Cookies";
+            cookieSwitch.offCallback = (_ => cookies.delete("ok_cookie"));
+            cookieSwitch.offText = "I Reject Cookies";
 
-        // (re)initializes the room data, synchronizing it with backend
-        async refresh() {
-
-            const resp = await call('GET', '/api/v1/rooms/{{room.id}}');
-            const data = await resp.json();
-            this.data = data["{{room.id}}"];
-
-        }
-
-        // starts to listen to room events
-        listen() {
-
-            if (this.listens) return ;
-            this.listens = true ;
-
-            // Listens when a new user joins the room
-            listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
-                await this.refresh() ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} joined the room`, "login-circle");
-                this.render() ;
-            })
-
-            // Listens when a new user leaves the room
-            listen( "RoomManager", "user:left", async (throwerId, user_id) => {
-                await this.refresh() ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} left the room`, "logout-circle");
-                this.render() ;
-            })
-
-            // Listens when a room's user turns online
-            listen( "RoomManager", "user:online", (throwerId, user_id) => {
-                this.data.users[user_id].relation.status = "online" ;
-                this.eUsers[user_id].status  = "online";
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is online`, "login-circle");                
-            })
-
-            // Listens when a room's user turns offline
-            listen( "RoomManager", "user:offline", (throwerId, user_id) => {
-                this.data.users[user_id].relation.status = "offline" ;
-                this.eUsers[user_id].status  = "offline" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is offline`, "logout-circle");  
-            })
-
-            // Listens when a user becomes player
-            listen( "RoomManager", "user:player", (throwerId, user_id) => {
-                this.data.users[user_id].role = "player" ;
-                this.eUsers[user_id].role    = "player" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room player`, "chess-line");  
-            })
-
-            // Listens when a user becomes watcher
-            listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
-                this.data.users[user_id].role = "watcher" ;
-                this.eUsers[user_id].role    = "watcher" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room spectator`, "glasses-fill");  
-            })
-
-            // Listens when a user becomes master
-            listen( "RoomManager", "user:master", (throwerId, user_id) => {
-                this.data.users[user_id].role = "master" ;
-                this.eUsers[user_id].role    = "master" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room master`, "crown-line");  
-            })
-
-            // Listens for a new round 
-            listen( "RoomManager", "round:new", async (throwerId, user_id) => {
-                
-                values(this.eCards).forEach(cardObj => cardObj.remove());
-                this.eConversation.flush();
-
-                await this.refresh() ;
-                new Toast("info", "New round started", "swap-box-line");
-                this.render() ;
-
-            })
-
-            // Listens for a card peeked event
-            listen( "RoomManager", "cards:*:peeked:*", (throwerId, update, eventName) => {
-
-                const [_1, card_id, _3, user_id] = eventName.split(':');
-
-                let card = this.data.cards[card_id]
-                card.peeked[user_id] = update ;
-
-                // if the card peeked is self's
-                if (user_id === "{{user.id}}") {
-                    this.eCards[card_id].peekedL = update;
-                } 
-                // if the card peeked is other user's
-                else {
-                    switch (update) {
-                        case "True":
-                            this.eCards[card_id].peekedU = "True";
-                            break;
-                       case "False":
-                            const others = fromEntries( entries(card.peeked).filter(([key, _]) => key !== "{{user.id}}" ));
-                            values(others).every( val => val === "False" ) ?
-                                this.eCards[card_id].peekedU = "False" :
-                                this.eCards[card_id].peekedU = "True" ;
-                            break;
+            {% if user.is_authenticated %}
+            // Logout button for authenticated users
+            const logoutButton = new Button();
+            this.select('.logout-container').append(logoutButton.e);
+            logoutButton.name = "log out";
+            logoutButton.icon = "logout-circle";
+            logoutButton.color = "red";
+            
+            logoutButton.callback = (async _ => {
+                try {
+                    const resp = await call('POST', '/api/auth/logout', { user_id: "{{user.id}}" });
+                    const data = await resp.json();
+                    
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Logout failed');
                     }
+                } catch (error) {
+                    console.error('Logout failed:', error);
                 }
- 
-            })
-
-            // Listens for a card flipped event
-            listen( "RoomManager", "cards:*:flipped", (throwerId, update, eventName) => {
-
-                const [_1, card_id, _3] = eventName.split(':');
-
-                let card = this.data.cards[card_id] ;
-                card.flipped = update ;
-
-                this.eCards[card_id].flipped = update;
-
-            })
-
-            // Listens when a new user leaves the room
-            listen( "RoomManager", "message:new", (throwerId, message) => {
-                
-                console.log(message);
-                console.log(`Received message ${message.author} : ${message.content}`);
-
-                this.eConversation.addMessage(message.author, message.content);
-
-            })
-
-
-            // Track user {{user.id}} cursor and update other users
-
-            const sendCursorPos = throttle( async (pageX, pageY) => {
+            });
+            {% else %}
+            // Login components for unauthenticated users
+            const codeInput = new TextInput();
+            this.select('.login-container').append(codeInput.e);
             
-                const table = document.getElementById("table");
-                const rect = table.getBoundingClientRect();
-
-                const rawX = (pageX - rect.left) / rect.width * 100;
-                const rawY = (pageY - rect.top)  / rect.height * 100;
-                const relX = parseFloat(rawX.toFixed(3));
-                const relY = parseFloat(rawY.toFixed(3));
-
-                if (relX < 0 || relX > 100 || relY < 0 || relY > 100) {
-                    if (this.isCursorOutside) { return }
-                    else { this.isCursorOutside = true }
-                }
-                else { this.isCursorOutside = false }
-                
-                await this.websocket.send(`cursor:move`,`${relX}:${relY}`);
-
-            }, 100);
-
-            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
+            codeInput.title = "password";
+            codeInput.password = true;
+            codeInput.autocomplete = "current-password";
             
-            // Listen for remote cursor moves
-            listen("RoomManager", `user:*:cursor:move`, (throwerId, data, eventName) => {
-
-                const [_1, user_id, _3, _4] = eventName.split(':');
-                const position  = data.split(':');
-                console.debug(`Received cursor move for user ${user_id} at ${position}`);
-
-                if (user_id === "{{user.id}}") return; // skip self
-                this.eUsers[user_id].position = position;
-
+            const loginButton = new Button();
+            codeInput.e.after(loginButton.e);
+            loginButton.name = "log in";
+            loginButton.icon = "login-circle";
+            loginButton.color = "green";
+            
+            loginButton.callback = (async _ => {
+                const resp = await call('POST', '/api/auth/login', { code_id: codeInput.value });
+                const data = await resp.json();
+                // Handle login response
             });
-
+            {% endif %}
         }
+    }
+    const accountPanel = new AccountPanel('left', 'account-circle-line');
 
-        // Renders the room
-        render() {
-
-            console.log(this.data)
-
-            // RENDER USERS ----
-
-            // remove users who are not in the room anymore            
-            entries(this.eUsers).forEach( ([id, eUser]) => {
-                if (!keys(this.data.users).some(user_id => user_id == id)) {
-                    this.eUsers[id].remove() ;
-                    delete this.eUsers[id] ;
-                }
-            })
-
-            console.log(this.data.users)
-            entries(this.data.users).forEach( ([user_id, user]) => {
-
-                // ADDS USER IF DOES NOT EXIST
-                if (!this.eUsers[user_id]) { this.createUser(user_id) }
-
-                // RENDERS USER
-                this.eUsers[user_id].name    = user.name ;
-                this.eUsers[user_id].status  = user.relation.status ;
-                this.eUsers[user_id].role    = user.relation.role ;
-
-            });
-
-
-            // RENDER CARDS ----
-
-            console.log(this.data.users)
-            entries(this.data.cards).forEach( ([card_id, card]) => {
-
-                // ADDS CARD IF DOES NOT EXIST
-
-                if ( !this.eCards[card_id] ) { this.createCard(card_id) ; }
-
-                // RENDERS CARD
-
-                this.eCards[card_id].value  = card.value ;
-                this.eCards[card_id].owner  = this.data.users[card.player_id].name ;
-
-                // lower-peeked property - for self
-                card.peeked["{{user.id}}"] === "True" ?
-                    this.eCards[card_id].peekedL = "True" :
-                    this.eCards[card_id].peekedL = "False"
-
-                // upper-peeked property - for other users
-                const others = fromEntries( entries(card.peeked).filter(([key, _]) => key !== "{{user.id}}" ));
-                values(others).every( val => val === "False" ) ?
-                    this.eCards[card_id].peekedU = "False" :
-                    this.eCards[card_id].peekedU = "True" ;
-
-                // flpped property
-                this.eCards[card_id].flipped    = card.flipped ;
-
-                // assigns card to user
-                this.eUsers[card.player_id].assignCard(this.eCards[card_id]);
-
-            });
-
-            // RENDER MESSAGES ----
-
-            console.log('RENDER MESSAGES')
-            console.log(this.data.messages)
-            entries(this.data.messages).forEach( ([message_id, message]) => {
-
-                console.log('render message')
-                message = JSON.parse(message);
-                this.eConversation.addMessage(message.author, message.content);
-
-            });
-
-
+    // ROOM PANEL (Right)  
+    class RoomPanel extends Panel {
+        
+        constructor(side, icon) {
+            super(side, icon);
+            this.setText('{{room.name}}');
+            this.e.classList.add('room-panel');
+            this.setContentFromTemplate('t-room-panel-content');
+            this.initializeComponents();
         }
-
-
-        // Creates a user object given a user_id 
-        createUser(user_id) {
-
-            if (this.eUsers[user_id]) {
-                console.error(`User with id ${user_id} already exists`);
-                return ;
-            }
-            console.log(`Create user with id ${user_id}`) ;
-
-            this.eUsers[user_id] = {
-
-                // representation of user's deck
-                eUserDeck: new Deck(),
-
-                // representation of the user in thr footer
-                eUserFooter: new UserFooter(),
-                eRoomFooterEntry: this.eRoomFooterEntry,
-                eRemoteCursor: new RemoteCursor(this.eTable.e, name),
-
-                remove() {
-                    this.eUserFooter.remove();
-                },
-
-                set name(name) {
-                    this.eUserFooter.name = name ;
-                    this.eRemoteCursor.name = name ;
-                },
-                set status(status) {
-                    this.eUserFooter.status = status ;
-                },
-                set role(role) {
-                    this.eUserFooter.role = role ;
-
-                    role === "player" ?
-                        this.eUserDeck.active(true) :
-                        this.eUserDeck.active(false) ;
-
-                },
-
-                set position(position) {
-                    this.eRemoteCursor.position = position ;
-                },
-
-                assignCard(card) {                    
-                    this.eUserDeck.card = card.eCard.e ;
-                }
-
-
-            } ;
-
+        
+        initializeComponents() {
+            // QR Code Setup for room sharing
+            const qrCode = new QRCode(this.select('.qr-container'));
+            qrCode.updateLink("https://{{host}}/r/{{room.id}}");
         }
-
-        // creates a card object
-        createCard(card_id) {
-
-            if (this.eCards[card_id]) {
-                console.error(`Card with id ${card_id} already exists`) ;
-                return ;
-            }
-
-            console.log(`Create card with id ${card_id}`) ;
-            this.eCards[card_id] = {
-
-                // representation of the card
-                eCard: new Card(card_id),
-
-                remove() {
-                    this.eCard.remove();
-                },
-
-                set value(value) { 
-                    this.eCard.value    = value                     
-                },
-                set owner(owner) { 
-                    this.eCard.owner    = owner ; 
-                },                
-                set peekedU(isPeeked) {
-                    isPeeked  == "True" ? isPeeked = true  : isPeeked = false ;
-                    this.eCard.peekedU   = isPeeked ; 
-                },
-                set peekedL(isPeeked) {
-                    isPeeked  == "True" ? isPeeked = true  : isPeeked = false ;
-                    this.eCard.peekedL   = isPeeked ; 
-                },
-                set flipped(isFlipped) {
-                    isFlipped == "True" ? isFlipped = true : isFlipped = false ;
-                    this.eCard.flipped  = isFlipped ;
-                }
-
-            } ;
-
-        }
-
-    };
+    }
+    const roomPanel = new RoomPanel('right', 'group-2-line');
 
 
-    window.ROOM = new RoomManager() // Room Manager
+    // Create Room (business logic) and RoomView (UI)
+    const room = new Room("{{room.id}}", "{{user.id}}");
+    const roomView = new RoomView(room);
 
-    const SELF = new SelfFooterEntry()
 
     document.addEventListener('DOMContentLoaded', async _ => {
-
-        await call('POST', '/api/v1/rooms/{{room.id}}/join');
-
-        const resp = await call('GET', '/api/auth/me');
-        const data = await resp.json();
-        SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
-
-        await window.ROOM.refresh() ;
-        window.ROOM.render();
-
-        window.ROOM.listen();
-
+        await room.join();
+        await room.refresh();
+        roomView.render();
+        room.connect();
+        
+        // Initialize UI state
+        roomView.onFirstLoad();
+        
+        // Update chat margin after render
+        setTimeout(() => roomView.updateChatMargin(), 100);
+        
+        // Update on window resize
+        window.addEventListener('resize', () => roomView.updateChatMargin());
     });
 
     </script>

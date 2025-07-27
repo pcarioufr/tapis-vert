@@ -11,9 +11,3 @@ log = utils.get_logger(__name__)
 def list():
     
     return render_template("admin/list.jinja")
-
-
-@admin_web.route("/redis", methods=['GET'])
-def search():
-    
-    return render_template("admin/redis.jinja")

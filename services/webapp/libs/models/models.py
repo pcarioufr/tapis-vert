@@ -6,6 +6,8 @@ import nanoid
 from ddtrace import tracer
 
 from utils import get_logger
+from topics import topic as get_topic
+
 log = get_logger(__name__)
 
 # ID generators for models
@@ -106,6 +108,7 @@ class UserCodes(RelationMixin):
 
 class Room(ObjectMixin):
     '''
+    Room model with messages as nested dict.
     '''
 
     FIELDS = {"name", "round", "cards", "messages"}
@@ -115,13 +118,13 @@ class Room(ObjectMixin):
         "users": "models.UsersRooms"
     }
 
-
     @tracer.wrap("Room.new_round")
     def new_round(self):
-
         users = self.users().all()
 
-        round = new_id()
+        round_id = new_id()
+        round_topic = get_topic()
+        round = {"id": round_id, "topic": round_topic}
         self.round = round
 
         cards = {}
@@ -146,12 +149,14 @@ class Room(ObjectMixin):
                     "flipped": "True", 
                     "player_id": player.id, 
                     "peeked": {u_id: "False" for u_id in users.keys()},
-                    "value": values[i] 
+                    "value": values[i],
+                    "scored": None
                 }
 
             i = i+1
 
-        self.messages = None
+        # Clear old messages when starting new round
+        self.messages = {}
         self.cards = cards
         self.save()
 

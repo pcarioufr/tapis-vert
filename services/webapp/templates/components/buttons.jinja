@@ -139,3 +139,61 @@
 
     }
     </script>
+
+    <template id="t-floating-button">
+        <div class="floating-button" noselect>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d=""/>
+            </svg>
+        </div>
+    </template>
+
+    <script>
+
+    class FloatingButton extends Element {
+
+        constructor(icon, eParent = null) {
+            super(build("t-floating-button"), eParent);
+            
+            this.svg = this.select("svg path");
+            this._callback = noop;
+            
+            // Set the icon
+            if (icon) {
+                this.setIcon(icon);
+            }
+            
+            this.onclick = (_ => this._callback());
+        }
+
+        setIcon(icon) {
+            const iconPath = document.getElementById(icon);
+            if (iconPath) {
+                this.svg.setAttribute('d', iconPath.getAttribute('d'));
+            } else {
+                console.error(`Icon '${icon}' not found in SVG collection`);
+            }
+        }
+
+        set callback(callback) {
+            if (typeof callback === 'function') {
+                this._callback = callback;
+            } else {
+                throw new Error("callback must be a function");
+            }
+        }
+
+        // Method to add custom classes (like 'selected' for role buttons)
+        addClass(className) {
+            this.e.classList.add(className);
+        }
+
+        removeClass(className) {
+            this.e.classList.remove(className);
+        }
+
+        toggleClass(className) {
+            this.e.classList.toggle(className);
+        }
+    }
+    </script>

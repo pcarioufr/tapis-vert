@@ -3,7 +3,7 @@ from ...public import public_api  # Import the Blueprint from __init__.py
 import io, qrcode
 import flask, flask_login
 
-from models import Room, User, Code
+from models import Room, User, Code, new_id
 from auth import code_auth  # Import from auth library
 
 import utils, json
@@ -21,6 +21,7 @@ def room_get(room_id=None):
     if room is None:
         return flask.jsonify(), 404
 
+    # ORM automatically unflattens messages from Redis
     return flask.jsonify(room.to_dict(True)), 200
 
 
@@ -40,6 +41,7 @@ def round_new(room_id=None):
 
     utils.publish(room_id, "round:new", round)
 
+    # ORM automatically unflattens all fields including messages (empty after new_round)
     return flask.jsonify(room=room.to_dict()), 200
 
 
@@ -64,37 +66,158 @@ def room_join(room_id=None):
         room.users().add(user_id, role="watcher")
         utils.publish(room_id, "user:joined", user_id)
 
+    # ORM automatically unflattens all fields including messages
     return flask.jsonify(room=room.to_dict()), 200
 
 
 @public_api.route("/v1/rooms/<room_id>/message", methods=['POST'])
 @flask_login.login_required
 def room_message(room_id=None):
-    '''Message a room'''
-
-    if room_id is None:
-        return flask.jsonify(), 400
-
     room = Room.get_by_id(room_id)
     if room is None:
-        return flask.jsonify(), 404
+        return flask.jsonify({"error": "room does not exist"}), 404
 
-    user_id = flask_login.current_user.id
-
-    if not room.users().exists(user_id):
-        return flask.jsonify(), 401
-    
+    timestamp = utils.now(False)
     content = flask.request.json.get("content")
-    if content is None:
-        return flask.jsonify(), 400
+    user_id = flask_login.current_user.id
+    
+    # Generate unique message ID
+    message_id = new_id(8)
 
-    message = json.dumps( { "content": content, "author": user_id } )
+    # Add message using atomic patch operations
+    # ORM will flatten: messages:{msg_id}:content, messages:{msg_id}:timestamp, etc.
+    Room.patch(room_id, f"messages:{message_id}:id", message_id, add=True)
+    Room.patch(room_id, f"messages:{message_id}:timestamp", str(timestamp), add=True)
+    Room.patch(room_id, f"messages:{message_id}:content", content, add=True)
+    Room.patch(room_id, f"messages:{message_id}:author", user_id, add=True)
+    
+    # Build message object for WebSocket broadcast
+    message_obj = {
+        "id": message_id,
+        "timestamp": timestamp, 
+        "content": content, 
+        "author": user_id,
+        "reactions": {}
+    }
 
-    room.patch(room_id, f"messages:{utils.now(True)}", message, True)
-
-    utils.publish(room_id, f"message:new", message)
+    # Publish message for WebSocket
+    message_json = json.dumps(message_obj)
+    utils.publish(room_id, f"message:new", message_json)
 
     return flask.jsonify(), 200
+
+
+@public_api.route("/v1/rooms/<room_id>/messages/<message_id>/react", methods=['PATCH'])
+@flask_login.login_required
+def message_react(room_id=None, message_id=None):
+    """Add or remove a reaction to a message"""
+    
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify({"error": "room does not exist"}), 404
+    
+    user_id = flask_login.current_user.id
+    
+    # Check user is member of room
+    if not room.users().exists(user_id):
+        return flask.jsonify({"error": "user not in room"}), 403
+    
+    # Get request data
+    emoji = flask.request.json.get("emoji")
+    action = flask.request.json.get("action")
+    
+    # Log emoji details for debugging
+    log.debug(f"Received emoji: {repr(emoji)}, len: {len(emoji) if emoji else 'None'}, bytes: {emoji.encode('utf-8') if emoji else 'None'}")
+    
+    # Validate emoji exists and is reasonable length
+    # Allow up to 10 characters to support compound emojis (e.g., ❤️ with variation selector)
+    if not emoji or len(emoji) > 10:
+        log.warning(f"Invalid emoji validation: emoji={repr(emoji)}, len={len(emoji) if emoji else 'None'}")
+        return flask.jsonify({"error": "emoji must be a single emoji character"}), 400
+    
+    # Validate action
+    if action not in ["add", "remove"]:
+        return flask.jsonify({"error": "action must be 'add' or 'remove'"}), 400
+    
+    # Verify message exists in messages dict
+    if not room.messages or message_id not in room.messages:
+        return flask.jsonify({"error": "message not found"}), 404
+    
+    # Add or remove reaction using atomic patch operation
+    # ORM flattens: messages:{msg_id}:reactions:{emoji}:{user_id} = "True"
+    reaction_key = f"messages:{message_id}:reactions:{emoji}:{user_id}"
+    
+    if action == "add":
+        Room.patch(room_id, reaction_key, "True", add=True)
+    elif action == "remove":
+        Room.delete_field(room_id, reaction_key)
+    
+    # Publish WebSocket event for real-time updates
+    reaction_event = {
+        "message_id": message_id,
+        "emoji": emoji,
+        "action": action,
+        "user_id": user_id
+    }
+    utils.publish(room_id, "message:reaction", json.dumps(reaction_event))
+    
+    log.info(f"Reaction {action}: user={user_id}, emoji={repr(emoji)}, message={message_id}, room={room_id}")
+    return flask.jsonify({"success": True}), 200
+
+
+@public_api.route("/v1/rooms/<room_id>/cards/<card_id>/score", methods=['PATCH'])
+@flask_login.login_required
+def card_score(room_id=None, card_id=None):
+    """Set score for a card (masters only)"""
+    
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify({"error": "room does not exist"}), 404
+    
+    user_id = flask_login.current_user.id
+    
+    # Check user is member of room and get their relation
+    users = room.users().all()
+    if user_id not in users:
+        return flask.jsonify({"error": "user not in room"}), 403
+    
+    relation = users[user_id]
+    
+    # Check user is master
+    if relation.role != "master":
+        return flask.jsonify({"error": "only masters can score cards"}), 403
+    
+    # Get score from request
+    scored = flask.request.json.get("scored")
+    
+    # Validate scored value (1-10 or None to clear)
+    if scored is not None:
+        if not isinstance(scored, int) or scored < 1 or scored > 10:
+            return flask.jsonify({"error": "scored must be an integer between 1 and 10, or null"}), 400
+    
+    # Verify card exists
+    if not room.cards or card_id not in room.cards:
+        return flask.jsonify({"error": "card not found"}), 404
+    
+    # Update card score using atomic patch operation
+    score_key = f"cards:{card_id}:scored"
+    
+    if scored is None:
+        # Delete the score (set back to null)
+        try:
+            Room.delete_field(room_id, score_key)
+        except:
+            pass  # Field might not exist yet, that's ok
+    else:
+        # Set score (create or update)
+        # Use add=True to allow both creating new fields and updating existing ones
+        Room.patch(room_id, score_key, scored, add=True)
+    
+    # Publish WebSocket event for real-time updates
+    utils.publish(room_id, f"cards:{card_id}:scored", str(scored) if scored is not None else "None")
+    
+    log.info(f"Card scored: card={card_id}, scored={scored}, user={user_id}, room={room_id}")
+    return flask.jsonify({"success": True}), 200
 
 
 @public_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
@@ -175,6 +298,7 @@ def room_user(room_id=None, user_id=None):
         room, rel = user.rooms().get_by_id(room_id)
         utils.publish(room_id, f"user:{rel.role}", user_id )
 
+    # ORM automatically unflattens all fields including messages
     return flask.jsonify(room=room.to_dict()), 200
 
 @public_api.route('/v1/qrcode', methods=['GET'])

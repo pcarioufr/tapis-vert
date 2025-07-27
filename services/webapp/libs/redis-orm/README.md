@@ -450,29 +450,19 @@ relation:{relation_name}:{left_id}:{right_id}  # UserPosts relation
 
 ## Known Issues & Future Development
 
-### Known Issues & Test Findings
+### Known Issues
 
-Based on comprehensive testing, the following issues were identified:
-
-#### 1. Relationship Query Performance Issue ⚠️
-**Problem**: `lefts()` and `rights()` methods use O(N) SCAN operations
-**Test**: `test_lefts_and_rights_queries` - FAILING
-**Impact**: Gets slower as Redis keyspace grows
-**Status**: Documented for future optimization
+#### 1. Relationship Query Performance ⚠️
+**Problem**: `lefts()` and `rights()` methods use O(N) SCAN operations  
+**Impact**: Gets slower as Redis keyspace grows  
+**Status**: Performance optimization planned
 
 #### 2. Cross-Connection Type Consistency ⚠️
-**Problem**: Objects may not maintain exact type consistency across different Redis connections
-**Test**: `test_object_persistence_across_connections` - FAILING  
-**Impact**: Potential issues in multi-process deployments
+**Problem**: Objects may not maintain exact type consistency across different Redis connections  
+**Impact**: Potential issues in multi-process deployments  
 **Status**: Under investigation
 
-#### 3. Example Model Inconsistencies
-**Tests**: Multiple example-related tests failing
-**Reason**: Example models don't match current ORM patterns exactly
-**Impact**: Documentation examples only
-**Status**: Test artifacts, not production issues
-
-### Future Work & TODOs
+### Future Improvements
 
 #### Redis-Native Relationships
 
@@ -512,15 +502,11 @@ class SetBasedRelationMixin:
 - Implement Redis Lua scripts for atomic complex operations
 - Add support for sorted relationships (using Redis Sorted Sets)
 
+
 #### Performance Optimizations
 - Lazy loading for relationship traversal
 - Configurable batch sizes for SCAN operations
 - Optional caching layer for frequently accessed objects
-
-#### Documentation Improvements
-- **Version Number Tracking**: Ensure version bumping process updates all references throughout documentation
-- **Relationship Type Naming**: Clarify perspective (always from left class perspective) and be consistent about one_to_many vs many_to_one terminology
-- **Code Example Completeness**: Make examples completely self-contained or explicitly reference prerequisite sections
 
 ## Contributing
 

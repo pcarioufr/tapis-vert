@@ -1,0 +1,206 @@
+/* SIDE PANELS ------ ------ ------ ------ */
+
+/* Panel Handle Styles */
+.panel-handle {
+    position: absolute;
+    top: 1vw;
+    background: var(--dbrown);
+    border: 2px solid var(--beige);
+    border-radius: 0.5vw;
+    padding: 0.5vw;
+    cursor: pointer;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.panel-handle:hover .handle-icon {
+    transform: scale(1.1);
+}
+
+/* Left Panel Handle Flavor */
+.panel[data-side="left"] .panel-handle {
+    left: calc(100% - 1px);
+    border-radius: 0 0.5vw 0.5vw 0;
+    border-left: 0;
+}
+
+/* Right Panel Handle Flavor */
+.panel[data-side="right"] .panel-handle {
+    right: calc(100% - 1px);
+    border-radius: 0.5vw 0 0 0.5vw;
+    border-right: 0;
+}
+
+.panel-handle {
+    display: flex;
+    align-items: center;
+    width: auto;
+}
+
+.panel-handle .handle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3vw;
+    height: 3vw;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+
+.panel-handle .handle-icon svg {
+    width: 2vw;
+    height: 2vw;
+    fill: var(--beige);
+}
+
+/* Panel Styles */
+.panel {
+    position: fixed;
+    top: 0;
+    width: 80%;
+    max-width: 60vw;
+    height: auto;
+    background: var(--dbrown);
+    border-left: 2px solid var(--beige);
+    border-right: 2px solid var(--beige);
+    border-bottom: 2px solid var(--beige);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 200;
+    transition: transform 0.3s ease;
+    overflow: visible;  /* Allow handle to extend beyond panel bounds */
+}
+
+.panel[data-side="left"] {
+    left: 0;
+    transform: translateX(-100%);
+    border-left: none;
+    border-radius: 0 0 1vw 0;
+}
+
+.panel[data-side="right"] {
+    right: 0;
+    transform: translateX(100%);
+    border-right: none;
+    border-radius: 0 0 0 1vw;
+}
+
+.panel.open[data-side="left"] {
+    transform: translateX(0);
+}
+
+.panel.open[data-side="right"] {
+    transform: translateX(0);
+}
+
+/* Panel Content */
+.panel-content {
+    padding: 2vw;
+    color: var(--beige);
+    font-size: 1.5vw;
+    line-height: 1.6;
+}
+
+.panel-content h1, 
+.panel-content h2, 
+.panel-content h3 {
+    color: var(--beige);
+    margin-bottom: 1vw;
+}
+
+.panel-content p {
+    margin-bottom: 1vw;
+}
+
+/* Panel Content Styling */
+.panel-title {
+    font-size: 2vw;
+    font-weight: bold;
+    color: var(--beige);
+    display: block;
+    margin-bottom: 1.5vw;
+    border-bottom: 1px solid var(--beige);
+    padding-bottom: 0.5vw;
+}
+
+/* Panel content layout */
+.account-panel .panel-content,
+.room-panel .panel-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5vw;
+}
+
+/* Panel content styling */
+.account-panel .panel-content h3,
+.room-panel .panel-content h3 {
+    font-size: 1.5vw;
+    color: var(--beige);
+    margin-bottom: 0.5vw;
+}
+
+.account-panel .account-authenticated p {
+    color: var(--beige);
+    font-size: 1.2vw;
+    margin-bottom: 1vw;
+}
+
+.user-group {
+    margin-bottom: 1vw;
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5vw;
+    padding: 0.5vw;
+}
+
+.group-header span {
+    color: var(--beige);
+    font-size: 1.3vw;
+    font-weight: bold;
+}
+
+.user-list {
+    padding-left: 2vw;
+}
+
+.panel-user {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--beige);
+    margin-bottom: 0.5vw;
+    padding: 0.5vw 1vw;
+    border-radius: 0.3vw;
+    min-height: 2vw;
+}
+
+.panel-user .user-name {
+    color: var(--dblue);
+    font-size: 1.2vw;
+    font-weight: bold;
+}
+
+.panel-user .user-status {
+    width: 0.8vw;
+    height: 0.8vw;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+}
+
+.panel-user .user-status[online] {
+    background: var(--green);
+}
+
+/* Specialized Panel Widths */
+.account-panel {
+    width: 20% !important;
+    max-width: 20vw !important;
+}
+
+.room-panel {
+    width: 25% !important;
+    max-width: 25vw !important;
+} 

@@ -73,7 +73,7 @@
         100% calc(100% - var(--card-c)), 
         100% 0%    
     );
-    font-size: 12vw;
+    font-size: var(--card-ff);
     color: var(--dblue);
 
 }
@@ -89,7 +89,7 @@
     backface-visibility: hidden;
 
     background: var(--bblue) ; /* This is overriden by [peeked] section */
-    font-size: 3vw;
+    font-size: var(--card-fb);
     color: var(--beige);
 
     border-color: var(--beige);
@@ -305,4 +305,62 @@
 [peeked-lower].card .face.back {
     --lower-grad-start: 30%;
     --lower-grad-end: 60%;
+}
+
+/* Score Badge (bottom-left of deck) */
+.deck .score-badge {
+    position: absolute;
+    bottom: 0.5vw;
+    left: 0.5vw;
+    font-size: 2.5vw;
+    line-height: 1;
+    z-index: 10;
+    pointer-events: none;
+    display: none;
+}
+
+
+/* Score Selector (pop-up emoji picker for masters) */
+.score-selector {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 0.5vw;
+    background: var(--beige);
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 0.8vw;
+    padding: 0.8vw;
+    display: none;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5vw;
+    z-index: 1000;
+    box-shadow: 0 0.4vw 1.2vw rgba(0, 0, 0, 0.3);
+}
+
+.score-selector .score-option {
+    width: 3vw;
+    height: 3vw;
+    border: none;
+    background: transparent;
+    font-size: 2vw;
+    cursor: pointer;
+    border-radius: 0.4vw;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.score-selector .score-option:hover {
+    background: var(--dbrown);
+    transform: scale(1.1);
+}
+
+.score-selector .score-option.cancel {
+    background: var(--red);
+}
+
+.score-selector .score-option.cancel:hover {
+    filter: brightness(0.9);
 }

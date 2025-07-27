@@ -1,57 +1,262 @@
+/* CHAT CONTAINER - Simplified Layout */
 
-
-.conversation {
-
-    position: relative;
-
-    display: flex;
-    flex-direction: column ;
-    align-items: flex-start;
-
-    width: 80%;
-    margin: auto;
+.chat-container {
+    position: absolute;
+    width: 80vw;
+    margin: 0 auto;
 }
 
-.conversation .messages {
+/* MESSAGES AREA - Clean scrolling layout */
 
+.messages {
     position: relative;
-
     display: flex;
-    flex-direction: column ;
-    align-items: flex-start;
-
+    flex-direction: column;
     gap: 1vw;
-    margin-right: auto;
-
+    margin-bottom: 8vw; /* Space for fixed floating input */
+    padding: 5vw;
 }
 
-.conversation .messages .message {
+/* Fixed Floating Message Input */
+.floating-message-input {
+    position: fixed;
+    bottom: 2vw;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(80vw, 50vw);
+    background: var(--beige);
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 3vw;
+    padding: 0.8vw;
+    box-shadow: 0 0.4vw 1.2vw rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 1vw;
+}
 
+.floating-message-input .message-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 2vw;
+    padding: 1vw 1.5vw;
+    font-size: 1.2vw;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    min-height: 1.2em;
+    max-height: 6em;
+    overflow-y: auto;
+    color: var(--dbrown);
+}
+
+.floating-message-input .message-input::placeholder {
+    color: var(--dbrown);
+    opacity: 0.6;
+}
+
+.floating-message-input.focused {
+    border-color: var(--green);
+    box-shadow: 0 0 0 0.1vw var(--green);
+}
+
+.floating-message-input .send-button {
+    width: 3vw;
+    height: 3vw;
+    min-width: 3vw;
+    min-height: 3vw;
+    background: var(--green);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    box-shadow: 0 0.2vw 0.4vw rgba(0, 0, 0, 0.2);
+}
+
+.floating-message-input .send-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0.3vw 0.6vw rgba(0, 0, 0, 0.3);
+}
+
+.floating-message-input .send-button:active {
+    transform: scale(0.95);
+}
+
+.floating-message-input .send-button svg {
+    width: 1.2vw;
+    height: 1.2vw;
+    min-width: 1.2vw;
+    min-height: 1.2vw;
+    fill: var(--black);
+}
+
+/* Message Styling */
+.message {
     position: relative;
     display: flex;
-
-    padding: 0.5vw;
-    gap: 2vw;
-
+    flex-direction: column;
+    gap: 1vw;
+    margin-bottom: 0.5vw;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
 }
 
-.conversation .messages .message .author {
-
-    position: relative;
-
+.message:hover {
+    opacity: 0.85;
 }
 
-.conversation .messages .message .content {
+/* First message top margin to clear the table (dynamically calculated by JS) */
+.messages .message:first-child {
+    margin-top: var(--table-height, 25vw); /* Fallback to 25vw if JS hasn't run yet */
+}
 
-    position: relative;
+/* Own Message (Right Aligned) */
+.message.own-message {
+    flex-direction: row-reverse;
+}
 
+.message.own-message .message-bubble {
+    color: white;
+    border-radius: 1vw 1vw 0.2vw 1vw;
+    max-width: none; /* Remove width constraint */
 }
 
 
-.conversation .new {
+/* Other Message (Left Aligned) */
+.message.other-message {
+    flex-direction: row;
+}
 
-    position: relative;
+.message.other-message .message-bubble {
+    color: var(--dbrown);
+    border-radius: 1vw 1vw 1vw 0.2vw;
+    max-width: none; /* Remove width constraint */
+}
 
-    margin: auto;
 
+
+/* Message Bubble Content */
+.message-bubble {
+    padding: 0.8vw 1.2vw;
+    box-shadow: 0 0.1vw 0.3vw rgba(0, 0, 0, 0.1);
+    background: var(--bblue)
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.3vw;
+}
+
+.message-bubble .author {
+    font-size: 0.8em;
+    font-weight: bold;
+    opacity: 0.8;
+    color: var(--green);
+}
+
+.message-bubble .timestamp {
+    font-size: 0.7em;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.message-bubble .content {
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--beige);
+}
+
+/* Reactions Container */
+.reactions-container {
+    display: flex;
+    gap: 0.5vw;
+    margin:auto 0 auto 0;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Reactions alignment for own messages (left side of bubble) */
+.message.own-message .reactions-container {
+    justify-content: flex-start;
+    align-self: flex-start;
+    flex-direction: row-reverse;
+}
+
+/* Reactions alignment for other messages (right side of bubble) */
+.message.other-message .reactions-container {
+    justify-content: flex-end;
+    align-self: flex-end;
+    flex-direction: row;
+}
+
+/* Individual Reaction Bubble */
+.reaction-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25vw;
+    background: var(--beige);
+    border-radius: 1.8vw;
+    padding: 0.25vw 0.65vw;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.15s ease;
+    outline: none;
+}
+
+.reaction-bubble:hover {
+    transform: scale(1.1);
+    border-color: var(--green);
+}
+
+.reaction-bubble:active {
+    transform: scale(0.95);
+}
+
+/* Reaction bubble when current user reacted */
+.reaction-bubble.reacted {
+    background: var(--green);
+}
+
+
+/* Empty reaction bubbles (available emojis) */
+.reaction-bubble.empty {
+    display: none;
+    opacity: 0.5;
+}
+
+.message.reactions-open .reaction-bubble.empty {
+    display: inline-flex;
+}
+
+.reaction-bubble.empty:hover {
+    opacity: 1;
+}
+
+/* Reaction Emoji */
+.reaction-emoji {
+    font-size: 0.96em;
+    line-height: 1;
+}
+
+/* Reaction Count */
+.reaction-count {
+    font-size: 0.75em;
+    color: var(--dgreen);
+    font-weight: 600;
+    min-width: 1ch;
+}
+
+/* iOS-specific fix to prevent auto-zoom on input focus */
+@media (max-width: 800px) {
+    .floating-message-input .message-input {
+        font-size: 16px; /* 16px prevents zoom on iOS */
+    }
 }

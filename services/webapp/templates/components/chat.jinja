@@ -2,70 +2,178 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/chat.css') }}">
     
-    <template id="t-conversation">
-        <div class="conversation">
+    <template id="t-chat-container">
+        <div class="chat-container">
+            <!-- Messages area -->
             <div class="messages">
-                <!-- messages go here-->
+                <!-- messages go here -->
             </div>
-            <div class="new"></div>
+            <!-- Floating message input (positioned separately) -->
+            <div class="floating-message-input">
+                <!-- message input will go here -->
+            </div>
         </div>
     </template>
 
     <script>
     
-    class Conversation extends Element {
+    class ChatContainer extends Element {
 
         constructor(eParent=null) {
-
-            super(build("t-conversation"), eParent);
-
-            // Conversations messages
+            super(build("t-chat-container"), eParent);
+            
+            // Store reference for child components
+            this.e._elementInstance = this;
+            
+            // Initialize chat functionality
             this.eMessages = [];
-
-
-            // New message
-            this.input = new ExtendedTextInput();
-            this.input.title = "message";
-
-            let send = new Button()
-            send.name = "send"
-            send.icon = "send-plane-2-line"
-            send.color = "green"
-
-            send.callback = () => {
-                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
-            }
-
-            this.input.button = send;
-
-            this.select(".new").append(this.input.e)
-
+            this.currentUserId = "{{user.id if user.is_authenticated else ''}}";
+            this.initializeChat();
+            this.startTimestampRefresh();
         }
 
-        addMessage(author, message) {
+        // Direct message handling
+        addMessage(authorId, authorName, message, timestamp, messageId = null, reactions = {}) {
+            console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
 
-            console.log(`Adding message ${author} : ${message}`)
-
-            const msg = new Message(this.select(".messages"));
+            const isOwnMessage = (authorId === this.currentUserId);
+            const msg = new Message(this.select(".messages"), isOwnMessage, messageId);
             this.eMessages.push(msg);
-            msg.author  = author;
+            msg.author = authorName;
             msg.message = message;
+            msg.timestamp = timestamp;
+            msg.reactions = reactions;
 
+            // Auto-scroll to bottom
+            const messagesContainer = this.select(".messages");
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Find message by ID
+        findMessage(messageId) {
+            return this.eMessages.find(m => m.messageId === messageId);
+        }
+        
+        // Toggle reaction on a message
+        async toggleReaction(messageId, emoji) {
+            const message = this.findMessage(messageId);
+            if (!message) return;
+            
+            // Determine if adding or removing based on current state
+            // Reactions structure: {emoji: {user_id: "True"}}
+            const reactions = message._reactions || {};
+            const userDict = reactions[emoji] || {};
+            const hasReacted = userDict[this.currentUserId] === "True";
+            const action = hasReacted ? "remove" : "add";
+            
+            try {
+                await call("PATCH", `/api/v1/rooms/{{room.id}}/messages/${messageId}/react`, 
+                          {}, {}, {emoji: emoji, action: action});
+            } catch (e) {
+                console.error("Failed to toggle reaction:", e);
+            }
         }
 
         flush() {
-            this.eMessages.forEach( m => m.remove() );
+            this.eMessages.forEach(m => m.remove());
             this.eMessages = [];
         }
+        
+        initializeChat() {
+            // Create custom floating message input structure
+            const inputContainer = this.select(".floating-message-input");
+            
+            // Create text input
+            this.messageInput = document.createElement('textarea');
+            this.messageInput.className = 'message-input';
+            this.messageInput.placeholder = 'Type a message...';
+            this.messageInput.rows = 1;
+            
+            // Create send button with send-plane-2-line icon
+            this.sendButton = document.createElement('button');
+            this.sendButton.className = 'send-button';
+            this.sendButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3.5 1.34558C3.58425 1.34558 3.66714 1.36687 3.74096 1.40747L22.2034 11.5618C22.4454 11.6949 22.5337 11.9989 22.4006 12.2409C22.3549 12.324 22.2865 12.3924 22.2034 12.4381L3.74096 22.5924C3.499 22.7255 3.19497 22.6372 3.06189 22.3953C3.02129 22.3214 3 22.2386 3 22.1543V1.84558C3 1.56944 3.22386 1.34558 3.5 1.34558ZM5 4.38249V10.9999H10V12.9999H5V19.6174L18.8499 11.9999L5 4.38249Z"/></svg>';
+            
+            // Auto-resize textarea
+            this.messageInput.addEventListener('input', () => {
+                this.messageInput.style.height = 'auto';
+                this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+            });
+            
+            // Focus state management for floating container
+            this.messageInput.addEventListener('focus', () => {
+                inputContainer.classList.add('focused');
+            });
+            
+            this.messageInput.addEventListener('blur', () => {
+                inputContainer.classList.remove('focused');
+            });
+            
+            // Send message on button click
+            this.sendButton.addEventListener('click', () => {
+                this.sendMessage();
+            });
+            
+            // Send message on Enter key (Shift+Enter for new line)
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            // Add elements to container
+            inputContainer.appendChild(this.messageInput);
+            inputContainer.appendChild(this.sendButton);
+        }
+        
+        sendMessage() {
+            const content = this.messageInput.value.trim();
+            if (content) {
+                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: content});
+                this.messageInput.value = ""; // Clear input after sending
+                this.messageInput.style.height = 'auto'; // Reset height
+            }
+        }
 
+        startTimestampRefresh() {
+            // Refresh timestamps every minute (60,000 ms)
+            this.timestampRefreshInterval = setInterval(() => {
+                this.refreshAllTimestamps();
+            }, 60000);
+        }
+
+        refreshAllTimestamps() {
+            // Update the relative time display for all messages
+            this.eMessages.forEach(message => {
+                if (message.timestampValue) {
+                    message.timestamp = message.timestampValue; // This triggers the setter
+                }
+            });
+        }
+
+        destroy() {
+            // Clean up the interval when chat is destroyed
+            if (this.timestampRefreshInterval) {
+                clearInterval(this.timestampRefreshInterval);
+            }
+        }
     }
 
     </script>
 
     <template id="t-message">
         <div class="message">
-            <div class="author"></div>
-            <div class="content" style="white-space: pre-wrap;"></div>
+            <div class="message-bubble">
+                <div class="message-header">
+                    <div class="author"></div>
+                    <div class="timestamp"></div>
+                </div>
+                <div class="content"></div>
+            </div>
+            <div class="reactions-container">
+                <!-- Reaction bubbles go here -->
+            </div>
         </div>
     </template>
 
@@ -73,13 +181,184 @@
 
     class Message extends Element {
 
-        constructor(eParent) {
+        // Available emojis for reactions
+        static AVAILABLE_EMOJIS = ["👍", "👎", "❤️", "😂", "😢", "😬", "🤩"];
+
+
+
+        constructor(eParent, isOwnMessage = false, messageId = null) {
             super(build("t-message"));
+            
+            this.messageId = messageId;
+            this._reactions = {};
+            this.isReactionsOpen = false;
+            
+            // Set alignment class
+            if (isOwnMessage) {
+                this.e.classList.add('own-message');
+            } else {
+                this.e.classList.add('other-message');
+            }
+            
             eParent.append(this.e);
+            
+            // Add click handler to toggle reactions
+            this.e.addEventListener('click', (e) => {
+                // Don't toggle if clicking on a reaction bubble
+                if (e.target.closest('.reaction-bubble')) {
+                    return;
+                }
+                this.toggleReactions();
+                e.stopPropagation();
+            });
+            
+            // Close reactions when mouse leaves message
+            this.e.addEventListener('mouseleave', () => {
+                if (this.isReactionsOpen) {
+                    this.closeReactions();
+                }
+            });
+        }
+        
+        toggleReactions() {
+            this.isReactionsOpen = !this.isReactionsOpen;
+            
+            if (this.isReactionsOpen) {
+                this.e.classList.add('reactions-open');
+            } else {
+                this.closeReactions();
+            }
+        }
+        
+        closeReactions() {
+            this.isReactionsOpen = false;
+            this.e.classList.remove('reactions-open');
         }
 
-        set message(message) { this.select(".content").innerText = message ; }
-        set author(author)   { this.select(".author").innerText = author ; }
+        set message(message) { 
+            this.select(".content").innerText = message;
+        }
+        
+        set author(author) { 
+            this.select(".author").innerText = author;
+        }
+
+        set timestamp(timestamp) {
+            // Store the original timestamp value for refreshing
+            this.timestampValue = timestamp;
+            
+            const relativeTime = this.getRelativeTime(timestamp);
+            this.select(".timestamp").innerText = relativeTime;
+        }
+        
+        set reactions(reactions) {
+            this._reactions = reactions || {};
+            this.renderReactions();
+        }
+
+        getRelativeTime(timestamp) {
+            const now = Date.now();
+            const diffMs = now - timestamp;
+            const diffSeconds = Math.floor(diffMs / 1000);
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            const diffHours = Math.floor(diffMinutes / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffSeconds < 60) {
+                return 'just now';
+            } else if (diffMinutes < 60) {
+                return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+            } else if (diffHours < 24) {
+                return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            } else {
+                return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+            }
+        }
+        
+        renderReactions() {
+            const container = this.select(".reactions-container");
+            if (!container) return;
+            
+            const currentUserId = "{{user.id if user.is_authenticated else ''}}";
+            
+            // Clear all reaction bubbles
+            container.innerHTML = '';
+            
+            // Render filled reaction bubbles (existing reactions)
+            // Reactions structure: {emoji: {user_id: "True"}}
+            for (const [emoji, userDict] of Object.entries(this._reactions)) {
+                if (!userDict || typeof userDict !== 'object') continue;
+                
+                // Count users who have reacted (value === "True")
+                const reactedUsers = Object.entries(userDict)
+                    .filter(([uid, value]) => value === "True")
+                    .map(([uid, value]) => uid);
+                
+                if (reactedUsers.length === 0) continue;
+                
+                const hasCurrentUserReacted = reactedUsers.includes(currentUserId);
+                const bubble = this.createReactionBubble(emoji, reactedUsers.length, hasCurrentUserReacted, false);
+                container.appendChild(bubble);
+            }
+            
+            // Render empty reaction bubbles (available emojis not yet used)
+            const usedEmojis = Object.keys(this._reactions);
+            for (const emoji of Message.AVAILABLE_EMOJIS) {
+                if (!usedEmojis.includes(emoji)) {
+                    const bubble = this.createReactionBubble(emoji, 0, false, true);
+                    container.appendChild(bubble);
+                }
+            }
+        }
+        
+        createReactionBubble(emoji, count, isReacted, isEmpty) {
+            const bubble = document.createElement('button');
+            bubble.className = 'reaction-bubble';
+            bubble.dataset.emoji = emoji;
+            
+            if (isReacted) {
+                bubble.classList.add('reacted');
+            }
+            if (isEmpty) {
+                bubble.classList.add('empty');
+            }
+            
+            // Create emoji span
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'reaction-emoji';
+            emojiSpan.textContent = emoji;
+            bubble.appendChild(emojiSpan);
+            
+            // Create count span (only for non-empty)
+            if (!isEmpty) {
+                const countSpan = document.createElement('span');
+                countSpan.className = 'reaction-count';
+                countSpan.textContent = count;
+                bubble.appendChild(countSpan);
+            }
+            
+            // Add click handler to toggle reaction
+            bubble.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.onReactionClick(emoji);
+            });
+            
+            return bubble;
+        }
+        
+        onReactionClick(emoji) {
+            // Notify parent chat container
+            const chatContainer = this.e.closest('.chat-container');
+            if (chatContainer && chatContainer._elementInstance) {
+                chatContainer._elementInstance.toggleReaction(this.messageId, emoji);
+            }
+        }
+
+        remove() {
+            // Clean up event listeners
+            this.closeReactions();
+            super.remove();
+        }
 
     }
 
