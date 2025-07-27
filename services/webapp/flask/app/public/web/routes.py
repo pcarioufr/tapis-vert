@@ -1,4 +1,4 @@
-from ...room import room_web
+from ...public import public_web
 
 import flask, flask_login
 
@@ -9,7 +9,7 @@ import utils
 log = utils.get_logger(__name__)
 
 
-@room_web.route("/r/<room_id>", methods=['GET'])
+@public_web.route("/r/<room_id>", methods=['GET'])
 def room_app(room_id=None):
 
 
@@ -23,7 +23,7 @@ def room_app(room_id=None):
 
 
     return render_template (
-        "_room.jinja",
+        "public/room.jinja",
         user=flask_login.current_user,
         room=room
     )

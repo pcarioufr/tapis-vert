@@ -3,7 +3,7 @@ from ddtrace import tracer
 
 # Import ALL Blueprints (admin + public)
 from .admin import admin_web, admin_api
-from .room import room_web, room_api
+from .public import public_web, public_api
 from .auth import auth, login
 
 
@@ -32,8 +32,8 @@ def init_app():
         app.register_blueprint(admin_api, url_prefix="/admin/api")
         
         # Public routes
-        app.register_blueprint(room_web, url_prefix="/")
-        app.register_blueprint(room_api, url_prefix="/api")
+        app.register_blueprint(public_web, url_prefix="/")
+        app.register_blueprint(public_api, url_prefix="/api")
         app.register_blueprint(auth, url_prefix="/auth")
 
         # Import shared utilities

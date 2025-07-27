@@ -30,12 +30,12 @@
 
     <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
 
-        {% include 'table.jinja' %}
-    {% include 'cards.jinja' %}
-    {% include 'chat.jinja' %}
+        {% include 'components/table.jinja' %}
+    {% include 'components/cards.jinja' %}
+    {% include 'components/chat.jinja' %}
 
-    {% include 'footer-self.jinja' %}
-    {% include 'footer-room.jinja' %}
+    {% include 'components/footer-self.jinja' %}
+    {% include 'components/footer-room.jinja' %}
 
 {% endblock %}
 

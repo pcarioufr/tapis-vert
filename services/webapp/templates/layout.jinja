@@ -22,17 +22,17 @@
     <script type="text/javascript" src="{{ url_for('static', filename='libs/tests.js') }}"></script>
 
     {# COMMONS/ELEMENTS #}
-    {% include 'elements.jinja' %}
-    {% include 'buttons.jinja' %}
-    {% include 'qrcode.jinja' %}
-    {% include 'footer.jinja' %}
-    {% include 'input.jinja' %}
-    {% include 'cursor.jinja' %}
-    {% include 'toast.jinja' %}
+    {% include 'components/elements.jinja' %}
+    {% include 'components/buttons.jinja' %}
+    {% include 'components/qrcode.jinja' %}
+    {% include 'components/footer.jinja' %}
+    {% include 'components/input.jinja' %}
+    {% include 'components/cursor.jinja' %}
+    {% include 'components/toast.jinja' %}
 
     {% block head %}{% endblock %}
 
-    {% include 'datadog.jinja' %}
+    {% include 'components/datadog.jinja' %}
 
 </head>
 
