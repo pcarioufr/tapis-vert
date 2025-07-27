@@ -7,7 +7,7 @@ import utils
 log = utils.get_logger(__name__)
 
 # Import login system (needed for public routes)
-from .auth import login
+from auth import login
 
 
 def render_template(template, **kwargs):
@@ -31,5 +31,6 @@ def render_template(template, **kwargs):
         mp_token=app.config["MP_TOKEN"],
         session=flask.session,
         request_cookies=flask.request.cookies, # Include request cookies for debugging
+        query_params=getattr(flask.g, 'query_params', dict(flask.request.args)), # Desired query params for URL
         **kwargs
     ) 

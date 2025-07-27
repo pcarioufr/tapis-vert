@@ -69,10 +69,22 @@
 
             this.logout.callback = ( async _ => {
 
-                const resp = await call('POST', '/auth/logout', { user_id: "{{user.id}}" })
-                const data = await resp.json() 
-                                        
-                this.footerPanel.untag("logged")
+                try {
+                    const resp = await call('POST', '/api/auth/logout', { user_id: "{{user.id}}" })
+                    const data = await resp.json() 
+                    
+                    if (data.success) {
+                        // Server logout successful → reload page to get fresh session
+                        window.location.reload()
+                    } else {
+                        // Force error to be handled by catch block
+                        throw new Error(data.message || 'Logout failed')
+                    }
+                } catch (error) {
+                    // Any error (network, server, or logout failure) → keep user logged in  
+                    console.error('Logout failed:', error)
+                    // Could add toast notification here
+                }
 
             })
 
@@ -95,7 +107,7 @@
             
             this.login.callback = ( async _ => {
 
-                const resp = await call('POST', '/auth/login', { code_id: this.codeInput.value })
+                const resp = await call('POST', '/api/auth/login', { code_id: this.codeInput.value })
                 const data = await resp.json()
 
                 this.footerPanel.tag("logged")

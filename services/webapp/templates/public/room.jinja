@@ -424,7 +424,7 @@
 
         await call('POST', '/api/v1/rooms/{{room.id}}/join');
 
-        const resp = await call('GET', '/auth/me');
+        const resp = await call('GET', '/api/auth/me');
         const data = await resp.json();
         SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
 

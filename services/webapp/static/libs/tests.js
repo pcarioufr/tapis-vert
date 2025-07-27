@@ -6,7 +6,7 @@
 
         // test the auth endpoint
         static auth () {
-            call('GET', '/auth/test')
+            call('GET', '/api/auth/test')
         }
 
     }

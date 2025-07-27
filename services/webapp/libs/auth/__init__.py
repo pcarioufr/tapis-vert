@@ -1,16 +1,17 @@
-import flask, flask_login
+"""
+Authentication Library
 
-# Initialize the Blueprint
-auth = flask.Blueprint("auth", __name__)
+Provides Flask-Login integration and authentication utilities.
+"""
 
+import flask_login
+import random
 from models import User
 
-# Initialize the LoginManager
+# Initialize the LoginManager (to be configured by Flask app)
 login = flask_login.LoginManager()
 login.session_protection = "strong"
 # login.login_view = "auth.login" TODO
-
-import random
 
 # Anonymous user name generation
 colors = [
@@ -35,11 +36,13 @@ animals = [
 ]
 
 def new_name(seed: str):
+    """Generate a random anonymous name from seed"""
     random.seed(seed)
     return f"{random.choice(colors)} {random.choice(animals)}"
 
 class AnonymousWebUser(flask_login.AnonymousUserMixin):
-
+    """Anonymous user class with generated names"""
+    
     def __init__(self, id=None):
         self.id = id
 
@@ -47,14 +50,16 @@ class AnonymousWebUser(flask_login.AnonymousUserMixin):
     def name(self):
         return new_name(self.id)
 
+# Configure login manager
 login.anonymous_user = AnonymousWebUser
 
 @login.user_loader
 def user_loader(user_id):
-
+    """Load user by ID for Flask-Login"""
     return User.get_by_id(user_id)
 
-
-# Import routes to register them with the Blueprint
+# Import authentication functions
 from .routines import code_auth
-from . import api 
+
+# Export public API
+__all__ = ['login', 'code_auth', 'AnonymousWebUser', 'new_name'] 

@@ -4,6 +4,7 @@ import io, qrcode
 import flask, flask_login
 
 from models import Room, User, Code
+from auth import code_auth  # Import from auth library
 
 import utils, json
 log = utils.get_logger(__name__)
@@ -204,3 +205,42 @@ def qr_code():
     img_io.seek(0)
 
     return flask.send_file(img_io, mimetype='image/png')
+
+
+
+@public_api.route("/auth/login", methods=["POST"])
+def auth_login():
+    """Logs in the current user."""
+
+    code_id = flask.request.args.get("code_id")
+    if code_id is None: 
+        return flask.jsonify({"success": False}), 404
+
+    user = code_auth(code_id)
+
+    return flask.jsonify({"success": True, "user": user.to_dict(True) })
+
+
+@public_api.route("/auth/me", methods=["GET"])
+@flask_login.login_required
+def me():
+    """Logs in the current user."""
+
+    user = flask_login.current_user
+
+    return flask.jsonify( user.to_dict(True) )
+
+
+@public_api.route("/auth/logout", methods=["POST"])
+@flask_login.login_required
+def auth_logout():
+    """Logs out the current user."""
+    flask_login.logout_user()  # Flask-Login function to clear the session
+    return flask.jsonify({"success": True, "message": "Logout successful"})
+
+
+@public_api.route("/auth/test", methods=["GET"])
+@flask_login.login_required
+def auth_ping():
+    """Tests login mechanism."""
+    return flask.jsonify({"message": "pong"}), 200
