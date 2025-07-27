@@ -54,6 +54,32 @@
 
     </script>
 
+    <!-- URL PARAM MANAGEMENT ------ ------ ------ ------ -->
+    <script>
+        // Get desired query params from backend
+        const desiredParams = {{ query_params | tojson }};
+        
+        // Get current URL params
+        const currentParams = {};
+        const urlParams = new URLSearchParams(window.location.search);
+        for (const [key, value] of urlParams) {
+            currentParams[key] = value;
+        }
+        
+        // Compare and update URL if different
+        const paramsChanged = JSON.stringify(currentParams) !== JSON.stringify(desiredParams);
+        
+        if (paramsChanged) {
+            // Build new URL with desired params
+            const newParams = new URLSearchParams(desiredParams);
+            const newUrl = window.location.pathname + (newParams.toString() ? '?' + newParams.toString() : '');
+            
+            // Update URL without reload (replaceState, not pushState)
+            window.history.replaceState({}, '', newUrl);
+            console.log('Updated URL params:', desiredParams);
+        }
+    </script>
+
     <header> </header> 
     <div class="page"> 
     
