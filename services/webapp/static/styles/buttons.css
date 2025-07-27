@@ -144,3 +144,89 @@ button svg {
 .switch .toggle-switch input:checked + label {
     background-color: var(--green) ; 
 }
+
+/* Floating Button */
+.floating-button {
+    position: fixed;
+    width: 4vw;
+    height: 4vw;
+    background-color: var(--dbrown);
+    border: 0.2vw solid var(--beige);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0.2vw 0.8vw rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.floating-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0.4vw 1.2vw rgba(0, 0, 0, 0.4);
+}
+
+.floating-button svg {
+    width: 2vw;
+    height: 2vw;
+    fill: var(--beige);
+    transition: fill 0.3s ease;
+}
+
+/* New Round Button - Special Styling & Position */
+.floating-button.new-round {
+    background-color: var(--green);
+    border-color: var(--green);
+    width: 4vw;
+    height: 4vw;
+    bottom: 2vw;
+    right: 2vw;
+}
+
+.floating-button.new-round svg {
+    width: 2.5vw;
+    height: 2.5vw;
+    fill: var(--black);
+}
+
+/* Role Selection Buttons - Individual Positioning */
+.floating-button.role-button {
+    width: 3.5vw;
+    height: 3.5vw;
+    opacity: 0.7;
+    bottom: 2vw;
+}
+
+.floating-button.role-button svg {
+    width: 1.8vw;
+    height: 1.8vw;
+}
+
+.floating-button.role-button:hover {
+    opacity: 1;
+}
+
+.floating-button.role-button.selected {
+    background-color: var(--beige);
+    border-color: var(--dbrown);
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.floating-button.role-button.selected svg {
+    fill: var(--dbrown);
+}
+
+/* Individual Role Button Positions */
+.floating-button.role-button[data-role="watcher"] {
+    left: 2vw;
+}
+
+.floating-button.role-button[data-role="player"] {
+    left: 6.5vw;
+}
+
+.floating-button.role-button[data-role="master"] {
+    left: 11vw;
+}

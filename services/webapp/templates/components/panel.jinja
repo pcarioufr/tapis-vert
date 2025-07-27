@@ -1,0 +1,118 @@
+<!-- SIDE PANELS ------ ------ ------ ------ -->
+
+<link rel="stylesheet" href="{{ url_for('static', filename='styles/panel.css') }}" />
+
+<!-- Panel Template -->
+<template id="t-panel">
+    <div class="panel">
+        <div class="panel-handle">
+            <div class="handle-icon"> <!-- SVG icon goes here --> </div>
+            <div class="handle-text"> <!-- Handle text goes here --> </div>
+        </div>
+        <div class="panel-content">
+            <!-- Panel content goes here -->
+        </div>
+    </div>
+</template>
+
+
+
+<script>
+class Panel extends Element {
+    
+    constructor(side = 'left', icon = 'null') {
+        
+        // Validate side parameter
+        if (!['left', 'right'].includes(side)) {
+            throw new Error('Panel side must be "left" or "right"');
+        }
+        
+        // Create panel element
+        super(build("t-panel"), document.body);
+        this.side = side;
+        
+        // Get handle element (now part of panel)
+        this.handle = new Element(this.select('.panel-handle'));
+        
+        // Set panel side
+        this.e.setAttribute('data-side', side);
+        
+        // Set handle icon
+        this.setIcon(icon);
+        
+        // Handle text will be set by specific panel classes
+        
+        // Initially hide panel
+        this.hide();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+    }
+    
+    setIcon(icon) {
+        const svg = new SVG(icon);
+        this.handle.select('.handle-icon').replaceChildren();
+        this.handle.select('.handle-icon').append(svg.e);
+    }
+    
+    setupEventListeners() {
+        // Handle click opens panel
+        this.handle.onclick = (event) => {
+            event.stopPropagation();
+            this.toggle();
+        };
+        
+        // Click outside closes panel
+        document.addEventListener('click', (event) => {
+            if (this.isOpen() && !this.e.contains(event.target)) {
+                this.hide();
+            }
+        });
+        
+        // Prevent panel clicks from bubbling
+        this.e.onclick = (event) => {
+            event.stopPropagation();
+        };
+    }
+    
+    show() {
+        this.e.classList.add('open');
+    }
+    
+    hide() {
+        this.e.classList.remove('open');
+    }
+    
+    toggle() {
+        this.isOpen() ? this.hide() : this.show();
+    }
+    
+    isOpen() {
+        return this.e.classList.contains('open');
+    }
+    
+    setContent(content) {
+        if (typeof content === 'string') {
+            this.select('.panel-content').innerHTML = content;
+        } else {
+            this.select('.panel-content').replaceChildren();
+            this.select('.panel-content').append(content);
+        }
+    }
+    
+    setContentFromTemplate(templateId) {
+        const template = document.getElementById(templateId);
+        if (!template) {
+            console.error(`Template with id '${templateId}' not found`);
+            return;
+        }
+        const content = template.content.cloneNode(true);
+        this.select('.panel-content').replaceChildren();
+        this.select('.panel-content').append(content);
+    }
+    
+    setText(text) {
+        this.select('.handle-text').innerText = text;
+    }
+}
+</script> 

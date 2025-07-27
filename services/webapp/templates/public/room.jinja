@@ -34,15 +34,193 @@
     {% include 'components/cards.jinja' %}
     {% include 'components/chat.jinja' %}
 
-    {% include 'components/footer-self.jinja' %}
-    {% include 'components/footer-room.jinja' %}
+
 
 {% endblock %}
 
 {% block body %}
 
+    <!-- Panel User Template -->
+    <template id="t-panel-user">
+        <div class="panel-user">
+            <span class="user-name"></span>
+            <div class="user-status"></div>
+        </div>
+    </template>
+
+    <!-- User Panel Content Template -->
+    <template id="t-user-panel-content">
+        <span class="panel-title">Account</span>
+        
+        <div class="account-cookies">
+            <div class="cookie-switch-container"></div>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <div class="account-authenticated">
+            <p>Logged in as: <strong>{{user.name}}</strong></p>
+            <div class="logout-container"></div>
+        </div>
+        {% else %}
+        <div class="account-login">
+            <div class="login-container"></div>
+        </div>
+        {% endif %}
+    </template>
+
+    <!-- Room Panel Content Template -->
+    <template id="t-room-panel-content">
+        <span class="panel-title">{{room.name}}</span>
+        
+        <div class="room-invite">
+            <h3>Invite</h3>
+            <div class="qr-container"></div>
+        </div>
+        
+        <div class="room-users">
+            <h3>Users</h3>
+            
+            <div class="user-group" id="panel-users-masters">
+                <div class="group-header"> <span>masters</span> </div>
+                <div class="user-list"></div>
+            </div>
+            
+            <div class="user-group" id="panel-users-players">
+                <div class="group-header"> <span>players</span> </div>
+                <div class="user-list"></div>
+            </div>
+            
+            <div class="user-group" id="panel-users-watchers">
+                <div class="group-header"> <span>watchers</span> </div>
+                <div class="user-list"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Floating Role Selection Buttons will be created by JavaScript -->
 
     <script type="module">
+
+    class PanelUser extends Element {
+        
+        constructor(eParent = null) {
+            super(build("t-panel-user"), eParent);
+        }
+        
+        set name(text) {
+            this.select('.user-name').innerText = text;
+        }
+        
+        set status(status) {
+            const statusEl = this.select('.user-status');
+            status === "online" ? 
+                statusEl.setAttribute("online", "") : 
+                statusEl.removeAttribute("online");
+        }
+        
+        set role(role) {
+            // Move user to appropriate role section
+            let targetContainer;
+            switch(role) {
+                case "master":  targetContainer = document.querySelector("#panel-users-masters .user-list"); break;
+                case "player":  targetContainer = document.querySelector("#panel-users-players .user-list"); break;
+                case "watcher": targetContainer = document.querySelector("#panel-users-watchers .user-list"); break;
+                default:
+                    console.error(`Role "${role}" isn't supported option for user`);
+                    return;
+            }
+            if (targetContainer) {
+                targetContainer.append(this.e);
+            }
+        }
+    }
+
+    class UserPanel extends Panel {
+        
+        constructor(side, icon) {
+            super(side, icon);
+            this.setText('{{user.name if user.is_authenticated else "Account"}}');
+            this.e.classList.add('user-panel');
+            this.setContentFromTemplate('t-user-panel-content');
+            this.initializeComponents();
+        }
+        
+        initializeComponents() {
+            // Cookie Switch Setup
+            const cookies = new Cookies();
+            const cookieSwitch = new Switch(this.select('.cookie-switch-container'));
+            
+            cookies.get("ok_cookie") == "yes" ? 
+                cookieSwitch.checked = true : 
+                cookieSwitch.checked = false;
+            
+            cookieSwitch.onCallback = (_ => cookies.set("ok_cookie", "yes"));
+            cookieSwitch.onText = "I Accept Cookies";
+            cookieSwitch.offCallback = (_ => cookies.delete("ok_cookie"));
+            cookieSwitch.offText = "I Reject Cookies";
+
+            {% if user.is_authenticated %}
+            // Logout button for authenticated users
+            const logoutButton = new Button();
+            this.select('.logout-container').append(logoutButton.e);
+            logoutButton.name = "log out";
+            logoutButton.icon = "logout-circle";
+            logoutButton.color = "red";
+            
+            logoutButton.callback = (async _ => {
+                try {
+                    const resp = await call('POST', '/api/auth/logout', { user_id: "{{user.id}}" });
+                    const data = await resp.json();
+                    
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Logout failed');
+                    }
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                }
+            });
+            {% else %}
+            // Login components for unauthenticated users
+            const codeInput = new TextInput();
+            this.select('.login-container').append(codeInput.e);
+            
+            codeInput.title = "password";
+            codeInput.password = true;
+            codeInput.autocomplete = "current-password";
+            
+            const loginButton = new Button();
+            codeInput.e.after(loginButton.e);
+            loginButton.name = "log in";
+            loginButton.icon = "login-circle";
+            loginButton.color = "green";
+            
+            loginButton.callback = (async _ => {
+                const resp = await call('POST', '/api/auth/login', { code_id: codeInput.value });
+                const data = await resp.json();
+                // Handle login response
+            });
+            {% endif %}
+        }
+    }
+
+    class RoomPanel extends Panel {
+        
+        constructor(side, icon) {
+            super(side, icon);
+            this.setText('{{room.name}}');
+            this.e.classList.add('room-panel');
+            this.setContentFromTemplate('t-room-panel-content');
+            this.initializeComponents();
+        }
+        
+        initializeComponents() {
+            // QR Code Setup for room sharing
+            const qrCode = new QRCode(this.select('.qr-container'));
+            qrCode.updateLink("https://{{host}}/r/{{room.id}}");
+        }
+    }
 
     // represntations of the room and its elements
     class RoomManager {
@@ -62,7 +240,6 @@
 
             // room representations
             this.eTable = new Table() ;
-            this.eRoomFooterEntry = new RoomFooterEntry() ;
 
             // users representations
             this.eUsers = {} ;
@@ -121,23 +298,35 @@
 
             // Listens when a user becomes player
             listen( "RoomManager", "user:player", (throwerId, user_id) => {
-                this.data.users[user_id].role = "player" ;
+                this.data.users[user_id].relation.role = "player" ;
                 this.eUsers[user_id].role    = "player" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room player`, "chess-line");  
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room player`, "chess-line");
+                if (user_id === "{{user.id}}") {
+                    updateNewRoundButtonVisibility();
+                    updateRoleButtonState();
+                }
             })
 
             // Listens when a user becomes watcher
             listen( "RoomManager", "user:watcher", (throwerId, user_id) => {
-                this.data.users[user_id].role = "watcher" ;
+                this.data.users[user_id].relation.role = "watcher" ;
                 this.eUsers[user_id].role    = "watcher" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room spectator`, "glasses-fill");  
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room spectator`, "glasses-fill");
+                if (user_id === "{{user.id}}") {
+                    updateNewRoundButtonVisibility();
+                    updateRoleButtonState();
+                }
             })
 
             // Listens when a user becomes master
             listen( "RoomManager", "user:master", (throwerId, user_id) => {
-                this.data.users[user_id].role = "master" ;
+                this.data.users[user_id].relation.role = "master" ;
                 this.eUsers[user_id].role    = "master" ;
-                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room master`, "crown-line");  
+                if (user_id != "{{user.id}}") new Toast("info", `${this.data.users[user_id].name} is now a room master`, "crown-line");
+                if (user_id === "{{user.id}}") {
+                    updateNewRoundButtonVisibility();
+                    updateRoleButtonState();
+                }
             })
 
             // Listens for a new round 
@@ -334,24 +523,23 @@
                 // representation of user's deck
                 eUserDeck: new Deck(),
 
-                // representation of the user in thr footer
-                eUserFooter: new UserFooter(),
-                eRoomFooterEntry: this.eRoomFooterEntry,
+                // representation of the user in the panel
+                eUserPanel: new PanelUser(),
                 eRemoteCursor: new RemoteCursor(this.eTable.e, name),
 
                 remove() {
-                    this.eUserFooter.remove();
+                    this.eUserPanel.remove();
                 },
 
                 set name(name) {
-                    this.eUserFooter.name = name ;
-                    this.eRemoteCursor.name = name ;
+                    this.eUserPanel.name = name;
+                    this.eRemoteCursor.name = name;
                 },
                 set status(status) {
-                    this.eUserFooter.status = status ;
+                    this.eUserPanel.status = status;
                 },
                 set role(role) {
-                    this.eUserFooter.role = role ;
+                    this.eUserPanel.role = role;
 
                     role === "player" ?
                         this.eUserDeck.active(true) :
@@ -418,20 +606,107 @@
 
     window.ROOM = new RoomManager() // Room Manager
 
-    const SELF = new SelfFooterEntry()
+    // ACCOUNT PANEL (Left)
+    const accountPanel = new UserPanel('left', 'account-circle-line');
+
+    // ROOM PANEL (Right)  
+    const roomPanel = new RoomPanel('right', 'group-2-line');
+
+    // Account Panel components are now initialized within the UserPanel class
+    // Room Panel components are now initialized within the RoomPanel class
+
+    // Floating New Round Button (lower left corner)
+    const newRoundButton = new FloatingButton('refresh-line', document.body);
+    newRoundButton.addClass('new-round');
+    
+    newRoundButton.callback = (async _ => {
+        await call('POST', '/api/v1/rooms/{{room.id}}/round');
+    });
+    
+    // Hide button initially, will be shown based on user role
+    newRoundButton.e.style.display = 'none';
+
+    // Create Floating Role Selection Buttons (authenticated users only)
+    let roleButtons = {};
+    {% if user.is_authenticated %}
+    
+    // Create individual role buttons (positioned via CSS)
+    roleButtons.master = new FloatingButton('crown-line', document.body);
+    roleButtons.master.addClass('role-button');
+    roleButtons.master.e.setAttribute('data-role', 'master');
+    
+    roleButtons.player = new FloatingButton('chess-line', document.body);
+    roleButtons.player.addClass('role-button');
+    roleButtons.player.e.setAttribute('data-role', 'player');
+    
+    roleButtons.watcher = new FloatingButton('glasses-fill', document.body);
+    roleButtons.watcher.addClass('role-button');
+    roleButtons.watcher.e.setAttribute('data-role', 'watcher');
+    
+    // Role selection functionality
+    function selectRole(role) {
+        // Update visual state of role buttons
+        Object.values(roleButtons).forEach(btn => {
+            btn.removeClass('selected');
+        });
+        roleButtons[role].addClass('selected');
+        
+        // Make API call to change role
+        call("PATCH", "/api/v1/rooms/{{room.id}}/user/{{user.id}}", {"role": role});
+    }
+    
+    // Set up role button callbacks
+    roleButtons.master.callback = () => selectRole('master');
+    roleButtons.player.callback = () => selectRole('player');
+    roleButtons.watcher.callback = () => selectRole('watcher');
+    
+    {% endif %}
+
+    // Function to show/hide new round button based on user role
+    function updateNewRoundButtonVisibility() {
+        {% if user.is_authenticated %}
+        const userRole = window.ROOM.data.users["{{user.id}}"]?.relation?.role;
+        if (userRole === "master" || userRole === "player") {
+            newRoundButton.e.style.display = 'flex';
+        } else {
+            newRoundButton.e.style.display = 'none';
+        }
+        {% else %}
+        newRoundButton.e.style.display = 'none';
+        {% endif %}
+    }
+    
+    // Function to update role button visual state
+    function updateRoleButtonState() {
+        {% if user.is_authenticated %}
+        const userRole = window.ROOM.data.users["{{user.id}}"]?.relation?.role;
+        
+        // Clear all selections
+        Object.values(roleButtons).forEach(btn => {
+            btn.removeClass('selected');
+        });
+        
+        // Set current role as selected
+        if (userRole && roleButtons[userRole]) {
+            roleButtons[userRole].addClass('selected');
+        }
+        {% endif %}
+    }
 
     document.addEventListener('DOMContentLoaded', async _ => {
 
         await call('POST', '/api/v1/rooms/{{room.id}}/join');
 
-        const resp = await call('GET', '/api/auth/me');
-        const data = await resp.json();
-        SELF.role = data["{{user.id}}"]["rooms"]["{{room.id}}"]["relation"]["role"];
-
         await window.ROOM.refresh() ;
         window.ROOM.render();
 
         window.ROOM.listen();
+        
+        // Show/hide new round button based on user role
+        updateNewRoundButtonVisibility();
+        
+        // Update role button state
+        updateRoleButtonState();
 
     });
 

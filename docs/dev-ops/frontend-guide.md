@@ -26,19 +26,38 @@ The central area displays:
 - **Player Cards**: Your cards and other players' cards
 - **Real-time Cursors**: See other players' mouse movements
 
-### Footer Controls
+### Side Panel Controls
 
-The footer contains two main sections:
+The interface features two side panels that slide horizontally from the screen edges, each with always-visible handle tabs:
 
-#### Left Side - Account Management
-- **Cookie Preferences**: Accept/reject cookies
-- **Authentication**: Login with magic codes or logout
-- **Account Info**: View your current name and status
+#### Left Panel - Account Management
+- **Handle**: Account icon tab on the left edge, always visible
+- **Cookie Preferences**: Accept/reject cookies with a toggle switch
+- **Authentication**: Login with magic codes or logout button
+- **Account Info**: Display current user name and status
+- **Panel Width**: 20% of screen width when open
 
-#### Right Side - Room Management
+#### Right Panel - Room Management  
+- **Handle**: Group icon tab on the right edge, always visible
 - **Room Sharing**: Generate QR codes to invite others
 - **Player List**: See all users organized by role (masters, players, watchers)
-- **Game Controls**: Start new rounds (for masters)
+- **Panel Width**: 25% of screen width when open
+
+#### Panel Behavior
+- **Always-Visible Handles**: Icon tabs stick out from screen edges with text labels
+- **Horizontal Sliding**: Panels slide in from left/right edges when handle is clicked
+- **Maximum Width**: Panels open to maximum 80% screen width (with specific widths per panel)
+- **Auto-Close**: Click anywhere outside the panel to close it
+- **Handle Movement**: Handles are attached to panels and move with them
+- **Content Height**: Panel content height adjusts to content, anchored at bottom
+
+#### Floating Controls
+- **New Round Button**: Fixed position button in lower-left corner (masters/players only)
+- **Role Selection Buttons**: Three buttons in lower-right corner for choosing user role (authenticated users only)
+  - Crown icon: Master role
+  - Chess piece icon: Player role  
+  - Glasses icon: Watcher role
+- **Independent**: All floating controls positioned outside of panels for quick access
 
 ## User Roles
 
@@ -123,24 +142,38 @@ Cards have visual indicators:
 ### Room Management
 
 #### Inviting Players
-1. Click the room icon in the footer (right side)
-2. Generate QR code for the current room
+1. Click the group icon handle on the right edge to open the room panel
+2. Generate QR code for the current room in the room panel
 3. Share the QR code or URL with others
 4. New players can scan or visit the link to join
 
 #### Starting New Rounds
-**Masters only:**
-1. Open the room panel (right footer)
-2. Click "New Round" button
-3. Cards are automatically shuffled and redistributed
-4. Previous messages are cleared
-5. All players get notified
+**Masters and Players only:**
+1. Click the floating "New Round" button in the lower-left corner
+2. Cards are automatically shuffled and redistributed
+3. Previous messages are cleared
+4. All players get notified
+
+**Note**: The New Round button is only visible to authenticated users with master or player roles.
 
 #### Managing Users
-**Masters can:**
-- View all connected users
-- See online/offline status
-- Change user roles between master, player, and watcher
+**All authenticated users can:**
+- View all connected users organized by role in the right panel (room management)
+- See online/offline status indicators next to user names
+- Change their own role using the floating role selection buttons in the bottom-right corner
+
+**How to change roles:**
+1. Use the floating role buttons in the bottom-right corner of the screen
+2. Click the desired role button: crown (master), chess piece (player), or glasses (watcher)
+3. The selected button will be highlighted and your role will change immediately
+4. Your user entry in the room panel will move to the appropriate role section
+
+**Role Button Behavior:**
+- Only one role can be selected at a time (radio button behavior)
+- The currently selected role is visually highlighted
+- Only visible to authenticated users
+
+**Note**: The current implementation allows users to self-select their role rather than masters managing other users' roles.
 
 ## User Experience Features
 
@@ -208,9 +241,9 @@ Cards have visual indicators:
 - **Respect Others**: Be mindful that others can see your actions
 
 ### For Masters
-- **Manage Roles**: Assign appropriate roles to users
-- **Start Rounds**: Initiate new rounds when ready
-- **Room Sharing**: Use QR codes for easy invitation
+- **Observe Role Changes**: Users can self-select roles via the room panel
+- **Start Rounds**: Use the floating "New Round" button when ready
+- **Room Sharing**: Generate QR codes in the room panel for easy invitation
 
 ### For All Users
 - **Stay Connected**: Keep browser tab active for best performance
