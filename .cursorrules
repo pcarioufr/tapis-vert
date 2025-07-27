@@ -3,8 +3,16 @@
 ## Project Architecture
 This is a cloud-native application with three layers:
 - **Infrastructure**: Terraform on OpenStack (Infomaniak)
-- **Application**: Docker Compose services  
+- **Application**: Docker Compose services (unified Flask app + WebSocket + Redis + Nginx)
 - **Deployment**: "The Box" containerized environment
+
+### Application Architecture
+- **Unified Flask App**: Single Flask application with blueprint separation
+  - Public blueprint: User-facing game functionality (/, /api, /api/auth)
+  - Admin blueprint: System management (nginx-blocked, SSH tunnel only)
+  - Authentication library: Shared auth system in libs/auth/
+- **WebSocket Service**: FastAPI-based real-time communication
+- **Security**: Admin access via SSH tunnel only (nginx blocks admin routes)
 
 ## Working Directory and Setup
 Always work from the `box/` directory and set up the alias:
@@ -35,6 +43,28 @@ box admin ping            # Tests admin API directly on server
 ```
 Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` (API)
 
+## Application Development Notes
+### Flask Blueprint Architecture
+- **Public Blueprint** (`app/public/`): Handles /, /api, /api/auth routes
+  - Web routes: Game room interface, QR codes
+  - API routes: Room management, game actions  
+  - Auth routes: /api/auth/login, /api/auth/me, /api/auth/logout, /api/auth/test
+- **Admin Blueprint** (`app/admin/`): Handles /admin, /admin/api routes
+  - Web routes: Dashboard, Redis debugging interface
+  - API routes: User/room CRUD, system management
+  - Security: Nginx-blocked, SSH tunnel access only
+
+### Authentication System
+- **Location**: `libs/auth/` (library, not blueprint)
+- **Usage**: `from auth import login, code_auth` 
+- **Benefits**: Shared across blueprints, no route registration needed
+- **QR Code Login**: Automatic URL cleanup removes ?code_id after authentication
+
+### Template & Static Organization
+- **Templates**: `templates/layout.jinja` (base), `components/` (reusable), `admin/` & `public/` (master templates)
+- **Static Assets**: `static/fonts/`, `static/libs/`, `static/styles/` (unified organization)
+- **Template Calls**: `render_template("admin/list.jinja")`, `render_template("public/room.jinja")`
+
 ## Infrastructure Operations (Terraform)
 - State managed in Terraform Cloud (org: pcarioufr, workspace: tapis-vert)
 - Always authenticate first: `box terraform login`
@@ -58,7 +88,7 @@ Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` 
 **ALWAYS REQUIRED FIRST** - Code must be on server before any Docker operations:
 ```bash
 box deploy                    # Full deployment 
-box deploy -p webapp/         # Deploy specific directory
+box deploy -p flask/          # Deploy Flask app directory
 box deploy -p path/to/file    # Deploy single file
 box deploy -n                 # Dry run (test without deploying)
 ```
@@ -104,7 +134,7 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 
 ## Deployment Best Practices
 - **Prefer minimal deployments**: Use `box deploy -p path` for scoped changes instead of full deployments
-- **Partial deployment support**: Use `box deploy -p nginx/nginx.conf` for single files or `box deploy -p webapp/` for directories
+- **Partial deployment support**: Use `box deploy -p nginx/nginx.conf` for single files or `box deploy -p flask` for directories
 - **For single file changes**: Use `box deploy -p path/to/file` for efficient targeted deployments
 - **Always test in staging**: Use `box deploy -n` for dry runs, combine with `-p` for targeted testing
 - **Service restart strategy**: Only restart affected services, not entire stack
@@ -121,9 +151,18 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 - **Frontend changes**: See `docs/dev-ops/frontend-guide.md` for UI framework and patterns
 - **System architecture**: See `docs/dev-ops/architecture-overview.md` for technical deep-dive
 - **Database/ORM work**: See `services/webapp/libs/redis-orm/README.md` (external package with complete documentation and test suite)
+- **Flask development**: See `docs/dev-ops/flask-apps.md` for unified architecture patterns
 - **Infrastructure/Deployment**: See `docs/dev-ops/` for complete DevOps guide
 - **Admin tasks**: See `docs/admin/` for user/room management and debugging
 - **Game mechanics**: Complete Top 10 rules and examples in `docs/game-rules.md`
+
+### Development Best Practices
+- **Blueprint imports**: Use relative imports (`from .admin import admin_web`)
+- **Auth library**: Import directly (`from auth import code_auth`) - no blueprint registration
+- **Template paths**: Use new flat structure (`admin/list.jinja`, `public/room.jinja`)
+- **Static paths**: Use unified paths (`styles/layout.css`, `libs/http.js`)
+- **API routes**: Auth endpoints are at `/api/auth/*` (not `/auth/*`)
+- **Before_request**: Use single method per blueprint with sequential setup
 
 ## When User Asks To:
 - **Setup project**: Tell them to copy config/example.env to config/.env and edit values

@@ -199,7 +199,7 @@ PATCH /api/v1/rooms/room123/user/user456?role=player
 
 ### Login with Magic Code
 
-#### `POST /auth/login`
+#### `POST /api/auth/login`
 Authenticate using a magic link code.
 
 **Query Parameters:**
@@ -219,7 +219,7 @@ Authenticate using a magic link code.
 
 ### Get Current User
 
-#### `GET /auth/me`
+#### `GET /api/auth/me`
 Get information about the currently authenticated user.
 
 **Authentication:** Required
@@ -244,7 +244,7 @@ Get information about the currently authenticated user.
 
 ### Logout
 
-#### `POST /auth/logout`
+#### `POST /api/auth/logout`
 Log out the current user.
 
 **Authentication:** Required
@@ -259,7 +259,7 @@ Log out the current user.
 
 ### Test Authentication
 
-#### `GET /auth/test`
+#### `GET /api/auth/test`
 Test if authentication is working.
 
 **Authentication:** Required

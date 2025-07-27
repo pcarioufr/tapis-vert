@@ -51,8 +51,9 @@ See **[Infrastructure Guide](docs/dev-ops/infrastructure.md)** for complete setu
 
 ## 🏗️ **Architecture**
 
-- **Backend**: Flask (HTTP) + FastAPI (WebSocket) + Redis (data & pub/sub)
+- **Backend**: Unified Flask app (public + admin blueprints) + FastAPI (WebSocket) + Redis (data & pub/sub)
 - **Frontend**: Vanilla JavaScript with custom component system
+- **Security**: Nginx-based admin route blocking with SSH tunnel access
 - **Infrastructure**: Terraform on OpenStack with automated deployment
 - **Monitoring**: Datadog APM + RUM, Mixpanel analytics
 
@@ -70,13 +71,17 @@ The master then tries to guess who has which card! 🤔
 
 ### For Developers/Admins
 ```bash
-# Start a new round in room abcd-1234
+# Public API - Game management
 curl -X POST "https://tapisvert.pcariou.fr/api/v1/rooms/abcd-1234/round"
+
+# Authentication API
+curl -X GET "https://tapisvert.pcariou.fr/api/auth/me"
 
 # Access room as user (for testing)
 https://tapisvert.pcariou.fr/r/abcd-1234?user=pierre
 
-# Admin functions (localhost only - requires SSH tunnel)
+# Admin functions (SSH tunnel required)
+# box -p 8000 admin tunnel, then visit http://localhost:8000/admin/list
 # See docs/admin/ for complete admin documentation
 ```
 
