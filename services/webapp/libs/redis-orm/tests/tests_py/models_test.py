@@ -7,11 +7,7 @@ import sys
 import os
 sys.path.insert(0, '/app')
 # Simple Redis fixture
-try:
-    from core import set_redis_client, create_redis_client
-except ImportError:
-    import core
-    from core import set_redis_client, create_redis_client
+from core import set_redis_client, create_redis_client
 
 @pytest.fixture(scope="function") 
 def redis_client():

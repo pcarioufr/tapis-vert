@@ -8,19 +8,17 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files for dependency installation  
-COPY ../pyproject.toml ./
-COPY ../core/ ./core/
+# Install dependencies (no need to copy code since it's mounted at runtime)
+RUN pip install --no-cache-dir redis pytest pytest-cov nanoid
 
-# Install the package in development mode with all dependencies
-RUN pip install --no-cache-dir -e ".[dev]"
+# Install ddtrace for tracing support (optional dependency)
+RUN pip install --no-cache-dir ddtrace || echo "ddtrace not available, continuing without tracing"
 
-# Install additional test dependencies
-RUN pip install --no-cache-dir redis
+# Set Python path to include current directory so 'core' module can be imported
+ENV PYTHONPATH=/app
 
-# Copy test files  
-COPY tests/tests_py/ ./tests_py/
-COPY tests/models.py ./models.py
+# Disable Python cache file generation (.pyc files and __pycache__ directories)
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Default command
-CMD ["pytest", "-v", "tests/"] 
+CMD ["pytest", "-v", "tests_py/"] 

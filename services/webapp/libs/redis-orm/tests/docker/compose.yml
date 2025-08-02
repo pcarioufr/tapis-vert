@@ -27,10 +27,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DATA_DB=1  # Use DB 1 for tests
-      - PYTHONPATH=/app:/app/core
+      - PYTHONPATH=/app
     volumes:
-      - ..:/app
-    working_dir: /app
+      - ../..:/app  # Mount the entire redis-orm directory
+    working_dir: /app/tests
     command: >
       sh -c "
         echo '🚀 Starting Redis ORM Tests...' &&

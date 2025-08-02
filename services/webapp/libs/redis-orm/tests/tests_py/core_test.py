@@ -8,11 +8,7 @@ import os
 sys.path.insert(0, '/app')
 # Simple Redis fixture instead of complex conf
 import redis
-try:
-    from core import ObjectMixin, RelationMixin, ConflictError, ValidationError, set_redis_client, create_redis_client
-except ImportError:
-    import core
-    from core import ObjectMixin, RelationMixin, ConflictError, ValidationError, set_redis_client, create_redis_client
+from core import ObjectMixin, RelationMixin, ConflictError, ValidationError, set_redis_client, create_redis_client
 
 # Simple Redis client fixture
 @pytest.fixture(scope="function")
@@ -30,13 +26,13 @@ def redis_client():
 class User(ObjectMixin):
     """Test model for basic ObjectMixin functionality."""
     FIELDS = {"name", "email", "age"}
-    RIGHTS = {"posts": "tests.test_core.UserPosts"}
+    RIGHTS = {"posts": "tests_py.core_test.UserPosts"}
 
 
 class Post(ObjectMixin):
     """Test model for relationships."""
     FIELDS = {"title", "content"}
-    LEFTS = {"author": "tests.test_core.UserPosts"}
+    LEFTS = {"author": "tests_py.core_test.UserPosts"}
 
 
 class UserPosts(RelationMixin):
@@ -158,6 +154,62 @@ class TestObjectMixin:
         """Test patching nonexistent object."""
         result = User.patch("nonexistent", "name", "Test")
         assert result is False
+
+    def test_patch_corruption_prevention(self, clean_redis):
+        """Test that patch prevents corruption when mixing simple and nested fields."""
+        from core.exceptions import ConflictError
+        
+        user = User.create(name="Alice", email="alice@test.com")
+        
+        # This should raise ConflictError - can't patch nested field when base field has content
+        with pytest.raises(ConflictError) as exc_info:
+            User.patch(user.id, "email:subdomain", "gmail")
+        
+        assert "Cannot patch nested field" in str(exc_info.value)
+        assert "base field 'email' contains data" in str(exc_info.value)
+
+    def test_patch_nested_structure(self, clean_redis):
+        """Test that patch can create pure nested structures correctly."""
+        user = User.create(name="Bob")  # No email field set
+        
+        # Should work - creating nested structure from scratch
+        result1 = User.patch(user.id, "email:domain", "example.com", add=True)
+        result2 = User.patch(user.id, "email:username", "bob", add=True)
+        
+        assert result1 is True
+        assert result2 is True
+        
+        # Verify the structure is reconstructed correctly
+        updated_user = User.get_by_id(user.id)
+        assert updated_user.email["domain"] == "example.com"
+        assert updated_user.email["username"] == "bob"
+
+    def test_patch_empty_base_field_removal(self, clean_redis):
+        """Test that patch removes empty base field markers when adding nested fields."""
+        from core import get_redis_client
+        
+        # Create user and then manually set empty base field (like ORM internal operations might)
+        user = User.create(name="Charlie")
+        redis_client = get_redis_client()
+        
+        # Manually create empty base field marker like flatten() would
+        redis_client.hset(user.key, "email", "")
+        
+        # Verify empty base field exists
+        raw_data_before = redis_client.hgetall(user.key)
+        assert raw_data_before.get("email") == "", "Should have empty base field marker"
+        
+        # Add nested field - should remove empty base field
+        User.patch(user.id, "email:provider", "gmail", add=True)
+        
+        # Verify empty base field was removed and nested field exists
+        raw_data_after = redis_client.hgetall(user.key)
+        assert "email" not in raw_data_after or raw_data_after.get("email") != "", "Empty base field should be removed"
+        assert "email:provider" in raw_data_after, "Nested field should exist"
+        
+        # Verify data reconstruction
+        updated_user = User.get_by_id(user.id)
+        assert updated_user.email["provider"] == "gmail"
 
     def test_search(self, clean_redis):
         """Test searching for objects."""

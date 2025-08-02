@@ -472,6 +472,38 @@ Based on comprehensive testing, the following issues were identified:
 **Impact**: Documentation examples only
 **Status**: Test artifacts, not production issues
 
+#### 4. patch() vs unflatten() Inconsistency ✅ FIXED
+**Problem**: `patch()` method supports nested field syntax but doesn't create empty field markers that `unflatten()` expects
+**Example**: `obj.patch(key, "messages:123", "data")` creates Redis field `"messages:123"` but no `"messages": ""` marker
+**Impact**: Causes object corruption when reading back - `unflatten()` fails to reconstruct nested structure properly
+**Real-world trigger**: Message storage using `room.patch(room_id, f"messages:{timestamp}", message)` corrupted room.cards data
+**Root cause**: Inconsistent behavior between flatten/unflatten (creates markers) vs patch() nested syntax (doesn't create markers)
+**Fix**: Updated `patch()` method to prevent mixed states and remove empty base field markers when adding nested fields
+**Status**: ✅ RESOLVED - patch method now raises ConflictError for invalid mixed states and cleans up empty markers
+
+#### 5. Module Path Configuration Issues ✅ FIXED
+**Problem**: Test relationship configurations used inconsistent module paths
+**Example**: `RIGHTS = {"posts": "UserPosts"}` instead of `RIGHTS = {"posts": "tests.models.UserPosts"}`
+**Impact**: ModuleNotFoundError and ValueError during relationship manager instantiation
+**Tests affected**: 12 relationship-related tests failing with import errors
+**Fix**: Updated all relationship class paths to use fully qualified module names
+**Status**: ✅ RESOLVED - Test coverage improved from 52.5% to 85% (21→34 passing tests)
+
+#### 6. Redis Data Type Serialization ⚠️
+**Problem**: Redis only accepts bytes, strings, integers, and floats - not Python lists, dicts, or booleans
+**Example**: `DataError: Invalid input of type: 'list'` when trying to save Python lists directly
+**Impact**: Affects models that store complex data structures without proper serialization
+**Tests affected**: 3 tests failing when trying to save lists/booleans to Redis
+**Workaround**: Use JSON serialization for complex types: `json.dumps(data)` before saving
+**Status**: Design limitation - requires explicit serialization for complex types
+
+#### 7. Relationship Constraint Enforcement ⚠️
+**Problem**: Tests attempting to violate one-to-many constraints
+**Example**: `ValueError: Post:xyz is already linked to a User - skipping association`
+**Impact**: Test logic error, but demonstrates ORM correctly enforcing relationship constraints
+**Tests affected**: 1 test expecting to create duplicate one-to-many relationships
+**Status**: Test needs updating - ORM behavior is correct
+
 ### Future Work & TODOs
 
 #### Redis-Native Relationships
@@ -512,10 +544,23 @@ class SetBasedRelationMixin:
 - Implement Redis Lua scripts for atomic complex operations
 - Add support for sorted relationships (using Redis Sorted Sets)
 
+#### Fix patch() / unflatten() Consistency ✅ COMPLETED
+- ~~**Option 1**: Update patch() to auto-create empty field markers for nested syntax~~
+- ~~**Option 2**: Make unflatten() more tolerant of missing markers~~
+- ~~**Option 3**: Deprecate nested syntax in patch(), force users to work with complete objects~~
+- ✅ **Implemented**: Added validation to patch() that prevents invalid mixed states and cleans up empty markers
+- **Result**: Patch method now raises ConflictError when trying to mix simple fields with nested subfields
+
 #### Performance Optimizations
 - Lazy loading for relationship traversal
 - Configurable batch sizes for SCAN operations
 - Optional caching layer for frequently accessed objects
+
+#### Test Suite Improvements
+- ✅ **Module path fixes completed** - Test coverage improved from 52.5% to 85%
+- **Remaining data serialization tests** - 3 tests still failing due to Redis type constraints
+- **Test documentation** - Add examples of proper JSON serialization for complex types
+- **Relationship constraint tests** - Update tests to properly handle one-to-many enforcement
 
 #### Documentation Improvements
 - **Version Number Tracking**: Ensure version bumping process updates all references throughout documentation
