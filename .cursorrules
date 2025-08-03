@@ -88,8 +88,8 @@ Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` 
 **ALWAYS REQUIRED FIRST** - Code must be on server before any Docker operations:
 ```bash
 box deploy                    # Full deployment 
-box deploy -p flask/          # Deploy Flask app directory
-box deploy -p path/to/file    # Deploy single file
+box deploy -p webapp/         # Deploy webapapp directory (path relative to services/)
+box deploy -p path/to/file    # Deploy single file (path relative to services/)
 box deploy -n                 # Dry run (test without deploying)
 ```
 
@@ -124,19 +124,15 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 - DNS records can be synced with Infomaniak API using `box dns sync`
 
 ## Important Notes
-- **Deploy first, always**: `box deploy` must happen before any server operations
 - Deployment only pushes code - services keep running in previous state  
-- Always restart services manually after deployment to apply changes
-- Configuration managed centrally in `config/` directory
-- The Box provides all deployment tools - don't use terraform/docker directly
 - **Docker builds happen on remote server only** - Never run `docker build` or `docker compose build` locally
-- **Required workflow**: Deploy → Build (if needed) → Restart
+- Always restart services manually after deployment to apply changes
+- The Box provides all deployment tools - don't use terraform or docker directly
 
 ## Deployment Best Practices
 - **Prefer minimal deployments**: Use `box deploy -p path` for scoped changes instead of full deployments
 - **Partial deployment support**: Use `box deploy -p nginx/nginx.conf` for single files or `box deploy -p flask` for directories
 - **For single file changes**: Use `box deploy -p path/to/file` for efficient targeted deployments
-- **Always test in staging**: Use `box deploy -n` for dry runs, combine with `-p` for targeted testing
 - **Service restart strategy**: Only restart affected services, not entire stack
 
 ## Documentation
@@ -156,13 +152,6 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 - **Admin tasks**: See `docs/admin/` for user/room management and debugging
 - **Game mechanics**: Complete Top 10 rules and examples in `docs/game-rules.md`
 
-### Development Best Practices
-- **Blueprint imports**: Use relative imports (`from .admin import admin_web`)
-- **Auth library**: Import directly (`from auth import code_auth`) - no blueprint registration
-- **Template paths**: Use new flat structure (`admin/list.jinja`, `public/room.jinja`)
-- **Static paths**: Use unified paths (`styles/layout.css`, `libs/http.js`)
-- **API routes**: Auth endpoints are at `/api/auth/*` (not `/auth/*`)
-- **Before_request**: Use single method per blueprint with sequential setup
 
 ## When User Asks To:
 - **Setup project**: Tell them to copy config/example.env to config/.env and edit values
@@ -177,7 +166,7 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 - **Debug admin service**: Use `box admin ping` to test server-side admin API
 
 ## File Structure
+- `box/`: Deployment environment and scripts
 - `terraform/`: Infrastructure as code
 - `services/`: Application services and Docker Compose
-- `box/`: Deployment environment and scripts
 - `config/.env`: Single configuration file with all environment variables 

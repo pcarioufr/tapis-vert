@@ -131,6 +131,31 @@ When modifying the application:
   - This causes silent failures where users don't appear in rooms
   - **Location**: `services/webapp/flask/app/public/api/routes.py:room_user()`
 
+### User/Card Management
+- **ISSUE**: `this.eUsers[card.player_id].assignCard` error when card references non-existent user
+- **ISSUE**: `this.data.users[card.player_id].name` error when card owner doesn't exist in users
+- **Location**: `services/webapp/templates/public/room.jinja` card rendering logic (lines ~475, ~493)
+- **Cause**: Cards reference player_ids that may no longer exist in room (user left, network issues, etc.)
+- **Fix needed**: Add safe navigation (`?.`) or user existence checks before accessing user properties
+- **Impact**: Causes JavaScript errors during room rendering, breaks game state display
+
+### Redis ORM Issues
+- **CRITICAL**: `patch()` vs `unflatten()` inconsistency causes object corruption
+- **Problem**: `patch(key, "field:subkey", value)` creates nested fields without empty markers that `unflatten()` expects
+- **Location**: `services/webapp/libs/redis-orm/core/mixins.py` (patch method) vs `core/utils.py` (unflatten method)
+- **Impact**: Corrupts entire object when mixing patch nested syntax with normal field access - caused chat message regression
+- **Trigger**: `room.patch(room_id, f"messages:{timestamp}", message, True)` broke room.cards data
+- **Root Cause**: patch() documentation promises nested syntax support but doesn't create field markers that unflatten() requires
+- **Current Workaround**: Messages stored as JSON blob in single field to avoid nested field corruption
+- **TODO**: After fixing ORM nested field handling, migrate messages to proper ORM array structure
+
+### Message Storage Architecture  
+- **Current Implementation**: Messages stored as JSON blob in `room.messages` field
+- **Reason**: Temporary workaround for Redis ORM nested field corruption issue
+- **Technical Debt**: JSON blob approach bypasses ORM benefits (type safety, relationship handling, atomic updates)
+- **Future Enhancement**: Once ORM `patch()` vs `unflatten()` inconsistency is resolved, migrate to proper ORM array structure
+- **Migration Path**: Implement message as separate model with Room relationship, or fix ORM to support native arrays
+
 ### Documentation
 - **Document all valid role values** in API reference
 - **Add input validation examples** to API documentation  

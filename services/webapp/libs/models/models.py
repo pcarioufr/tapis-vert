@@ -115,10 +115,8 @@ class Room(ObjectMixin):
         "users": "models.UsersRooms"
     }
 
-
     @tracer.wrap("Room.new_round")
     def new_round(self):
-
         users = self.users().all()
 
         round = new_id()

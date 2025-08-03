@@ -128,9 +128,22 @@ Cards have visual indicators:
 - **Connection Status**: Automatic reconnection with user notifications
 
 #### Chat System
-- **Message Input**: Type and send messages to the room
-- **Live Display**: Messages appear instantly for all users
-- **Author Attribution**: Messages show sender's name
+
+The chat interface is split into two distinct areas, positioned below the game table in a vertical layout:
+
+**Game Area (Top Section):**
+- **Card Proposals**: Each player can write their proposal for their own card
+- **Game-Specific**: Focused on game mechanics and card-related communication
+- **Individual Input**: Personal space for game strategy and card reasoning
+
+**Room Area (Bottom Section):**
+- **General Chat**: Traditional chat interface for room-wide communication
+- **Message Alignment**: Your messages appear on the right (green bubbles), others on the left (white bubbles)
+- **Floating Input**: Text input and send button fixed at bottom of chat area
+- **Live Display**: Messages appear instantly for all users with proper alignment
+- **Author Attribution**: Each message shows sender's name and relative timestamp ("2 minutes ago")
+- **Timestamp Display**: Messages show how long ago they were sent (minutes, hours, or days), automatically refreshed every minute
+- **Responsive Design**: Messages adapt width on mobile devices
 - **Persistent**: Messages remain visible until new round
 
 #### Cursor Tracking

@@ -247,8 +247,8 @@
             // cards representations
             this.eCards = {} ;
 
-            // room's conversation
-            this.eConversation = new Conversation(document.body) ;
+                            // room's chat interface
+                this.eChat = new ChatContainer(document.body);
 
 
         }
@@ -333,7 +333,7 @@
             listen( "RoomManager", "round:new", async (throwerId, user_id) => {
                 
                 values(this.eCards).forEach(cardObj => cardObj.remove());
-                this.eConversation.flush();
+                                    this.eChat.flush();
 
                 await this.refresh() ;
                 new Toast("info", "New round started", "swap-box-line");
@@ -386,9 +386,10 @@
             listen( "RoomManager", "message:new", (throwerId, message) => {
                 
                 console.log(message);
-                console.log(`Received message ${message.author} : ${message.content}`);
+                console.log(`Received message ${message.author} : ${message.content} at ${message.timestamp}`);
 
-                this.eConversation.addMessage(message.author, message.content);
+                const authorName = this.data.users[message.author]?.name || message.author;
+                this.eChat.addMessage(message.author, authorName, message.content, message.timestamp);
 
             })
 
@@ -497,13 +498,23 @@
 
             console.log('RENDER MESSAGES')
             console.log(this.data.messages)
-            entries(this.data.messages).forEach( ([message_id, message]) => {
-
-                console.log('render message')
-                message = JSON.parse(message);
-                this.eConversation.addMessage(message.author, message.content);
-
-            });
+            
+            // Messages are stored as JSON blob, parse to get array
+            if (this.data.messages) {
+                try {
+                    const messages = JSON.parse(this.data.messages || "[]");
+                    if (Array.isArray(messages)) {
+                        messages.forEach( (message) => {
+                            console.log('render message', message);
+                            
+                            const authorName = this.data.users[message.author]?.name || message.author;
+                            this.eChat.addMessage(message.author, authorName, message.content, message.timestamp);
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to parse messages JSON:', e);
+                }
+            }
 
 
         }

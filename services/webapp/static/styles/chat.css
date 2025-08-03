@@ -1,57 +1,235 @@
+/* CHAT CONTAINER - Split Layout */
 
-
-.conversation {
-
+.chat-container {
     position: relative;
-
     display: flex;
-    flex-direction: column ;
-    align-items: flex-start;
-
+    flex-direction: column;
     width: 80%;
     margin: auto;
+    gap: 2vw;
+}
+
+/* GAME AREA - Card Proposals Section */
+
+.game-area {
+    position: relative;
+    background: var(--beige);
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 1vw;
+    padding: 1vw;
+}
+
+.game-area-header {
+    margin-bottom: 1vw;
+}
+
+.game-area-header h3 {
+    margin: 0;
+    color: var(--dbrown);
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.card-proposal {
+    position: relative;
+}
+
+.proposal-input {
+    display: flex;
+    flex-direction: column;
+    gap: 1vw;
+}
+
+.proposal-input textarea,
+.proposal-textarea {
+    width: 100%;
+    min-height: 6vw;
+    padding: 1vw;
+    border: 0.1vw solid var(--dbrown);
+    border-radius: 0.5vw;
+    font-family: inherit;
+    font-size: 1em;
+    resize: vertical;
+    background: white;
+    box-sizing: border-box;
+}
+
+.proposal-input textarea:focus,
+.proposal-textarea:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 0.1vw var(--green);
+}
+
+.proposal-actions {
+    display: flex;
+    gap: 1vw;
+    justify-content: flex-end;
+}
+
+/* ROOM AREA - General Chat Section */
+
+.room-area {
+    position: relative;
+    background: white;
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 1vw;
+    padding: 1vw;
+    padding-bottom: 5vw; /* Space for floating input */
+}
+
+.room-area-header {
+    margin-bottom: 1vw;
+}
+
+.room-area-header h3 {
+    margin: 0;
+    color: var(--dbrown);
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.conversation {
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .conversation .messages {
-
     position: relative;
-
     display: flex;
-    flex-direction: column ;
-    align-items: flex-start;
-
+    flex-direction: column;
     gap: 1vw;
-    margin-right: auto;
-
+    max-height: 30vw;
+    overflow-y: auto;
+    padding: 1vw;
+    background: var(--light-beige, #f9f7f4);
+    border-radius: 0.5vw;
 }
 
-.conversation .messages .message {
+/* Floating Message Input */
+.floating-message-input {
+    position: absolute;
+    bottom: 1vw;
+    left: 1vw;
+    right: 1vw;
+    background: white;
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 0.5vw;
+    padding: 0.5vw;
+    box-shadow: 0 0.2vw 0.8vw rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
 
+/* Message Styling */
+.message {
     position: relative;
     display: flex;
-
-    padding: 0.5vw;
-    gap: 2vw;
-
+    margin-bottom: 0.5vw;
 }
 
-.conversation .messages .message .author {
-
-    position: relative;
-
+/* Own Message (Right Aligned) */
+.message.own-message {
+    justify-content: flex-end;
 }
 
-.conversation .messages .message .content {
-
-    position: relative;
-
+.message.own-message .message-bubble {
+    background: var(--green, #4CAF50);
+    color: white;
+    border-radius: 1vw 1vw 0.2vw 1vw;
+    max-width: 70%;
 }
 
+.message.own-message .author {
+    color: rgba(255, 255, 255, 0.8);
+    text-align: right;
+}
 
-.conversation .new {
+/* Other Message (Left Aligned) */
+.message.other-message {
+    justify-content: flex-start;
+}
 
-    position: relative;
+.message.other-message .message-bubble {
+    background: white;
+    color: var(--dbrown);
+    border: 0.1vw solid var(--dbrown);
+    border-radius: 1vw 1vw 1vw 0.2vw;
+    max-width: 70%;
+}
 
-    margin: auto;
+.message.other-message .author {
+    color: var(--dbrown);
+}
 
+/* Message Bubble Content */
+.message-bubble {
+    padding: 0.8vw 1.2vw;
+    box-shadow: 0 0.1vw 0.3vw rgba(0, 0, 0, 0.1);
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.3vw;
+}
+
+.message-bubble .author {
+    font-size: 0.8em;
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+.message-bubble .timestamp {
+    font-size: 0.7em;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.message-bubble .content {
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Responsive Design */
+
+@media (max-width: 800px) {
+    .chat-container {
+        width: 95%;
+        gap: 3vw;
+    }
+    
+    .proposal-input textarea {
+        min-height: 8vw;
+    }
+    
+    .conversation .messages {
+        max-height: 40vw;
+    }
+    
+    .room-area {
+        padding-bottom: 7vw; /* More space for mobile input */
+    }
+    
+    .floating-message-input {
+        bottom: 1.5vw;
+        left: 1.5vw;
+        right: 1.5vw;
+    }
+    
+    .message.own-message .message-bubble,
+    .message.other-message .message-bubble {
+        max-width: 85%; /* Wider on mobile */
+        padding: 1.2vw 1.8vw;
+    }
+    
+    .message-bubble .author {
+        font-size: 1em;
+    }
+    
+    .message-bubble .timestamp {
+        font-size: 0.8em;
+    }
 }

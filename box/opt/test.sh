@@ -16,7 +16,7 @@ usage() {
     echo "    -h           : Show this help"
     echo ""
     echo "Available commands:"
-    echo "    init         : Run full integration test (room + users + round)"
+    echo "    init         : Run full integration test (room + users + round + messaging)"
     echo "    delete       : Wipe Redis database (clean slate)"
     echo ""
     echo "Examples:"
@@ -91,7 +91,8 @@ test_init() {
     # 2. Create 5 users with codes (via admin API)
     # 3. Join users to room with roles (via public API + cookies) 
     # 4. Start round (via public API + cookies)
-    # 5. Verify game state
+    # 5. Test messaging system (send messages from Alice, Bob, Charlie)
+    # 6. Verify game state and message storage
 
     check_services
 
@@ -220,8 +221,55 @@ test_init() {
     # Clean up master cookie
     rm -f "$MASTER_COOKIE"
 
-    # Step 5: Verify game state
-    debug "Step 5: Verifying final game state..."
+    # Step 5: Test messaging system
+    debug "Step 5: Testing messaging system..."
+
+    # Test messages to send
+    declare -a TEST_MESSAGES=("Hello" "Salut, comment ça va" "Yay!!!!!!!")
+    declare -a MESSAGE_SENDERS=(0 1 2)  # Alice, Bob, Charlie indices
+    declare -a SENDER_NAMES=("Alice" "Bob" "Charlie")
+
+    for i in {0..2}; do
+        SENDER_INDEX=${MESSAGE_SENDERS[$i]}
+        MESSAGE=${TEST_MESSAGES[$i]}
+        SENDER_NAME=${SENDER_NAMES[$i]}
+        SENDER_CODE=${CODE_IDS[$SENDER_INDEX]}
+        
+        debug "Sending message from $SENDER_NAME: '$MESSAGE'..."
+        
+        # Authenticate sender and send message
+        SENDER_COOKIE="/tmp/sender_${i}_cookie.txt"
+        
+        # Get authentication cookie
+        curl -s -L -c "$SENDER_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$SENDER_CODE" >/dev/null 2>&1
+        
+        if [ -f "$SENDER_COOKIE" ] && [ -s "$SENDER_COOKIE" ]; then
+            # Send message using authenticated session
+            MESSAGE_RESPONSE=$(curl -s -L -b "$SENDER_COOKIE" -X POST \
+                -H "Content-Type: application/json" \
+                -d "{\"content\": \"$MESSAGE\"}" \
+                "$BASE_URL/api/v1/rooms/$ROOM_ID/message")
+            
+            debug "Message response from $SENDER_NAME: $MESSAGE_RESPONSE"
+            
+            if [[ "$MESSAGE_RESPONSE" == *"401 Unauthorized"* || "$MESSAGE_RESPONSE" == *"html"* ]]; then
+                error "Failed to send message from $SENDER_NAME"
+            else
+                info "$SENDER_NAME sent: '$MESSAGE'"
+            fi
+        else
+            error "Failed to authenticate $SENDER_NAME for messaging"
+        fi
+        
+        # Clean up sender cookie
+        rm -f "$SENDER_COOKIE"
+        
+        # Small delay between messages to ensure different timestamps
+        sleep 1
+    done
+
+    # Step 6: Verify game state and messages
+    debug "Step 6: Verifying final game state and messages..."
 
     # Get room details via ADMIN API to verify everything is set up correctly
     ADMIN_ALL_ROOMS=$(curl -s "$ADMIN_URL/admin/api/rooms")
@@ -254,9 +302,46 @@ test_init() {
         fi
     done
 
+    # Verify messages are stored correctly
+    debug "📨 Verifying message storage..."
+    
+    # Get messages from public API (they should be in JSON blob format)
+    ROOM_MESSAGES=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages" 2>/dev/null || echo "null")
+    
+    if [[ "$ROOM_MESSAGES" != "null" && "$ROOM_MESSAGES" != "" ]]; then
+        # Parse message count
+        MESSAGE_COUNT=$(echo "$ROOM_MESSAGES" | jq '. | length' 2>/dev/null || echo "0")
+        
+        debug "Found $MESSAGE_COUNT messages in room"
+        debug "Raw messages JSON: $ROOM_MESSAGES"
+        
+        # Verify specific message content
+        declare -a FOUND_MESSAGES=()
+        for i in {0..2}; do
+            EXPECTED_MESSAGE=${TEST_MESSAGES[$i]}
+            SENDER_INDEX=${MESSAGE_SENDERS[$i]}
+            EXPECTED_AUTHOR=${USER_IDS[$SENDER_INDEX]}
+            
+            # Check if message exists with correct content and author
+            MESSAGE_FOUND=$(echo "$ROOM_MESSAGES" | jq -r "map(select(.content == \"$EXPECTED_MESSAGE\" and .author == \"$EXPECTED_AUTHOR\")) | length" 2>/dev/null || echo "0")
+            
+            if [[ "$MESSAGE_FOUND" == "1" ]]; then
+                success "Message verification: '${EXPECTED_MESSAGE}' from ${SENDER_NAMES[$i]} (ok)"
+                FOUND_MESSAGES[$i]="true"
+            else
+                error "Message verification: '${EXPECTED_MESSAGE}' from ${SENDER_NAMES[$i]} (missing)"
+                FOUND_MESSAGES[$i]="false"
+            fi
+        done
+    else
+        error "No messages found in room"
+        MESSAGE_COUNT=0
+        FOUND_MESSAGES=("false" "false" "false")
+    fi
+
     # Run independent assertions
     ASSERTIONS_PASSED=0
-    TOTAL_ASSERTIONS=5
+    TOTAL_ASSERTIONS=7  # Added 2 assertions: message count + message content
 
     # Assertion 1: Room exists and accessible
     if [[ "$ROOM_ID" != "null" && -n "$ROOM_ID" ]]; then
@@ -303,6 +388,29 @@ test_init() {
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
         error "Cards distribution: failed"
+    fi
+
+    # Assertion 6: Message count correct
+    if [[ "$MESSAGE_COUNT" == "3" ]]; then
+        success "Message count: ok (3/3)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    else
+        error "Message count: failed ($MESSAGE_COUNT/3)"
+    fi
+
+    # Assertion 7: All messages content verified
+    CORRECT_MESSAGES=0
+    for i in {0..2}; do
+        if [[ "${FOUND_MESSAGES[$i]}" == "true" ]]; then
+            CORRECT_MESSAGES=$((CORRECT_MESSAGES + 1))
+        fi
+    done
+    
+    if [[ "$CORRECT_MESSAGES" == "3" ]]; then
+        success "Message content: ok (3/3)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    else
+        error "Message content: failed ($CORRECT_MESSAGES/3)"
     fi
 
     # Overall test result

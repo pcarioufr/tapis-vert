@@ -2,70 +2,236 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/chat.css') }}">
     
-    <template id="t-conversation">
-        <div class="conversation">
-            <div class="messages">
-                <!-- messages go here-->
+    <template id="t-chat-container">
+        <div class="chat-container">
+            <!-- Game Area: Card proposals and game-specific communication -->
+            <div class="game-area">
+                <div class="game-area-header">
+                    <h3>Card Proposals</h3>
+                </div>
+                <div class="card-proposal">
+                    <div class="proposal-input">
+                        <!-- Card proposal input will go here -->
+                    </div>
+                </div>
             </div>
-            <div class="new"></div>
+            
+            <!-- Room Area: General chat communication -->
+            <div class="room-area">
+                <div class="room-area-header">
+                    <h3>Room Chat</h3>
+                </div>
+                <div class="conversation">
+                    <div class="messages">
+                        <!-- messages go here-->
+                    </div>
+                </div>
+                <!-- Floating message input (positioned separately) -->
+                <div class="floating-message-input">
+                    <!-- message input will go here -->
+                </div>
+            </div>
         </div>
     </template>
 
     <script>
     
-    class Conversation extends Element {
+    class ChatContainer extends Element {
 
         constructor(eParent=null) {
-
-            super(build("t-conversation"), eParent);
-
-            // Conversations messages
-            this.eMessages = [];
-
-
-            // New message
-            this.input = new ExtendedTextInput();
-            this.input.title = "message";
-
-            let send = new Button()
-            send.name = "send"
-            send.icon = "send-plane-2-line"
-            send.color = "green"
-
-            send.callback = () => {
-                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
-            }
-
-            this.input.button = send;
-
-            this.select(".new").append(this.input.e)
-
+            super(build("t-chat-container"), eParent);
+            
+            // Initialize game area
+            this.gameArea = new GameArea(this.select(".game-area"));
+            
+            // Initialize room area (existing chat functionality)
+            this.roomArea = new RoomChat(this.select(".room-area"));
         }
 
-        addMessage(author, message) {
+        // Delegate methods to appropriate areas
+        addMessage(authorId, authorName, message, timestamp) {
+            this.roomArea.addMessage(authorId, authorName, message, timestamp);
+        }
 
-            console.log(`Adding message ${author} : ${message}`)
-
-            const msg = new Message(this.select(".messages"));
-            this.eMessages.push(msg);
-            msg.author  = author;
-            msg.message = message;
-
+        setCardProposal(proposal) {
+            this.gameArea.setProposal(proposal);
         }
 
         flush() {
-            this.eMessages.forEach( m => m.remove() );
-            this.eMessages = [];
+            this.roomArea.flush();
+            this.gameArea.flush();
+        }
+    }
+
+    </script>
+
+    <!-- Game Area Component -->
+    <template id="t-game-area">
+        <div class="proposal-container">
+            <div class="proposal-text">
+                <textarea placeholder="Write your card proposal here..." maxlength="280"></textarea>
+            </div>
+            <div class="proposal-actions">
+                <button class="proposal-save">Save Proposal</button>
+                <button class="proposal-clear">Clear</button>
+            </div>
+        </div>
+    </template>
+
+    <script>
+    
+    class GameArea extends Element {
+
+        constructor(eParent) {
+            super(eParent);
+            this.initializeProposalInput();
         }
 
+        initializeProposalInput() {
+            // Create proposal textarea
+            this.proposalTextarea = document.createElement('textarea');
+            this.proposalTextarea.placeholder = "Write your card proposal here...";
+            this.proposalTextarea.maxLength = 280;
+            this.proposalTextarea.className = 'proposal-textarea';
+
+            let saveButton = new Button();
+            saveButton.name = "save";
+            saveButton.icon = "check-line";
+            saveButton.color = "green";
+            
+            saveButton.callback = () => {
+                // TODO: Save proposal to backend
+                console.log("Saving proposal:", this.proposalTextarea.value);
+            };
+
+            let clearButton = new Button();
+            clearButton.name = "clear";
+            clearButton.icon = "delete-bin-line";
+            clearButton.color = "red";
+            
+            clearButton.callback = () => {
+                this.proposalTextarea.value = "";
+            };
+
+            // Add to DOM
+            const proposalContainer = this.select(".proposal-input");
+            proposalContainer.append(this.proposalTextarea);
+            
+            const actionsContainer = document.createElement('div');
+            actionsContainer.className = 'proposal-actions';
+            actionsContainer.append(saveButton.e);
+            actionsContainer.append(clearButton.e);
+            proposalContainer.append(actionsContainer);
+        }
+
+        setProposal(proposal) {
+            if (this.proposalTextarea) {
+                this.proposalTextarea.value = proposal;
+            }
+        }
+
+        flush() {
+            if (this.proposalTextarea) {
+                this.proposalTextarea.value = "";
+            }
+        }
+    }
+
+    </script>
+
+    <!-- Room Chat Component (existing functionality) -->
+    <script>
+    
+    class RoomChat extends Element {
+
+        constructor(eParent) {
+            super(eParent);
+            this.eMessages = [];
+            this.currentUserId = "{{user.id if user.is_authenticated else ''}}";
+            this.initializeChat();
+            this.startTimestampRefresh();
+        }
+
+        initializeChat() {
+            // Floating message input
+            this.input = new ExtendedTextInput();
+            this.input.title = "message";
+            this.input.placeholder = "Type a message...";
+
+            let send = new Button();
+            send.name = "send";
+            send.icon = "send-plane-2-line";
+            send.color = "green";
+
+            send.callback = () => {
+                if (this.input.value.trim()) {
+                    call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
+                    this.input.value = ""; // Clear input after sending
+                }
+            };
+
+            this.input.button = send;
+
+            // Add to floating input container
+            this.select(".floating-message-input").append(this.input.e);
+        }
+
+        addMessage(authorId, authorName, message, timestamp) {
+            console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
+
+            const isOwnMessage = (authorId === this.currentUserId);
+            const msg = new Message(this.select(".messages"), isOwnMessage);
+            this.eMessages.push(msg);
+            msg.author = authorName;
+            msg.message = message;
+            msg.timestamp = timestamp;
+
+            // Auto-scroll to bottom
+            const messagesContainer = this.select(".messages");
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        flush() {
+            this.eMessages.forEach(m => m.remove());
+            this.eMessages = [];
+            // Note: We don't clear the refresh interval here since chat persists between rounds
+        }
+
+        startTimestampRefresh() {
+            // Refresh timestamps every minute (60,000 ms)
+            this.timestampRefreshInterval = setInterval(() => {
+                this.refreshAllTimestamps();
+            }, 60000);
+        }
+
+        refreshAllTimestamps() {
+            // Update the relative time display for all messages
+            this.eMessages.forEach(message => {
+                if (message.timestampValue) {
+                    message.timestamp = message.timestampValue; // This triggers the setter
+                }
+            });
+        }
+
+        destroy() {
+            // Clean up the interval when chat is destroyed
+            if (this.timestampRefreshInterval) {
+                clearInterval(this.timestampRefreshInterval);
+            }
+        }
     }
 
     </script>
 
     <template id="t-message">
         <div class="message">
-            <div class="author"></div>
-            <div class="content" style="white-space: pre-wrap;"></div>
+            <div class="message-bubble">
+                <div class="message-header">
+                    <div class="author"></div>
+                    <div class="timestamp"></div>
+                </div>
+                <div class="content"></div>
+            </div>
         </div>
     </template>
 
@@ -73,13 +239,58 @@
 
     class Message extends Element {
 
-        constructor(eParent) {
+        constructor(eParent, isOwnMessage = false) {
             super(build("t-message"));
+            
+            // Set alignment class
+            if (isOwnMessage) {
+                this.e.classList.add('own-message');
+            } else {
+                this.e.classList.add('other-message');
+            }
+            
             eParent.append(this.e);
         }
 
-        set message(message) { this.select(".content").innerText = message ; }
-        set author(author)   { this.select(".author").innerText = author ; }
+        set message(message) { 
+            this.select(".content").innerText = message;
+        }
+        
+        set author(author) { 
+            this.select(".author").innerText = author;
+        }
+
+        set timestamp(timestamp) {
+            // Store the original timestamp value for refreshing
+            this.timestampValue = timestamp;
+            
+            const relativeTime = this.getRelativeTime(timestamp);
+            this.select(".timestamp").innerText = relativeTime;
+        }
+
+        getRelativeTime(timestamp) {
+            const now = Date.now();
+            const diffMs = now - timestamp;
+            const diffSeconds = Math.floor(diffMs / 1000);
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            const diffHours = Math.floor(diffMinutes / 60);
+            const diffDays = Math.floor(diffHours / 24);
+
+            if (diffSeconds < 60) {
+                return 'just now';
+            } else if (diffMinutes < 60) {
+                return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+            } else if (diffHours < 24) {
+                return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            } else {
+                return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+            }
+        }
+
+        remove() {
+            // Override Element's remove to clean up references
+            super.remove();
+        }
 
     }
 

@@ -16,29 +16,34 @@ The admin system provides tools for:
 Admin routes are **only accessible from the server itself** (localhost) for security reasons. External access is completely blocked.
 
 ### Admin Interface URLs
-- **Main Admin Dashboard**: `http://localhost:8001/admin/list` - Tables for users, rooms, and codes
-- **Redis Debugging Interface**: `http://localhost:8001/admin/redis` - Raw Redis key inspection
+- **Main Admin Dashboard**: `http://localhost:[TUNNEL_PORT]/admin/list` - Tables for users, rooms, and codes
+- **Redis Debugging Interface**: `http://localhost:[TUNNEL_PORT]/admin/redis` - Raw Redis key inspection
 
 ### Prerequisites
 - SSH access to the server
 - Understanding of the data models (User, Room, Code)
 - Familiarity with Redis key patterns for debugging
 
+### 🔧 Port Configuration
+**Flask Service**: The Flask container listens on **port 8001** internally
+- **Direct server access**: Use `http://localhost:8001/admin/...`
+- **Tunnel access**: Use `http://localhost:[TUNNEL_PORT]/admin/...` where TUNNEL_PORT is specified in the tunnel command
+
 ### Access Methods
 
 #### 1. Admin Utility (Recommended)
 ```bash
-# Create admin tunnel (easiest method)
-box admin tunnel
+# Create admin tunnel (maps local port to flask port 8001)
+box -p 8000 admin tunnel
 
 # Then access admin interface at:
-# http://localhost:8001/admin/list
-# http://localhost:8001/admin/redis
+# http://localhost:8000/admin/list
+# http://localhost:8000/admin/redis
 ```
 
 #### 2. Manual SSH Tunnel
 ```bash
-# Create tunnel manually
+# Create tunnel manually (maps local 8001 to remote flask 8001)
 box ssh -L 8001:localhost:8001
 
 # Then access admin interface at:
@@ -50,7 +55,7 @@ box ssh -L 8001:localhost:8001
 # SSH into the server
 box ssh
 
-# Use curl to interact with admin API directly
+# Use curl to interact with admin API directly on flask port 8001
 curl http://localhost:8001/admin/api/rooms
 curl http://localhost:8001/admin/api/users
 curl -X POST "http://localhost:8001/admin/api/rooms?name=NewRoom"
@@ -58,8 +63,8 @@ curl -X POST "http://localhost:8001/admin/api/rooms?name=NewRoom"
 
 #### 4. Test Admin API (after tunnel)
 ```bash
-# Test admin connectivity
-box admin api
+# Test admin connectivity (uses box admin command)
+box admin ping
 ```
 
 ## Admin User Interface
@@ -104,6 +109,10 @@ Advanced debugging interface for direct Redis operations:
 - **Scoped Deletion**: Delete specific fields rather than entire keys
 
 ## Admin API Reference
+
+### 🔧 API Base URLs
+- **Direct server access**: `http://localhost:8001/admin/api/...`
+- **Tunnel access**: `http://localhost:[TUNNEL_PORT]/admin/api/...`
 
 ### User Management API
 
