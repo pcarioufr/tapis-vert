@@ -70,53 +70,24 @@ def room_join(room_id=None):
 @public_api.route("/v1/rooms/<room_id>/message", methods=['POST'])
 @flask_login.login_required
 def room_message(room_id=None):
-    log.info(f"🔧 MESSAGE DEBUG: Starting message endpoint for room_id={room_id}")
-    
     room = Room.get_by_id(room_id)
     if room is None:
-        log.info(f"🔧 MESSAGE DEBUG: Room {room_id} not found")
         return flask.jsonify({"error": "room does not exist"}), 404
 
     timestamp = utils.now(False)
     content = flask.request.json.get("content")
     user_id = flask_login.current_user.id
 
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} before message - data keys: {list(room.data.keys())}")
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} before message - cards preview: {str(room.cards)[:100]}...")
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} before message - messages: {room.messages}")
-
     message_obj = {"timestamp": timestamp, "content": content, "author": user_id}
 
     # Get current messages array and append new message
     messages = json.loads(room.messages or "[]")
-    log.info(f"🔧 MESSAGE DEBUG: Existing messages count: {len(messages)}")
-    
     messages.append(message_obj)
-    log.info(f"🔧 MESSAGE DEBUG: New messages count: {len(messages)}")
     
     # Update room with new messages JSON blob
     room.messages = json.dumps(messages)
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} after message update - data keys: {list(room.data.keys())}")
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} after message update - cards preview: {str(room.cards)[:100]}...")
-    log.info(f"🔧 MESSAGE DEBUG: Room {room_id} messages field length: {len(room.messages)} chars")
     
-    log.info(f"🔧 MESSAGE DEBUG: About to save room {room_id}")
-    
-    # DETAILED METHOD INTROSPECTION TO DEBUG SAVE ISSUE
-    log.info(f"🚨 SAVE INTROSPECTION: room.save = {room.save}")
-    log.info(f"🚨 SAVE INTROSPECTION: room.save.__qualname__ = {getattr(room.save, '__qualname__', 'NO_QUALNAME')}")
-    log.info(f"🚨 SAVE INTROSPECTION: room.save.__module__ = {getattr(room.save, '__module__', 'NO_MODULE')}")
-    log.info(f"🚨 SAVE INTROSPECTION: room.save.__func__ = {getattr(room.save, '__func__', 'NO_FUNC')}")
-    log.info(f"🚨 SAVE INTROSPECTION: type(room) = {type(room)}")
-    log.info(f"🚨 SAVE INTROSPECTION: room.__class__.__mro__ = {room.__class__.__mro__}")
-    
-    try:
-        room.save()
-        log.info(f"🔧 MESSAGE DEBUG: room.save() completed without exception")
-    except Exception as e:
-        log.error(f"🚨 SAVE EXCEPTION: {e}")
-        log.error(f"🚨 SAVE EXCEPTION TYPE: {type(e)}")
-        raise
+    room.save()
     # Note: "saved successfully" log should only come from save() method itself
 
     # Publish message for WebSocket (keep as JSON string for compatibility)

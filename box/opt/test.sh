@@ -284,6 +284,52 @@ test_init() {
     # Check if cards are distributed using public API (admin API might not include full card details)
     PUBLIC_ROOM_STATE=$(curl -s -L "$BASE_URL/api/v1/rooms/$ROOM_ID")
     HAS_CARDS=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards | if type == \"object\" and length > 0 then \"true\" else \"false\" end" 2>/dev/null || echo "false")
+    
+    # Validate card data integrity (check if all cards have complete properties)
+    CARD_INTEGRITY="true"
+    CARD_DETAILS=""
+    if [[ "$HAS_CARDS" == "true" ]]; then
+        debug "🔍 Validating card data integrity..."
+        
+        # Extract all cards and check their properties
+        CARDS_JSON=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards")
+        CARD_IDS=$(echo "$CARDS_JSON" | jq -r 'keys[]' 2>/dev/null || echo "")
+        
+        TOTAL_CARDS=0
+        COMPLETE_CARDS=0
+        
+        if [[ -n "$CARD_IDS" ]]; then
+            for card_id in $CARD_IDS; do
+                TOTAL_CARDS=$((TOTAL_CARDS + 1))
+                
+                # Check if card has all 4 required properties with valid values
+                CARD_DATA=$(echo "$CARDS_JSON" | jq -r ".\"$card_id\"")
+                
+                FLIPPED=$(echo "$CARD_DATA" | jq -r '.flipped // empty')
+                VALUE=$(echo "$CARD_DATA" | jq -r '.value // empty') 
+                PLAYER_ID=$(echo "$CARD_DATA" | jq -r '.player_id // empty')
+                PEEKED=$(echo "$CARD_DATA" | jq -r '.peeked // empty')
+                
+                # Count non-empty properties
+                PROPS=0
+                [[ -n "$FLIPPED" && "$FLIPPED" != "null" ]] && PROPS=$((PROPS + 1))
+                [[ -n "$VALUE" && "$VALUE" != "null" ]] && PROPS=$((PROPS + 1))
+                [[ -n "$PLAYER_ID" && "$PLAYER_ID" != "null" ]] && PROPS=$((PROPS + 1))
+                [[ -n "$PEEKED" && "$PEEKED" != "null" ]] && PROPS=$((PROPS + 1))
+                
+                if [[ "$PROPS" == "4" ]]; then
+                    COMPLETE_CARDS=$((COMPLETE_CARDS + 1))
+                    debug "Card $card_id: complete (4/4 properties)"
+                else
+                    debug "Card $card_id: incomplete ($PROPS/4 properties)"
+                    CARD_INTEGRITY="false"
+                fi
+            done
+        fi
+        
+        CARD_DETAILS="$COMPLETE_CARDS/$TOTAL_CARDS"
+        debug "Card integrity check: $COMPLETE_CARDS complete cards out of $TOTAL_CARDS total"
+    fi
 
     # Verify user roles are correctly assigned
     declare -a ACTUAL_ROLES=()
@@ -341,7 +387,7 @@ test_init() {
 
     # Run independent assertions
     ASSERTIONS_PASSED=0
-    TOTAL_ASSERTIONS=7  # Added 2 assertions: message count + message content
+    TOTAL_ASSERTIONS=8  # Added 3 assertions: message count + message content + card data integrity
 
     # Assertion 1: Room exists and accessible
     if [[ "$ROOM_ID" != "null" && -n "$ROOM_ID" ]]; then
@@ -390,7 +436,18 @@ test_init() {
         error "Cards distribution: failed"
     fi
 
-    # Assertion 6: Message count correct
+    # Assertion 6: Card data integrity (NEW - detects corruption)
+    if [[ "$HAS_CARDS" == "true" && "$CARD_INTEGRITY" == "true" ]]; then
+        success "Card data integrity: ok ($CARD_DETAILS cards complete)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    elif [[ "$HAS_CARDS" == "true" && "$CARD_INTEGRITY" == "false" ]]; then
+        error "Card data integrity: CORRUPTED ($CARD_DETAILS cards complete)"
+        error "🔴 CORRUPTION DETECTED: Some cards missing properties (flipped/value/player_id/peeked)"
+    else
+        error "Card data integrity: failed (no cards to validate)"
+    fi
+
+    # Assertion 7: Message count correct
     if [[ "$MESSAGE_COUNT" == "3" ]]; then
         success "Message count: ok (3/3)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
@@ -398,7 +455,7 @@ test_init() {
         error "Message count: failed ($MESSAGE_COUNT/3)"
     fi
 
-    # Assertion 7: All messages content verified
+    # Assertion 8: All messages content verified
     CORRECT_MESSAGES=0
     for i in {0..2}; do
         if [[ "${FOUND_MESSAGES[$i]}" == "true" ]]; then

@@ -100,7 +100,6 @@ class RedisMixin:
 
         redis_client = get_redis_client()
         if redis_client.exists(key):
-            log.error(f"🚨 CREATE CONFLICT: {cls.__name__} key {key} already exists in Redis")
             raise ConflictError(f"{cls.__name__}.create: {key} already exists")
 
         instance.save()
@@ -149,24 +148,10 @@ class RedisMixin:
         # retrieve data
         non_meta_data = {k: v for k, v in raw.items() if k not in cls.META_FIELDS}
         
-        # FOCUSED UNFLATTEN LOGGING - only for potential corruption
-        if cls.__name__ == "Room" and any("cards:" in k for k in non_meta_data.keys()):
-            card_fields = [k for k in non_meta_data.keys() if "cards:" in k]
-            log.info(f"🔧 UNFLATTEN DEBUG: Room {key} has {len(card_fields)} card fields before unflatten")
-        
         try:
             data = unflatten(non_meta_data)
-            
-            # FOCUSED UNFLATTEN RESULT LOGGING - only for potential corruption
-            if cls.__name__ == "Room" and "cards" in data:
-                cards_count = len(data["cards"]) if isinstance(data["cards"], dict) else 0
-                log.info(f"🔧 UNFLATTEN DEBUG: Room {key} has {cards_count} cards after unflatten")
-                if cards_count == 0 and len([k for k in non_meta_data.keys() if "cards:" in k]) > 0:
-                    log.error(f"🚨 UNFLATTEN CORRUPTION: Room {key} lost cards during unflatten!")
-                    log.error(f"🚨 Raw card fields: {[k for k in non_meta_data.keys() if 'cards:' in k]}")
-                    log.error(f"🚨 Unflatten result: {data.get('cards', 'MISSING_CARDS_KEY')}")
         except Exception as e:
-            log.error(f"🚨 Unflatten failed for {cls.__name__} {key}: {e}")
+            log.error(f"Unflatten failed for {cls.__name__} {key}: {e}")
             raise
         
         meta = {}
@@ -180,12 +165,12 @@ class RedisMixin:
 
         return cls(key=key, data=data, meta=meta)
     
+    @tracer.wrap("RedisMixin.save")
     def save(self) -> "RedisMixin":
         """
         Saves the instance (data and metadata fields) to Redis using optimistic locking.
         Raises an exception if concurrent edits have been made (version change), or are being made (watch)
         """
-        log.info(f"🚨 SAVE METHOD ENTRY: {self.key} - save() called")
         redis_client = get_redis_client()
 
         try:
@@ -199,14 +184,12 @@ class RedisMixin:
                 version_ref = int(version_ref) if version_ref else -1
                 version_self = int(self._version)
 
-                log.info(f"🔧 SAVE VERSION CHECK: {self.key} - server:{version_ref}, instance:{version_self}")
-
                 if version_ref != version_self:
-                    log.error(f"🚨 OPTIMISTIC LOCK FAILURE: {self.key} - server version {version_ref} != instance version {version_self} (object modified by another process)")
                     raise ConflictError(f"Version mismatch: on server {version_ref}, on instance {version_self}.")
 
                 # flush existing fields - specifically matters for dictionary values
                 existing_fields = redis_client.hkeys(self.key)
+                
                 for field in self.FIELDS:
                     subkeys = [k for k in existing_fields if k.startswith(f"{field}:")]
                     if subkeys:
@@ -219,7 +202,9 @@ class RedisMixin:
                 flattened = flatten(self.data)
                 
                 for k, v in flattened.items():
-                    mapping[k] = '' if v is None else v
+                    v = '' if v is None else v
+                    if v != '':  # Skip empty markers to prevent unflatten corruption
+                        mapping[k] = v
 
                 # prepare metadata
                 self._edited = now()
@@ -230,20 +215,15 @@ class RedisMixin:
 
                 # push the update - this is where Redis DataError can occur
                 try:
-                    pipe.execute()
+                    result = pipe.execute()
                 except Exception as e:
-                    log.error(f"🚨 Redis execution failed for {self.key}: {e}")
-                    log.error(f"🚨 Mapping data types: {[(k, type(v).__name__, str(v)[:50]) for k, v in mapping.items()]}")
+                    log.error(f"Redis execution failed for {self.key}: {e}")
+                    log.error(f"Mapping data types: {[(k, type(v).__name__, str(v)[:50]) for k, v in mapping.items()]}")
                     raise
 
         except redis.WatchError:
-            log.error(f"🚨 REDIS WATCH ERROR: Concurrent edit detected for key {self.key}, aborting save operation")
             raise ConflictError("Concurrent edit detected, aborting.")
-        except ConflictError as e:
-            # ConflictError already logged by exception class with details, just re-raise
-            raise
-        except Exception as e:
-            log.error(f"🚨 SAVE UNEXPECTED ERROR: {self.key} - {e}")
+        except ConflictError:
             raise
 
         log.info(f"{self.__class__.__name__} with key {self.key} saved: {self.data} (metadata {self.meta})")
@@ -294,11 +274,9 @@ class RedisMixin:
 
             if redis_client.hexists(key, field):
                 if add:
-                    log.error(f"🚨 PATCH CONFLICT: {cls.__name__} key {key} already has field '{field}' (add=True)")
                     raise ConflictError(f"'{cls.__name__}' already has attribute '{field}'")
             else:
                 if not add:
-                    log.error(f"🚨 PATCH CONFLICT: {cls.__name__} key {key} missing field '{field}' (add=False)")
                     raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
 
             pipe.hset(key, field, value)
