@@ -1,124 +1,98 @@
-/* CHAT CONTAINER - Split Layout */
+/* CHAT CONTAINER - Simplified Layout */
 
 .chat-container {
+    position: absolute;
+    width: 80vw;
+    margin: 0 auto;
+}
+
+/* MESSAGES AREA - Clean scrolling layout */
+
+.messages {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    width: 80%;
-    margin: auto;
-    gap: 2vw;
-}
-
-/* GAME AREA - Card Proposals Section */
-
-.game-area {
-    position: relative;
-    background: var(--beige);
-    border: 0.2vw solid var(--dbrown);
-    border-radius: 1vw;
-    padding: 1vw;
-}
-
-.game-area-header {
-    margin-bottom: 1vw;
-}
-
-.game-area-header h3 {
-    margin: 0;
-    color: var(--dbrown);
-    font-size: 1.2em;
-    font-weight: bold;
-}
-
-.card-proposal {
-    position: relative;
-}
-
-.proposal-input {
     display: flex;
     flex-direction: column;
     gap: 1vw;
+    margin-bottom: 8vw; /* Space for fixed floating input */
+    padding: 5vw;
 }
 
-.proposal-input textarea,
-.proposal-textarea {
-    width: 100%;
-    min-height: 6vw;
-    padding: 1vw;
-    border: 0.1vw solid var(--dbrown);
-    border-radius: 0.5vw;
+/* Fixed Floating Message Input */
+.floating-message-input {
+    position: fixed;
+    bottom: 2vw;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(600px, 80vw);
+    background: var(--beige);
+    border: 0.2vw solid var(--dbrown);
+    border-radius: 3vw;
+    padding: 0.8vw;
+    box-shadow: 0 0.4vw 1.2vw rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 1vw;
+}
+
+.floating-message-input .message-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 2vw;
+    padding: 1vw 1.5vw;
+    font-size: 14px;
     font-family: inherit;
-    font-size: 1em;
-    resize: vertical;
-    background: white;
-    box-sizing: border-box;
+    outline: none;
+    resize: none;
+    min-height: 1.2em;
+    max-height: 6em;
+    overflow-y: auto;
+    color: var(--dbrown);
 }
 
-.proposal-input textarea:focus,
-.proposal-textarea:focus {
-    outline: none;
+.floating-message-input .message-input::placeholder {
+    color: var(--dbrown);
+    opacity: 0.6;
+}
+
+.floating-message-input.focused {
     border-color: var(--green);
     box-shadow: 0 0 0 0.1vw var(--green);
 }
 
-.proposal-actions {
+.floating-message-input .send-button {
+    width: 3vw;
+    height: 3vw;
+    min-width: 40px;
+    min-height: 40px;
+    background: var(--green);
+    border: none;
+    border-radius: 50%;
     display: flex;
-    gap: 1vw;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    box-shadow: 0 0.2vw 0.4vw rgba(0, 0, 0, 0.2);
 }
 
-/* ROOM AREA - General Chat Section */
-
-.room-area {
-    position: relative;
-    background: white;
-    border: 0.2vw solid var(--dbrown);
-    border-radius: 1vw;
-    padding: 1vw;
-    padding-bottom: 5vw; /* Space for floating input */
+.floating-message-input .send-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0.3vw 0.6vw rgba(0, 0, 0, 0.3);
 }
 
-.room-area-header {
-    margin-bottom: 1vw;
+.floating-message-input .send-button:active {
+    transform: scale(0.95);
 }
 
-.room-area-header h3 {
-    margin: 0;
-    color: var(--dbrown);
-    font-size: 1.2em;
-    font-weight: bold;
-}
-
-.conversation {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-}
-
-.conversation .messages {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 1vw;
-    max-height: 30vw;
-    overflow-y: auto;
-    padding: 1vw;
-    background: var(--light-beige, #f9f7f4);
-    border-radius: 0.5vw;
-}
-
-/* Floating Message Input */
-.floating-message-input {
-    position: absolute;
-    bottom: 1vw;
-    left: 1vw;
-    right: 1vw;
-    background: white;
-    border: 0.2vw solid var(--dbrown);
-    border-radius: 0.5vw;
-    padding: 0.5vw;
-    box-shadow: 0 0.2vw 0.8vw rgba(0, 0, 0, 0.15);
-    z-index: 10;
+.floating-message-input .send-button svg {
+    width: 1.2vw;
+    height: 1.2vw;
+    min-width: 16px;
+    min-height: 16px;
+    fill: var(--black);
 }
 
 /* Message Styling */
@@ -128,44 +102,43 @@
     margin-bottom: 0.5vw;
 }
 
+/* First message top margin to clear the fixed table */
+.messages .message:first-child {
+    margin-top: 25vw;
+}
+
 /* Own Message (Right Aligned) */
 .message.own-message {
     justify-content: flex-end;
+    margin-left: 20%; /* Use body margins, not window */
 }
 
 .message.own-message .message-bubble {
-    background: var(--green, #4CAF50);
     color: white;
     border-radius: 1vw 1vw 0.2vw 1vw;
-    max-width: 70%;
+    max-width: none; /* Remove width constraint */
 }
 
-.message.own-message .author {
-    color: rgba(255, 255, 255, 0.8);
-    text-align: right;
-}
 
 /* Other Message (Left Aligned) */
 .message.other-message {
     justify-content: flex-start;
+    margin-right: 20%; /* Use body margins, not window */
 }
 
 .message.other-message .message-bubble {
-    background: white;
     color: var(--dbrown);
-    border: 0.1vw solid var(--dbrown);
     border-radius: 1vw 1vw 1vw 0.2vw;
-    max-width: 70%;
+    max-width: none; /* Remove width constraint */
 }
 
-.message.other-message .author {
-    color: var(--dbrown);
-}
+
 
 /* Message Bubble Content */
 .message-bubble {
     padding: 0.8vw 1.2vw;
     box-shadow: 0 0.1vw 0.3vw rgba(0, 0, 0, 0.1);
+    background: var(--bblue)
 }
 
 .message-header {
@@ -179,6 +152,7 @@
     font-size: 0.8em;
     font-weight: bold;
     opacity: 0.8;
+    color: var(--green);
 }
 
 .message-bubble .timestamp {
@@ -191,37 +165,56 @@
     line-height: 1.4;
     white-space: pre-wrap;
     word-wrap: break-word;
+    color: var(--beige);
 }
 
 /* Responsive Design */
 
 @media (max-width: 800px) {
     .chat-container {
-        width: 95%;
-        gap: 3vw;
+        padding: 3vw 1vw;
+        height: calc(100vh - 12vw); /* More space for mobile input */
     }
     
-    .proposal-input textarea {
-        min-height: 8vw;
+    .messages {
+        margin-bottom: 12vw;
     }
     
-    .conversation .messages {
-        max-height: 40vw;
+    .message.own-message {
+        margin-left: 10%; /* Smaller margins on mobile */
     }
     
-    .room-area {
-        padding-bottom: 7vw; /* More space for mobile input */
+    .message.other-message {
+        margin-right: 10%; /* Smaller margins on mobile */
     }
     
     .floating-message-input {
-        bottom: 1.5vw;
-        left: 1.5vw;
-        right: 1.5vw;
+        bottom: 2vw;
+        width: min(500px, 90vw);
+        padding: 1.2vw;
+        gap: 1.5vw;
     }
     
-    .message.own-message .message-bubble,
-    .message.other-message .message-bubble {
-        max-width: 85%; /* Wider on mobile */
+    .floating-message-input .message-input {
+        padding: 1.2vw 1.8vw;
+        font-size: 16px; /* 16px prevents zoom on iOS */
+    }
+    
+    .floating-message-input .send-button {
+        width: 4vw;
+        height: 4vw;
+        min-width: 50px;
+        min-height: 50px;
+    }
+    
+    .floating-message-input .send-button svg {
+        width: 1.5vw;
+        height: 1.5vw;
+        min-width: 20px;
+        min-height: 20px;
+    }
+    
+    .message-bubble {
         padding: 1.2vw 1.8vw;
     }
     

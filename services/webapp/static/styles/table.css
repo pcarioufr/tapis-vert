@@ -1,6 +1,11 @@
 
 .table {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 5vw 0 5vw 0;
 
     --card-w: 16vw; /* card width */
     --card-h: 22vw; /* card height */
@@ -9,6 +14,11 @@
 
     display: flex;
     flex-direction: row;
+
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 
 }
 

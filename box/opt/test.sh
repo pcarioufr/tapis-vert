@@ -224,12 +224,26 @@ test_init() {
     # Step 5: Test messaging system
     debug "Step 5: Testing messaging system..."
 
-    # Test messages to send
-    declare -a TEST_MESSAGES=("Hello" "Salut, comment ça va" "Yay!!!!!!!")
-    declare -a MESSAGE_SENDERS=(0 1 2)  # Alice, Bob, Charlie indices
-    declare -a SENDER_NAMES=("Alice" "Bob" "Charlie")
+    # Test messages to send - A fun conversation!
+    declare -a TEST_MESSAGES=(
+        "Hello" 
+        "Salut, comment ça va" 
+        "Yay!!!!!!!"
+        "Hey everyone! Ready to play?"
+        "I'm so ready! This is going to be fun 😊"
+        "Count me in! What's the game?"
+        "Top 10! We each get a card and try to guess the order"
+        "Ooh sounds interesting! How do we win?"
+        "The closest to the right order wins the round!"
+        "Can't wait to see my card! Let's do this 🎮"
+        "Good luck everyone!"
+        "May the best player win 🏆"
+        "Let's goooo!"
+    )
+    declare -a MESSAGE_SENDERS=(0 1 2 3 0 1 2 3 0 1 2 3 0)  # Alice, Bob, Charlie, Diana taking turns
+    declare -a SENDER_NAMES=("Alice" "Bob" "Charlie" "Diana" "Alice" "Bob" "Charlie" "Diana" "Alice" "Bob" "Charlie" "Diana" "Alice")
 
-    for i in {0..2}; do
+    for i in {0..12}; do
         SENDER_INDEX=${MESSAGE_SENDERS[$i]}
         MESSAGE=${TEST_MESSAGES[$i]}
         SENDER_NAME=${SENDER_NAMES[$i]}
@@ -363,7 +377,7 @@ test_init() {
         
         # Verify specific message content
         declare -a FOUND_MESSAGES=()
-        for i in {0..2}; do
+        for i in {0..12}; do
             EXPECTED_MESSAGE=${TEST_MESSAGES[$i]}
             SENDER_INDEX=${MESSAGE_SENDERS[$i]}
             EXPECTED_AUTHOR=${USER_IDS[$SENDER_INDEX]}
@@ -382,7 +396,7 @@ test_init() {
     else
         error "No messages found in room"
         MESSAGE_COUNT=0
-        FOUND_MESSAGES=("false" "false" "false")
+        FOUND_MESSAGES=("false" "false" "false" "false" "false" "false" "false" "false" "false" "false" "false" "false" "false")
     fi
 
     # Run independent assertions
@@ -448,26 +462,26 @@ test_init() {
     fi
 
     # Assertion 7: Message count correct
-    if [[ "$MESSAGE_COUNT" == "3" ]]; then
-        success "Message count: ok (3/3)"
+    if [[ "$MESSAGE_COUNT" == "13" ]]; then
+        success "Message count: ok (13/13)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
-        error "Message count: failed ($MESSAGE_COUNT/3)"
+        error "Message count: failed ($MESSAGE_COUNT/13)"
     fi
 
     # Assertion 8: All messages content verified
     CORRECT_MESSAGES=0
-    for i in {0..2}; do
+    for i in {0..12}; do
         if [[ "${FOUND_MESSAGES[$i]}" == "true" ]]; then
             CORRECT_MESSAGES=$((CORRECT_MESSAGES + 1))
         fi
     done
     
-    if [[ "$CORRECT_MESSAGES" == "3" ]]; then
-        success "Message content: ok (3/3)"
+    if [[ "$CORRECT_MESSAGES" == "13" ]]; then
+        success "Message content: ok (13/13)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
-        error "Message content: failed ($CORRECT_MESSAGES/3)"
+        error "Message content: failed ($CORRECT_MESSAGES/13)"
     fi
 
     # Overall test result

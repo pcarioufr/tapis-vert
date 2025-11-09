@@ -4,32 +4,13 @@
     
     <template id="t-chat-container">
         <div class="chat-container">
-            <!-- Game Area: Card proposals and game-specific communication -->
-            <div class="game-area">
-                <div class="game-area-header">
-                    <h3>Card Proposals</h3>
-                </div>
-                <div class="card-proposal">
-                    <div class="proposal-input">
-                        <!-- Card proposal input will go here -->
-                    </div>
-                </div>
+            <!-- Messages area -->
+            <div class="messages">
+                <!-- messages go here -->
             </div>
-            
-            <!-- Room Area: General chat communication -->
-            <div class="room-area">
-                <div class="room-area-header">
-                    <h3>Room Chat</h3>
-                </div>
-                <div class="conversation">
-                    <div class="messages">
-                        <!-- messages go here-->
-                    </div>
-                </div>
-                <!-- Floating message input (positioned separately) -->
-                <div class="floating-message-input">
-                    <!-- message input will go here -->
-                </div>
+            <!-- Floating message input (positioned separately) -->
+            <div class="floating-message-input">
+                <!-- message input will go here -->
             </div>
         </div>
     </template>
@@ -41,141 +22,14 @@
         constructor(eParent=null) {
             super(build("t-chat-container"), eParent);
             
-            // Initialize game area
-            this.gameArea = new GameArea(this.select(".game-area"));
-            
-            // Initialize room area (existing chat functionality)
-            this.roomArea = new RoomChat(this.select(".room-area"));
-        }
-
-        // Delegate methods to appropriate areas
-        addMessage(authorId, authorName, message, timestamp) {
-            this.roomArea.addMessage(authorId, authorName, message, timestamp);
-        }
-
-        setCardProposal(proposal) {
-            this.gameArea.setProposal(proposal);
-        }
-
-        flush() {
-            this.roomArea.flush();
-            this.gameArea.flush();
-        }
-    }
-
-    </script>
-
-    <!-- Game Area Component -->
-    <template id="t-game-area">
-        <div class="proposal-container">
-            <div class="proposal-text">
-                <textarea placeholder="Write your card proposal here..." maxlength="280"></textarea>
-            </div>
-            <div class="proposal-actions">
-                <button class="proposal-save">Save Proposal</button>
-                <button class="proposal-clear">Clear</button>
-            </div>
-        </div>
-    </template>
-
-    <script>
-    
-    class GameArea extends Element {
-
-        constructor(eParent) {
-            super(eParent);
-            this.initializeProposalInput();
-        }
-
-        initializeProposalInput() {
-            // Create proposal textarea
-            this.proposalTextarea = document.createElement('textarea');
-            this.proposalTextarea.placeholder = "Write your card proposal here...";
-            this.proposalTextarea.maxLength = 280;
-            this.proposalTextarea.className = 'proposal-textarea';
-
-            let saveButton = new Button();
-            saveButton.name = "save";
-            saveButton.icon = "check-line";
-            saveButton.color = "green";
-            
-            saveButton.callback = () => {
-                // TODO: Save proposal to backend
-                console.log("Saving proposal:", this.proposalTextarea.value);
-            };
-
-            let clearButton = new Button();
-            clearButton.name = "clear";
-            clearButton.icon = "delete-bin-line";
-            clearButton.color = "red";
-            
-            clearButton.callback = () => {
-                this.proposalTextarea.value = "";
-            };
-
-            // Add to DOM
-            const proposalContainer = this.select(".proposal-input");
-            proposalContainer.append(this.proposalTextarea);
-            
-            const actionsContainer = document.createElement('div');
-            actionsContainer.className = 'proposal-actions';
-            actionsContainer.append(saveButton.e);
-            actionsContainer.append(clearButton.e);
-            proposalContainer.append(actionsContainer);
-        }
-
-        setProposal(proposal) {
-            if (this.proposalTextarea) {
-                this.proposalTextarea.value = proposal;
-            }
-        }
-
-        flush() {
-            if (this.proposalTextarea) {
-                this.proposalTextarea.value = "";
-            }
-        }
-    }
-
-    </script>
-
-    <!-- Room Chat Component (existing functionality) -->
-    <script>
-    
-    class RoomChat extends Element {
-
-        constructor(eParent) {
-            super(eParent);
+            // Initialize chat functionality
             this.eMessages = [];
             this.currentUserId = "{{user.id if user.is_authenticated else ''}}";
             this.initializeChat();
             this.startTimestampRefresh();
         }
 
-        initializeChat() {
-            // Floating message input
-            this.input = new ExtendedTextInput();
-            this.input.title = "message";
-            this.input.placeholder = "Type a message...";
-
-            let send = new Button();
-            send.name = "send";
-            send.icon = "send-plane-2-line";
-            send.color = "green";
-
-            send.callback = () => {
-                if (this.input.value.trim()) {
-                    call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: this.input.value});
-                    this.input.value = ""; // Clear input after sending
-                }
-            };
-
-            this.input.button = send;
-
-            // Add to floating input container
-            this.select(".floating-message-input").append(this.input.e);
-        }
-
+        // Direct message handling
         addMessage(authorId, authorName, message, timestamp) {
             console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
 
@@ -194,7 +48,63 @@
         flush() {
             this.eMessages.forEach(m => m.remove());
             this.eMessages = [];
-            // Note: We don't clear the refresh interval here since chat persists between rounds
+        }
+        
+        initializeChat() {
+            // Create custom floating message input structure
+            const inputContainer = this.select(".floating-message-input");
+            
+            // Create text input
+            this.messageInput = document.createElement('textarea');
+            this.messageInput.className = 'message-input';
+            this.messageInput.placeholder = 'Type a message...';
+            this.messageInput.rows = 1;
+            
+            // Create send button with send-plane-2-line icon
+            this.sendButton = document.createElement('button');
+            this.sendButton.className = 'send-button';
+            this.sendButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3.5 1.34558C3.58425 1.34558 3.66714 1.36687 3.74096 1.40747L22.2034 11.5618C22.4454 11.6949 22.5337 11.9989 22.4006 12.2409C22.3549 12.324 22.2865 12.3924 22.2034 12.4381L3.74096 22.5924C3.499 22.7255 3.19497 22.6372 3.06189 22.3953C3.02129 22.3214 3 22.2386 3 22.1543V1.84558C3 1.56944 3.22386 1.34558 3.5 1.34558ZM5 4.38249V10.9999H10V12.9999H5V19.6174L18.8499 11.9999L5 4.38249Z"/></svg>';
+            
+            // Auto-resize textarea
+            this.messageInput.addEventListener('input', () => {
+                this.messageInput.style.height = 'auto';
+                this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+            });
+            
+            // Focus state management for floating container
+            this.messageInput.addEventListener('focus', () => {
+                inputContainer.classList.add('focused');
+            });
+            
+            this.messageInput.addEventListener('blur', () => {
+                inputContainer.classList.remove('focused');
+            });
+            
+            // Send message on button click
+            this.sendButton.addEventListener('click', () => {
+                this.sendMessage();
+            });
+            
+            // Send message on Enter key (Shift+Enter for new line)
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            // Add elements to container
+            inputContainer.appendChild(this.messageInput);
+            inputContainer.appendChild(this.sendButton);
+        }
+        
+        sendMessage() {
+            const content = this.messageInput.value.trim();
+            if (content) {
+                call("POST", "/api/v1/rooms/{{room.id}}/message", {}, {}, {content: content});
+                this.messageInput.value = ""; // Clear input after sending
+                this.messageInput.style.height = 'auto'; // Reset height
+            }
         }
 
         startTimestampRefresh() {

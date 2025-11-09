@@ -30,7 +30,7 @@
 
     <script type="text/javascript" src="{{ url_for('static', filename='libs/websocket.js') }}"></script>
 
-        {% include 'components/table.jinja' %}
+    {% include 'components/table.jinja' %}
     {% include 'components/cards.jinja' %}
     {% include 'components/chat.jinja' %}
 
@@ -40,13 +40,6 @@
 
 {% block body %}
 
-    <!-- Panel User Template -->
-    <template id="t-panel-user">
-        <div class="panel-user">
-            <span class="user-name"></span>
-            <div class="user-status"></div>
-        </div>
-    </template>
 
     <!-- User Panel Content Template -->
     <template id="t-user-panel-content">
@@ -68,7 +61,17 @@
         {% endif %}
     </template>
 
+
     <!-- Room Panel Content Template -->
+
+    <!-- Panel User Template -->
+    <template id="t-panel-user">
+        <div class="panel-user">
+            <span class="user-name"></span>
+            <div class="user-status"></div>
+        </div>
+    </template>
+
     <template id="t-room-panel-content">
         <span class="panel-title">{{room.name}}</span>
         
@@ -82,17 +85,24 @@
             
             <div class="user-group" id="panel-users-masters">
                 <div class="group-header"> <span>masters</span> </div>
-                <div class="user-list"></div>
+                <div class="user-list">
+                    <!-- panel-user Alice -->                </div>
             </div>
             
             <div class="user-group" id="panel-users-players">
                 <div class="group-header"> <span>players</span> </div>
-                <div class="user-list"></div>
+                <div class="user-list">
+                   <!-- panel-user Bob -->
+                   <!-- panel-user Charlie -->
+                   <!-- panel-user Diana -->
+                </div>
             </div>
             
             <div class="user-group" id="panel-users-watchers">
                 <div class="group-header"> <span>watchers</span> </div>
-                <div class="user-list"></div>
+                <div class="user-list">
+                    <!-- panel-user Eve -->
+                </div>
             </div>
         </div>
     </template>
@@ -101,41 +111,7 @@
 
     <script type="module">
 
-    class PanelUser extends Element {
-        
-        constructor(eParent = null) {
-            super(build("t-panel-user"), eParent);
-        }
-        
-        set name(text) {
-            this.select('.user-name').innerText = text;
-        }
-        
-        set status(status) {
-            const statusEl = this.select('.user-status');
-            status === "online" ? 
-                statusEl.setAttribute("online", "") : 
-                statusEl.removeAttribute("online");
-        }
-        
-        set role(role) {
-            // Move user to appropriate role section
-            let targetContainer;
-            switch(role) {
-                case "master":  targetContainer = document.querySelector("#panel-users-masters .user-list"); break;
-                case "player":  targetContainer = document.querySelector("#panel-users-players .user-list"); break;
-                case "watcher": targetContainer = document.querySelector("#panel-users-watchers .user-list"); break;
-                default:
-                    console.error(`Role "${role}" isn't supported option for user`);
-                    return;
-            }
-            if (targetContainer) {
-                targetContainer.append(this.e);
-            }
-        }
-    }
-
-    class UserPanel extends Panel {
+    class AccountPanel extends Panel {
         
         constructor(side, icon) {
             super(side, icon);
@@ -222,12 +198,48 @@
         }
     }
 
+    class UserRoomPanel extends Element {
+        
+        constructor(eParent = null) {
+            super(build("t-panel-user"), eParent);
+        }
+        
+        set name(text) {
+            this.select('.user-name').innerText = text;
+        }
+        
+        set status(status) {
+            const statusEl = this.select('.user-status');
+            status === "online" ? 
+                statusEl.setAttribute("online", "") : 
+                statusEl.removeAttribute("online");
+        }
+        
+        set role(role) {
+            // Move user to appropriate role section
+            let targetContainer;
+            switch(role) {
+                case "master":  targetContainer = document.querySelector("#panel-users-masters .user-list"); break;
+                case "player":  targetContainer = document.querySelector("#panel-users-players .user-list"); break;
+                case "watcher": targetContainer = document.querySelector("#panel-users-watchers .user-list"); break;
+                default:
+                    console.error(`Role "${role}" isn't supported option for user`);
+                    return;
+            }
+            if (targetContainer) {
+                targetContainer.append(this.e);
+            }
+        }
+    }
+
+
     // represntations of the room and its elements
     class RoomManager {
 
         constructor() {
 
             this.websocket = new EventWebSocket("/ws/{{room.id}}/{{user.id}}");
+
             listen( "RoomManager", "ws:reconnected", async (throwerId, websocket) => {
                 this.websocket = websocket ;
                 console.log("Roommanager using new websocket");
@@ -235,21 +247,16 @@
                 this.render() ;
             })
 
-            // room data - mirrors backend data
+            // ROOM DATA - mirrors backend data
+
             this.data = {} ;
 
-            // room representations
-            this.eTable = new Table() ;
+            // ROOM REPRESENTATIONS
 
-            // users representations
             this.eUsers = {} ;
-
-            // cards representations
             this.eCards = {} ;
-
-                            // room's chat interface
-                this.eChat = new ChatContainer(document.body);
-
+            this.eTable = new Table() ;
+            this.eChat = new ChatContainer(document.body);
 
         }
 
@@ -262,11 +269,11 @@
 
         }
 
-        // starts to listen to room events
-        listen() {
+        // connects the room manager to the room events
+        connect() {
 
-            if (this.listens) return ;
-            this.listens = true ;
+            if (this.connected) return ;
+            this.connected = true ;
 
             // Listens when a new user joins the room
             listen( "RoomManager", "user:joined", async (throwerId, user_id) => {
@@ -394,15 +401,17 @@
             })
 
 
+            // CURSOR TRACKING
+
             // Track user {{user.id}} cursor and update other users
 
-            const sendCursorPos = throttle( async (pageX, pageY) => {
+            const sendCursorPos = throttle( async (clientX, clientY) => {
             
                 const table = document.getElementById("table");
                 const rect = table.getBoundingClientRect();
 
-                const rawX = (pageX - rect.left) / rect.width * 100;
-                const rawY = (pageY - rect.top)  / rect.height * 100;
+                const rawX = (clientX - rect.left) / rect.width * 100;
+                const rawY = (clientY - rect.top)  / rect.height * 100;
                 const relX = parseFloat(rawX.toFixed(3));
                 const relY = parseFloat(rawY.toFixed(3));
 
@@ -416,7 +425,7 @@
 
             }, 100);
 
-            document.addEventListener( 'mousemove', e => { sendCursorPos(e.pageX, e.pageY) } );
+            document.addEventListener( 'mousemove', e => { sendCursorPos(e.clientX, e.clientY) } );
             
             // Listen for remote cursor moves
             listen("RoomManager", `user:*:cursor:move`, (throwerId, data, eventName) => {
@@ -534,23 +543,25 @@
                 // representation of user's deck
                 eUserDeck: new Deck(),
 
-                // representation of the user in the panel
-                eUserPanel: new PanelUser(),
+                // representation of the user in the Room panel
+                eUserRoomPanel: new UserRoomPanel(),
+
+                // representation of the user's cursor in the Table
                 eRemoteCursor: new RemoteCursor(this.eTable.e, name),
 
                 remove() {
-                    this.eUserPanel.remove();
+                    this.eUserRoomPanel.remove();
                 },
 
                 set name(name) {
-                    this.eUserPanel.name = name;
+                    this.eUserRoomPanel.name = name;
                     this.eRemoteCursor.name = name;
                 },
                 set status(status) {
-                    this.eUserPanel.status = status;
+                    this.eUserRoomPanel.status = status;
                 },
                 set role(role) {
-                    this.eUserPanel.role = role;
+                    this.eUserRoomPanel.role = role;
 
                     role === "player" ?
                         this.eUserDeck.active(true) :
@@ -617,16 +628,13 @@
 
     window.ROOM = new RoomManager() // Room Manager
 
-    // ACCOUNT PANEL (Left)
-    const accountPanel = new UserPanel('left', 'account-circle-line');
+    // USER ACCOUNT PANEL (Left)
+    const accountPanel = new AccountPanel('left', 'account-circle-line');
 
     // ROOM PANEL (Right)  
     const roomPanel = new RoomPanel('right', 'group-2-line');
 
-    // Account Panel components are now initialized within the UserPanel class
-    // Room Panel components are now initialized within the RoomPanel class
-
-    // Floating New Round Button (lower left corner)
+    // NEW ROUND BUTTON (Bottom Right Corner)
     const newRoundButton = new FloatingButton('refresh-line', document.body);
     newRoundButton.addClass('new-round');
     
@@ -637,7 +645,7 @@
     // Hide button initially, will be shown based on user role
     newRoundButton.e.style.display = 'none';
 
-    // Create Floating Role Selection Buttons (authenticated users only)
+    // ROLE SELECTION BUTTONS (Bottom Left Corner)
     let roleButtons = {};
     {% if user.is_authenticated %}
     
@@ -710,8 +718,7 @@
 
         await window.ROOM.refresh() ;
         window.ROOM.render();
-
-        window.ROOM.listen();
+        window.ROOM.connect();
         
         // Show/hide new round button based on user role
         updateNewRoundButtonVisibility();
