@@ -3,7 +3,7 @@ from ...public import public_api  # Import the Blueprint from __init__.py
 import io, qrcode
 import flask, flask_login
 
-from models import Room, User, Code
+from models import Room, User, Code, new_id
 from auth import code_auth  # Import from auth library
 
 import utils, json
@@ -77,8 +77,17 @@ def room_message(room_id=None):
     timestamp = utils.now(False)
     content = flask.request.json.get("content")
     user_id = flask_login.current_user.id
+    
+    # Generate unique message ID
+    message_id = new_id(8)
 
-    message_obj = {"timestamp": timestamp, "content": content, "author": user_id}
+    message_obj = {
+        "id": message_id,
+        "timestamp": timestamp, 
+        "content": content, 
+        "author": user_id,
+        "reactions": {}
+    }
 
     # Get current messages array and append new message
     messages = json.loads(room.messages or "[]")
@@ -95,6 +104,93 @@ def room_message(room_id=None):
     utils.publish(room_id, f"message:new", message_json)
 
     return flask.jsonify(), 200
+
+
+@public_api.route("/v1/rooms/<room_id>/messages/<message_id>/react", methods=['POST'])
+@flask_login.login_required
+def message_react(room_id=None, message_id=None):
+    """Add or remove a reaction to a message"""
+    
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify({"error": "room does not exist"}), 404
+    
+    user_id = flask_login.current_user.id
+    
+    # Check user is member of room
+    if not room.users().exists(user_id):
+        return flask.jsonify({"error": "user not in room"}), 403
+    
+    # Get request data
+    emoji = flask.request.json.get("emoji")
+    action = flask.request.json.get("action")
+    
+    # Log emoji details for debugging
+    log.debug(f"Received emoji: {repr(emoji)}, len: {len(emoji) if emoji else 'None'}, bytes: {emoji.encode('utf-8') if emoji else 'None'}")
+    
+    # Validate emoji exists and is reasonable length
+    # Allow up to 10 characters to support compound emojis (e.g., ❤️ with variation selector)
+    if not emoji or len(emoji) > 10:
+        log.warning(f"Invalid emoji validation: emoji={repr(emoji)}, len={len(emoji) if emoji else 'None'}")
+        return flask.jsonify({"error": "emoji must be a single emoji character"}), 400
+    
+    # Validate action
+    if action not in ["add", "remove"]:
+        return flask.jsonify({"error": "action must be 'add' or 'remove'"}), 400
+    
+    # Parse messages
+    messages = json.loads(room.messages or "[]")
+    
+    # Find the message
+    message = None
+    message_index = None
+    for i, msg in enumerate(messages):
+        if msg.get("id") == message_id:
+            message = msg
+            message_index = i
+            break
+    
+    if message is None:
+        return flask.jsonify({"error": "message not found"}), 404
+    
+    # Ensure reactions field exists (backward compatibility)
+    if "reactions" not in message:
+        message["reactions"] = {}
+    
+    reactions = message["reactions"]
+    
+    # Add or remove reaction
+    if action == "add":
+        if emoji not in reactions:
+            reactions[emoji] = []
+        if user_id not in reactions[emoji]:
+            reactions[emoji].append(user_id)
+    elif action == "remove":
+        if emoji in reactions and user_id in reactions[emoji]:
+            reactions[emoji].remove(user_id)
+            # Clean up empty emoji lists
+            if len(reactions[emoji]) == 0:
+                del reactions[emoji]
+    
+    # Update message in array
+    messages[message_index] = message
+    
+    # Save back to room
+    room.messages = json.dumps(messages)
+    room.save()
+    
+    # Publish WebSocket event for real-time updates
+    reaction_event = {
+        "message_id": message_id,
+        "emoji": emoji,
+        "action": action,
+        "user_id": user_id,
+        "reactions": reactions
+    }
+    utils.publish(room_id, "message:reaction", json.dumps(reaction_event))
+    
+    log.info(f"Reaction {action}: user={user_id}, emoji={repr(emoji)}, message={message_id}, room={room_id}")
+    return flask.jsonify({"success": True, "reactions": reactions}), 200
 
 
 @public_api.route("/v1/rooms/<room_id>", methods=['PATCH'])

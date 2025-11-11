@@ -389,14 +389,33 @@
 
             })
 
-            // Listens when a new user leaves the room
+            // Listens when a new message arrives
             listen( "RoomManager", "message:new", (throwerId, message) => {
                 
                 console.log(message);
                 console.log(`Received message ${message.author} : ${message.content} at ${message.timestamp}`);
 
                 const authorName = this.data.users[message.author]?.name || message.author;
-                this.eChat.addMessage(message.author, authorName, message.content, message.timestamp);
+                this.eChat.addMessage(
+                    message.author, 
+                    authorName, 
+                    message.content, 
+                    message.timestamp,
+                    message.id || null,
+                    message.reactions || {}
+                );
+
+            })
+
+            // Listens for reaction updates
+            listen( "RoomManager", "message:reaction", (throwerId, reactionData) => {
+                
+                console.log('Received reaction update:', reactionData);
+                
+                const message = this.eChat.findMessage(reactionData.message_id);
+                if (message) {
+                    message.reactions = reactionData.reactions;
+                }
 
             })
 
@@ -517,7 +536,14 @@
                             console.log('render message', message);
                             
                             const authorName = this.data.users[message.author]?.name || message.author;
-                            this.eChat.addMessage(message.author, authorName, message.content, message.timestamp);
+                            this.eChat.addMessage(
+                                message.author, 
+                                authorName, 
+                                message.content, 
+                                message.timestamp,
+                                message.id || null,
+                                message.reactions || {}
+                            );
                         });
                     }
                 } catch (e) {

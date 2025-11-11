@@ -22,6 +22,9 @@
         constructor(eParent=null) {
             super(build("t-chat-container"), eParent);
             
+            // Store reference for child components
+            this.e._elementInstance = this;
+            
             // Initialize chat functionality
             this.eMessages = [];
             this.currentUserId = "{{user.id if user.is_authenticated else ''}}";
@@ -30,19 +33,43 @@
         }
 
         // Direct message handling
-        addMessage(authorId, authorName, message, timestamp) {
+        addMessage(authorId, authorName, message, timestamp, messageId = null, reactions = {}) {
             console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
 
             const isOwnMessage = (authorId === this.currentUserId);
-            const msg = new Message(this.select(".messages"), isOwnMessage);
+            const msg = new Message(this.select(".messages"), isOwnMessage, messageId);
             this.eMessages.push(msg);
             msg.author = authorName;
             msg.message = message;
             msg.timestamp = timestamp;
+            msg.reactions = reactions;
 
             // Auto-scroll to bottom
             const messagesContainer = this.select(".messages");
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Find message by ID
+        findMessage(messageId) {
+            return this.eMessages.find(m => m.messageId === messageId);
+        }
+        
+        // Toggle reaction on a message
+        async toggleReaction(messageId, emoji) {
+            const message = this.findMessage(messageId);
+            if (!message) return;
+            
+            // Determine if adding or removing based on current state
+            const reactions = message._reactions || {};
+            const userList = reactions[emoji] || [];
+            const action = userList.includes(this.currentUserId) ? "remove" : "add";
+            
+            try {
+                await call("POST", `/api/v1/rooms/{{room.id}}/messages/${messageId}/react`, 
+                          {}, {}, {emoji: emoji, action: action});
+            } catch (e) {
+                console.error("Failed to toggle reaction:", e);
+            }
         }
 
         flush() {
@@ -142,6 +169,9 @@
                 </div>
                 <div class="content"></div>
             </div>
+            <div class="reactions-container">
+                <!-- Reaction bubbles go here -->
+            </div>
         </div>
     </template>
 
@@ -149,8 +179,17 @@
 
     class Message extends Element {
 
-        constructor(eParent, isOwnMessage = false) {
+        // Available emojis for reactions
+        static AVAILABLE_EMOJIS = ["👍", "👎", "❤️", "😂", "😢", "😬", "🤩"];
+
+
+
+        constructor(eParent, isOwnMessage = false, messageId = null) {
             super(build("t-message"));
+            
+            this.messageId = messageId;
+            this._reactions = {};
+            this.isReactionsOpen = false;
             
             // Set alignment class
             if (isOwnMessage) {
@@ -160,6 +199,38 @@
             }
             
             eParent.append(this.e);
+            
+            // Add click handler to toggle reactions
+            this.e.addEventListener('click', (e) => {
+                // Don't toggle if clicking on a reaction bubble
+                if (e.target.closest('.reaction-bubble')) {
+                    return;
+                }
+                this.toggleReactions();
+                e.stopPropagation();
+            });
+            
+            // Close reactions when mouse leaves message
+            this.e.addEventListener('mouseleave', () => {
+                if (this.isReactionsOpen) {
+                    this.closeReactions();
+                }
+            });
+        }
+        
+        toggleReactions() {
+            this.isReactionsOpen = !this.isReactionsOpen;
+            
+            if (this.isReactionsOpen) {
+                this.e.classList.add('reactions-open');
+            } else {
+                this.closeReactions();
+            }
+        }
+        
+        closeReactions() {
+            this.isReactionsOpen = false;
+            this.e.classList.remove('reactions-open');
         }
 
         set message(message) { 
@@ -176,6 +247,11 @@
             
             const relativeTime = this.getRelativeTime(timestamp);
             this.select(".timestamp").innerText = relativeTime;
+        }
+        
+        set reactions(reactions) {
+            this._reactions = reactions || {};
+            this.renderReactions();
         }
 
         getRelativeTime(timestamp) {
@@ -196,9 +272,80 @@
                 return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
             }
         }
+        
+        renderReactions() {
+            const container = this.select(".reactions-container");
+            if (!container) return;
+            
+            const currentUserId = "{{user.id if user.is_authenticated else ''}}";
+            
+            // Clear all reaction bubbles
+            container.innerHTML = '';
+            
+            // Render filled reaction bubbles (existing reactions)
+            for (const [emoji, userIds] of Object.entries(this._reactions)) {
+                if (!userIds || userIds.length === 0) continue;
+                
+                const bubble = this.createReactionBubble(emoji, userIds.length, userIds.includes(currentUserId), false);
+                container.appendChild(bubble);
+            }
+            
+            // Render empty reaction bubbles (available emojis not yet used)
+            const usedEmojis = Object.keys(this._reactions);
+            for (const emoji of Message.AVAILABLE_EMOJIS) {
+                if (!usedEmojis.includes(emoji)) {
+                    const bubble = this.createReactionBubble(emoji, 0, false, true);
+                    container.appendChild(bubble);
+                }
+            }
+        }
+        
+        createReactionBubble(emoji, count, isReacted, isEmpty) {
+            const bubble = document.createElement('button');
+            bubble.className = 'reaction-bubble';
+            bubble.dataset.emoji = emoji;
+            
+            if (isReacted) {
+                bubble.classList.add('reacted');
+            }
+            if (isEmpty) {
+                bubble.classList.add('empty');
+            }
+            
+            // Create emoji span
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'reaction-emoji';
+            emojiSpan.textContent = emoji;
+            bubble.appendChild(emojiSpan);
+            
+            // Create count span (only for non-empty)
+            if (!isEmpty) {
+                const countSpan = document.createElement('span');
+                countSpan.className = 'reaction-count';
+                countSpan.textContent = count;
+                bubble.appendChild(countSpan);
+            }
+            
+            // Add click handler to toggle reaction
+            bubble.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.onReactionClick(emoji);
+            });
+            
+            return bubble;
+        }
+        
+        onReactionClick(emoji) {
+            // Notify parent chat container
+            const chatContainer = this.e.closest('.chat-container');
+            if (chatContainer && chatContainer._elementInstance) {
+                chatContainer._elementInstance.toggleReaction(this.messageId, emoji);
+            }
+        }
 
         remove() {
-            // Override Element's remove to clean up references
+            // Clean up event listeners
+            this.closeReactions();
             super.remove();
         }
 

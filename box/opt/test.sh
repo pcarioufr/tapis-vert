@@ -234,7 +234,7 @@ test_init() {
         "Count me in! What's the game?"
         "Top 10! We each get a card and try to guess the order"
         "Ooh sounds interesting! How do we win?"
-        "The closest to the right order wins the round!"
+        "The closest to the right order wins the round! Each player gets one card with a number from 1 to 10, and we have to arrange ourselves in order without showing our cards. It's all about strategy, communication, and a bit of luck!"
         "Can't wait to see my card! Let's do this 🎮"
         "Good luck everyone!"
         "May the best player win 🏆"
@@ -281,6 +281,102 @@ test_init() {
         # Small delay between messages to ensure different timestamps
         sleep 1
     done
+
+    # Step 5b: Test emoji reactions
+    debug "Step 5b: Testing emoji reactions..."
+    
+    # Get room state to retrieve message IDs
+    ROOM_STATE=$(curl -s "$BASE_URL/api/v1/rooms/$ROOM_ID")
+    debug "Room state response: $ROOM_STATE"
+    
+    # Messages are stored as a JSON string in the messages field, need to parse twice
+    MESSAGES_STRING=$(echo "$ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages // \"[]\"")
+    MESSAGES_JSON=$(echo "$MESSAGES_STRING" | jq '.')
+    
+    debug "Messages JSON: $MESSAGES_JSON"
+    
+    # Parse message IDs (stored as JSON array in room.messages field)
+    declare -a MESSAGE_IDS
+    MESSAGE_COUNT=$(echo "$MESSAGES_JSON" | jq 'length // 0')
+    
+    if [ "$MESSAGE_COUNT" -gt 0 ]; then
+        info "Found $MESSAGE_COUNT messages, adding reactions..."
+        
+        # Extract message IDs into array
+        for ((i=0; i<$MESSAGE_COUNT; i++)); do
+            MSG_ID=$(echo "$MESSAGES_JSON" | jq -r ".[$i].id // \"null\"")
+            MESSAGE_IDS[$i]=$MSG_ID
+            debug "Message $i ID: $MSG_ID"
+        done
+        
+        # Check if we got valid message IDs
+        if [[ "${MESSAGE_IDS[0]}" == "null" || -z "${MESSAGE_IDS[0]}" ]]; then
+            error "Failed to extract message IDs - messages might not have ID field"
+            warning "Skipping reaction tests..."
+        else
+        
+        # Define reactions to add: [message_index, user_index, emoji]
+        # Each user reacts to at least one message, total of 5 messages get reactions
+        declare -a REACTIONS=(
+            "0:0:👍"     # Alice reacts with 👍 to first message
+            "0:1:❤️"     # Bob reacts with ❤️ to first message
+            "3:2:😂"     # Charlie reacts with 😂 to fourth message
+            "3:3:🤩"     # Diana reacts with 🤩 to fourth message
+            "5:0:👎"     # Alice reacts with 👎 to sixth message
+            "7:1:😬"     # Bob reacts with 😬 to eighth message
+            "7:2:😂"     # Charlie reacts with 😂 to eighth message
+            "9:3:❤️"     # Diana reacts with ❤️ to tenth message
+            "11:0:🤩"    # Alice reacts with 🤩 to twelfth message
+            "11:1:👍"    # Bob reacts with 👍 to twelfth message
+        )
+        
+        for reaction in "${REACTIONS[@]}"; do
+            IFS=':' read -r MSG_INDEX USER_INDEX EMOJI <<< "$reaction"
+            
+            if [ $MSG_INDEX -lt $MESSAGE_COUNT ]; then
+                MSG_ID=${MESSAGE_IDS[$MSG_INDEX]}
+                USER_NAME=${USER_NAMES[$USER_INDEX]}
+                USER_CODE=${CODE_IDS[$USER_INDEX]}
+                
+                debug "Adding reaction $EMOJI from $USER_NAME to message $MSG_ID..."
+                
+                # Authenticate user and add reaction
+                REACTOR_COOKIE="/tmp/reactor_${USER_INDEX}_cookie.txt"
+                
+                # Get authentication cookie
+                curl -s -L -c "$REACTOR_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$USER_CODE" >/dev/null 2>&1
+                
+                if [ -f "$REACTOR_COOKIE" ] && [ -s "$REACTOR_COOKIE" ]; then
+                    # Add reaction using authenticated session
+                    REACTION_RESPONSE=$(curl -s -L -b "$REACTOR_COOKIE" -X POST \
+                        -H "Content-Type: application/json" \
+                        -d "{\"emoji\": \"$EMOJI\", \"action\": \"add\"}" \
+                        "$BASE_URL/api/v1/rooms/$ROOM_ID/messages/$MSG_ID/react")
+                    
+                    debug "Reaction response: $REACTION_RESPONSE"
+                    
+                    if [[ "$REACTION_RESPONSE" == *"success"* ]]; then
+                        info "$USER_NAME reacted with $EMOJI to message #$MSG_INDEX"
+                    else
+                        error "Failed to add reaction from $USER_NAME: $REACTION_RESPONSE"
+                    fi
+                else
+                    error "Failed to authenticate $USER_NAME for reaction"
+                fi
+                
+                # Clean up reactor cookie
+                rm -f "$REACTOR_COOKIE"
+                
+                # Small delay between reactions
+                sleep 0.5
+            fi
+        done
+        
+        info "Emoji reactions test completed!"
+        fi  # End of message ID validation check
+    else
+        warning "No messages found to add reactions to"
+    fi
 
     # Step 6: Verify game state and messages
     debug "Step 6: Verifying final game state and messages..."
@@ -365,12 +461,15 @@ test_init() {
     # Verify messages are stored correctly
     debug "📨 Verifying message storage..."
     
-    # Get messages from public API (they should be in JSON blob format)
-    ROOM_MESSAGES=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages" 2>/dev/null || echo "null")
+    # Get messages from public API (they are stored as a JSON string, need to parse)
+    ROOM_MESSAGES_STRING=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages" 2>/dev/null || echo "null")
     
-    if [[ "$ROOM_MESSAGES" != "null" && "$ROOM_MESSAGES" != "" ]]; then
+    if [[ "$ROOM_MESSAGES_STRING" != "null" && "$ROOM_MESSAGES_STRING" != "" ]]; then
+        # Parse the JSON string into actual JSON
+        ROOM_MESSAGES=$(echo "$ROOM_MESSAGES_STRING" | jq '.' 2>/dev/null || echo "[]")
+        
         # Parse message count
-        MESSAGE_COUNT=$(echo "$ROOM_MESSAGES" | jq '. | length' 2>/dev/null || echo "0")
+        MESSAGE_COUNT=$(echo "$ROOM_MESSAGES" | jq 'length' 2>/dev/null || echo "0")
         
         debug "Found $MESSAGE_COUNT messages in room"
         debug "Raw messages JSON: $ROOM_MESSAGES"
@@ -401,7 +500,7 @@ test_init() {
 
     # Run independent assertions
     ASSERTIONS_PASSED=0
-    TOTAL_ASSERTIONS=8  # Added 3 assertions: message count + message content + card data integrity
+    TOTAL_ASSERTIONS=9  # Added 4 assertions: message count + message content + card data integrity + reactions
 
     # Assertion 1: Room exists and accessible
     if [[ "$ROOM_ID" != "null" && -n "$ROOM_ID" ]]; then
@@ -482,6 +581,35 @@ test_init() {
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
         error "Message content: failed ($CORRECT_MESSAGES/13)"
+    fi
+
+    # Assertion 9: Emoji reactions added
+    MESSAGES_WITH_REACTIONS=0
+    TOTAL_REACTIONS=0
+    
+    if [[ "$ROOM_MESSAGES" != "null" && "$ROOM_MESSAGES" != "" && "$ROOM_MESSAGES" != "[]" ]]; then
+        debug "Checking reactions in $MESSAGE_COUNT messages..."
+        # Count messages that have reactions
+        for i in $(seq 0 $((MESSAGE_COUNT - 1))); do
+            HAS_REACTIONS=$(echo "$ROOM_MESSAGES" | jq -r ".[$i].reactions | if type == \"object\" and length > 0 then \"true\" else \"false\" end" 2>/dev/null || echo "false")
+            if [[ "$HAS_REACTIONS" == "true" ]]; then
+                MESSAGES_WITH_REACTIONS=$((MESSAGES_WITH_REACTIONS + 1))
+                # Count individual reactions
+                REACTION_COUNT=$(echo "$ROOM_MESSAGES" | jq -r ".[$i].reactions | to_entries | map(.value | length) | add" 2>/dev/null || echo "0")
+                TOTAL_REACTIONS=$((TOTAL_REACTIONS + REACTION_COUNT))
+                debug "Message $i has $REACTION_COUNT reactions"
+            fi
+        done
+        debug "Total: $TOTAL_REACTIONS reactions across $MESSAGES_WITH_REACTIONS messages"
+    else
+        debug "No messages available for reaction validation"
+    fi
+    
+    if [[ "$MESSAGES_WITH_REACTIONS" -ge 5 && "$TOTAL_REACTIONS" -ge 10 ]]; then
+        success "Emoji reactions: ok ($TOTAL_REACTIONS reactions on $MESSAGES_WITH_REACTIONS messages)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    else
+        error "Emoji reactions: failed ($TOTAL_REACTIONS reactions on $MESSAGES_WITH_REACTIONS messages, expected 10+ on 5+ messages)"
     fi
 
     # Overall test result
