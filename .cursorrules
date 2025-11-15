@@ -24,6 +24,16 @@ alias box=./box.sh
 Use `-d` flag for debug output: `box -d deploy`, `box -d terraform plan`, etc.
 Use `-p port` flag for port exposure: `box -p 8000 admin tunnel` (maps host port to same container port)
 
+## AI Assistant Workflow Limitations
+**TTY Limitation**: The AI cannot run `box` commands directly due to TTY (terminal) requirements from SSH tunneling and Docker exec operations. When the AI needs to inspect Redis data, check logs, or run diagnostics:
+- AI will prepare scripts (like `box/opt/adhoc.sh`) for inspection tasks
+- User must run `box` commands manually and share the output
+- AI can then analyze the output and provide insights
+- This is a fundamental limitation of the sandboxed execution environment, not a bug
+
+**What AI Can Do**: Regular file operations, git commands, grep/search, code analysis, documentation updates, etc.
+**What Requires User**: `box` commands (deploy, ssh, admin, test), interactive operations, SSH tunnels
+
 ## Testing and Development
 ### Integration Testing
 - **Full test suite**: `box test init` - Complete room/user/round integration test
@@ -38,10 +48,14 @@ Use `-p port` flag for port exposure: `box -p 8000 admin tunnel` (maps host port
 ## Admin Interface Access
 Secure admin access via SSH tunnel (localhost only):
 ```bash
-box -p 8000 admin tunnel  # Creates tunnel, access via localhost:8000
-box admin ping            # Tests admin API directly on server
+# Admin interface (user/room management)
+box -p 8000 tunnel -r 8002  # Access via localhost:8000/admin/list
+
+# RedisInsight (Redis GUI for debugging)
+box -p 8001 tunnel -r 8003  # Access via localhost:8001/
 ```
-Admin routes: `/admin/list` (dashboard), `/admin/redis` (debug), `/admin/api/*` (API)
+Admin routes: `/admin/list` (dashboard), `/admin/api/*` (API)
+RedisInsight: Full Redis GUI with key browser, CLI, and performance analysis
 
 ## Application Development Notes
 ### Flask Blueprint Architecture
@@ -162,8 +176,9 @@ box ssh "cd services && docker compose restart flask"                   # Restar
 - **Update DNS**: Use `box dns update`
 - **Access server**: Use `box ssh`
 - **Check application**: SSH in and use docker compose commands
-- **Access admin interface**: Use `box -p 8000 admin tunnel` then visit `http://localhost:8000/admin/list`
-- **Debug admin service**: Use `box admin ping` to test server-side admin API
+- **Access admin interface**: Use `box -p 8000 tunnel -r 8002` then visit `http://localhost:8000/admin/list`
+- **Access RedisInsight**: Use `box -p 8001 tunnel -r 8003` then visit `http://localhost:8001/`
+- **Debug admin service**: SSH to server and curl `http://localhost:8002/admin/api/ping`
 
 ## File Structure
 - `box/`: Deployment environment and scripts

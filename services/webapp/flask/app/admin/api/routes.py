@@ -15,7 +15,6 @@ def ping():
     return flask.jsonify(response="pong", service="admin"), 200
 
 import redis, os
-import fnmatch
 redis_client = redis.Redis(
     host=os.environ.get("REDIS_HOST"),
     db=os.environ.get("REDIS_DATA_DB"),
@@ -155,50 +154,3 @@ def list_rooms():
         data.update(room.to_dict(True))
 
     return flask.jsonify(data), 200
-
-
-@admin_api.route('/search', methods=['GET'])
-def search_keys():
-
-    # Get the key pattern from the query parameters
-    key_pattern = flask.request.args.get('pattern', '*')
-    max_results = 100
-    results = []
-
-    # Use SCAN to fetch keys matching the pattern, with a limit of max_results
-    for key in redis_client.scan_iter(key_pattern, count=100):
-        # Retrieve the hashmap associated with each key
-        hashmap = redis_client.hgetall(key)
-        # Append the key and its hashmap to the results
-        results.append({
-            'key': key,
-            'hashmap': str(hashmap)  # Convert hashmap to string for simplicity
-        })
-        # Stop if we've reached the max_results cap
-        if len(results) >= max_results:
-            break
-
-    return flask.jsonify(results), 200
-
-
-@admin_api.route("/delete_fields", methods=["POST"])
-def remove_fields_for_keys():
-
-    key_pattern = flask.request.args.get("key_pattern")
-    field_pattern = flask.request.args.get("field_pattern")
-    if not key_pattern or not field_pattern:
-        return flask.jsonify({"error": "Missing key_pattern or field_pattern"}), 400
-
-    matched_keys = list(redis_client.scan_iter(key_pattern))
-    total_deleted = 0
-    details = {}
-
-    for k in matched_keys:
-        fields = redis_client.hkeys(k)
-        matching_fields = [f for f in fields if fnmatch.fnmatch(f, field_pattern)]
-        if matching_fields:
-            deleted = redis_client.hdel(k, *matching_fields)
-            total_deleted += deleted
-            details[k] = deleted
-
-    return flask.jsonify({"status": "ok", "total_deleted": total_deleted, "details": details}), 200
