@@ -408,13 +408,17 @@
             })
 
             // Listens for reaction updates
-            listen( "RoomManager", "message:reaction", (throwerId, reactionData) => {
+            listen( "RoomManager", "message:reaction", async (throwerId, reactionData) => {
                 
                 console.log('Received reaction update:', reactionData);
                 
+                // Reload room data to get updated reactions from backend
+                await this.refresh();
+                
+                // Re-render messages to show updated reactions
                 const message = this.eChat.findMessage(reactionData.message_id);
-                if (message) {
-                    message.reactions = reactionData.reactions;
+                if (message && this.data.messages && this.data.messages[reactionData.message_id]) {
+                    message.reactions = this.data.messages[reactionData.message_id].reactions || {};
                 }
 
             })
@@ -527,28 +531,29 @@
             console.log('RENDER MESSAGES')
             console.log(this.data.messages)
             
-            // Messages are stored as JSON blob, parse to get array
-            if (this.data.messages) {
-                try {
-                    const messages = JSON.parse(this.data.messages || "[]");
-                    if (Array.isArray(messages)) {
-                        messages.forEach( (message) => {
-                            console.log('render message', message);
-                            
-                            const authorName = this.data.users[message.author]?.name || message.author;
-                            this.eChat.addMessage(
-                                message.author, 
-                                authorName, 
-                                message.content, 
-                                message.timestamp,
-                                message.id || null,
-                                message.reactions || {}
-                            );
-                        });
-                    }
-                } catch (e) {
-                    console.error('Failed to parse messages JSON:', e);
-                }
+            // Messages are a dict with message_id as keys, sort by timestamp
+            if (this.data.messages && typeof this.data.messages === 'object') {
+                const messagesArray = Object.entries(this.data.messages)
+                    .map(([id, msg]) => ({...msg, id}))
+                    .sort((a, b) => {
+                        const tsA = parseInt(a.timestamp) || 0;
+                        const tsB = parseInt(b.timestamp) || 0;
+                        return tsA - tsB;
+                    });
+                
+                messagesArray.forEach( (message) => {
+                    console.log('render message', message);
+                    
+                    const authorName = this.data.users[message.author]?.name || message.author;
+                    this.eChat.addMessage(
+                        message.author, 
+                        authorName, 
+                        message.content, 
+                        parseInt(message.timestamp),
+                        message.id,
+                        message.reactions || {}
+                    );
+                });
             }
 
 

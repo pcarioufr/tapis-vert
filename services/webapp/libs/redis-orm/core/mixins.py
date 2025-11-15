@@ -289,6 +289,35 @@ class RedisMixin:
         return True
 
     @classmethod
+    def delete_field(cls, key: str, field: str) -> bool:
+        """
+        Delete a specific field from an object.
+
+        Args:
+            key: The Redis key of the object
+            field: field to delete (for nested fields, use syntax: field:subkey:subsubkey, etc.)
+
+        Returns:
+            True if the field was deleted, False if object doesn't exist
+        """
+        if not RedisMixin.exists.__func__(cls, key):
+            log.warning(f"{cls.__class__} > {key} deleted, skipping delete_field")
+            return False
+
+        redis_client = get_redis_client()
+        
+        with redis_client.pipeline() as pipe:
+            pipe.multi()
+            pipe.hdel(key, field)
+            pipe.hincrby(key, "_version", 1)
+            pipe.hset(key, "_edited", now())
+            pipe.execute()
+
+            log.info(f"Deleted field {field} from {key}")
+
+        return True
+
+    @classmethod
     @tracer.wrap("RedisMixin.search")
     def search(cls, pattern: str = "*", cursor: int = 0, count: int = 1000) -> Tuple[List["RedisMixin"], int]:
         """
@@ -446,6 +475,11 @@ class ObjectMixin(RedisMixin, metaclass=ObjectMixinMeta):
     def patch(cls, id: str, field: str, value: Any, add: bool = False) -> bool:
         """Patch object by ID"""
         return super().patch(cls._key(id), field, value, add)
+
+    @classmethod
+    def delete_field(cls, id: str, field: str) -> bool:
+        """Delete field from object by ID"""
+        return super().delete_field(cls._key(id), field)
 
     @tracer.wrap("ObjectMixin.to_dict")
     def to_dict(self, include_related: bool = False) -> Dict[str, Any]:

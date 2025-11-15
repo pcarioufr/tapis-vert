@@ -106,6 +106,7 @@ class UserCodes(RelationMixin):
 
 class Room(ObjectMixin):
     '''
+    Room model with messages as nested dict.
     '''
 
     FIELDS = {"name", "round", "cards", "messages"}
@@ -149,7 +150,8 @@ class Room(ObjectMixin):
 
             i = i+1
 
-        self.messages = None
+        # Clear old messages when starting new round
+        self.messages = {}
         self.cards = cards
         self.save()
 

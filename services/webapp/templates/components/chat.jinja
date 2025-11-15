@@ -60,12 +60,14 @@
             if (!message) return;
             
             // Determine if adding or removing based on current state
+            // Reactions structure: {emoji: {user_id: "True"}}
             const reactions = message._reactions || {};
-            const userList = reactions[emoji] || [];
-            const action = userList.includes(this.currentUserId) ? "remove" : "add";
+            const userDict = reactions[emoji] || {};
+            const hasReacted = userDict[this.currentUserId] === "True";
+            const action = hasReacted ? "remove" : "add";
             
             try {
-                await call("POST", `/api/v1/rooms/{{room.id}}/messages/${messageId}/react`, 
+                await call("PATCH", `/api/v1/rooms/{{room.id}}/messages/${messageId}/react`, 
                           {}, {}, {emoji: emoji, action: action});
             } catch (e) {
                 console.error("Failed to toggle reaction:", e);
@@ -283,10 +285,19 @@
             container.innerHTML = '';
             
             // Render filled reaction bubbles (existing reactions)
-            for (const [emoji, userIds] of Object.entries(this._reactions)) {
-                if (!userIds || userIds.length === 0) continue;
+            // Reactions structure: {emoji: {user_id: "True"}}
+            for (const [emoji, userDict] of Object.entries(this._reactions)) {
+                if (!userDict || typeof userDict !== 'object') continue;
                 
-                const bubble = this.createReactionBubble(emoji, userIds.length, userIds.includes(currentUserId), false);
+                // Count users who have reacted (value === "True")
+                const reactedUsers = Object.entries(userDict)
+                    .filter(([uid, value]) => value === "True")
+                    .map(([uid, value]) => uid);
+                
+                if (reactedUsers.length === 0) continue;
+                
+                const hasCurrentUserReacted = reactedUsers.includes(currentUserId);
+                const bubble = this.createReactionBubble(emoji, reactedUsers.length, hasCurrentUserReacted, false);
                 container.appendChild(bubble);
             }
             

@@ -21,6 +21,7 @@ def room_get(room_id=None):
     if room is None:
         return flask.jsonify(), 404
 
+    # ORM automatically unflattens messages from Redis
     return flask.jsonify(room.to_dict(True)), 200
 
 
@@ -40,6 +41,7 @@ def round_new(room_id=None):
 
     utils.publish(room_id, "round:new", round)
 
+    # ORM automatically unflattens all fields including messages (empty after new_round)
     return flask.jsonify(room=room.to_dict()), 200
 
 
@@ -64,6 +66,7 @@ def room_join(room_id=None):
         room.users().add(user_id, role="watcher")
         utils.publish(room_id, "user:joined", user_id)
 
+    # ORM automatically unflattens all fields including messages
     return flask.jsonify(room=room.to_dict()), 200
 
 
@@ -81,6 +84,14 @@ def room_message(room_id=None):
     # Generate unique message ID
     message_id = new_id(8)
 
+    # Add message using atomic patch operations
+    # ORM will flatten: messages:{msg_id}:content, messages:{msg_id}:timestamp, etc.
+    Room.patch(room_id, f"messages:{message_id}:id", message_id, add=True)
+    Room.patch(room_id, f"messages:{message_id}:timestamp", str(timestamp), add=True)
+    Room.patch(room_id, f"messages:{message_id}:content", content, add=True)
+    Room.patch(room_id, f"messages:{message_id}:author", user_id, add=True)
+    
+    # Build message object for WebSocket broadcast
     message_obj = {
         "id": message_id,
         "timestamp": timestamp, 
@@ -89,24 +100,14 @@ def room_message(room_id=None):
         "reactions": {}
     }
 
-    # Get current messages array and append new message
-    messages = json.loads(room.messages or "[]")
-    messages.append(message_obj)
-    
-    # Update room with new messages JSON blob
-    room.messages = json.dumps(messages)
-    
-    room.save()
-    # Note: "saved successfully" log should only come from save() method itself
-
-    # Publish message for WebSocket (keep as JSON string for compatibility)
+    # Publish message for WebSocket
     message_json = json.dumps(message_obj)
     utils.publish(room_id, f"message:new", message_json)
 
     return flask.jsonify(), 200
 
 
-@public_api.route("/v1/rooms/<room_id>/messages/<message_id>/react", methods=['POST'])
+@public_api.route("/v1/rooms/<room_id>/messages/<message_id>/react", methods=['PATCH'])
 @flask_login.login_required
 def message_react(room_id=None, message_id=None):
     """Add or remove a reaction to a message"""
@@ -138,59 +139,30 @@ def message_react(room_id=None, message_id=None):
     if action not in ["add", "remove"]:
         return flask.jsonify({"error": "action must be 'add' or 'remove'"}), 400
     
-    # Parse messages
-    messages = json.loads(room.messages or "[]")
-    
-    # Find the message
-    message = None
-    message_index = None
-    for i, msg in enumerate(messages):
-        if msg.get("id") == message_id:
-            message = msg
-            message_index = i
-            break
-    
-    if message is None:
+    # Verify message exists in messages dict
+    if not room.messages or message_id not in room.messages:
         return flask.jsonify({"error": "message not found"}), 404
     
-    # Ensure reactions field exists (backward compatibility)
-    if "reactions" not in message:
-        message["reactions"] = {}
+    # Add or remove reaction using atomic patch operation
+    # ORM flattens: messages:{msg_id}:reactions:{emoji}:{user_id} = "True"
+    reaction_key = f"messages:{message_id}:reactions:{emoji}:{user_id}"
     
-    reactions = message["reactions"]
-    
-    # Add or remove reaction
     if action == "add":
-        if emoji not in reactions:
-            reactions[emoji] = []
-        if user_id not in reactions[emoji]:
-            reactions[emoji].append(user_id)
+        Room.patch(room_id, reaction_key, "True", add=True)
     elif action == "remove":
-        if emoji in reactions and user_id in reactions[emoji]:
-            reactions[emoji].remove(user_id)
-            # Clean up empty emoji lists
-            if len(reactions[emoji]) == 0:
-                del reactions[emoji]
-    
-    # Update message in array
-    messages[message_index] = message
-    
-    # Save back to room
-    room.messages = json.dumps(messages)
-    room.save()
+        Room.delete_field(room_id, reaction_key)
     
     # Publish WebSocket event for real-time updates
     reaction_event = {
         "message_id": message_id,
         "emoji": emoji,
         "action": action,
-        "user_id": user_id,
-        "reactions": reactions
+        "user_id": user_id
     }
     utils.publish(room_id, "message:reaction", json.dumps(reaction_event))
     
     log.info(f"Reaction {action}: user={user_id}, emoji={repr(emoji)}, message={message_id}, room={room_id}")
-    return flask.jsonify({"success": True, "reactions": reactions}), 200
+    return flask.jsonify({"success": True}), 200
 
 
 @public_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
@@ -271,6 +243,7 @@ def room_user(room_id=None, user_id=None):
         room, rel = user.rooms().get_by_id(room_id)
         utils.publish(room_id, f"user:{rel.role}", user_id )
 
+    # ORM automatically unflattens all fields including messages
     return flask.jsonify(room=room.to_dict()), 200
 
 @public_api.route('/v1/qrcode', methods=['GET'])

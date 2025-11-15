@@ -289,13 +289,12 @@ test_init() {
     ROOM_STATE=$(curl -s "$BASE_URL/api/v1/rooms/$ROOM_ID")
     debug "Room state response: $ROOM_STATE"
     
-    # Messages are stored as a JSON string in the messages field, need to parse twice
-    MESSAGES_STRING=$(echo "$ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages // \"[]\"")
-    MESSAGES_JSON=$(echo "$MESSAGES_STRING" | jq '.')
+    # Messages are now stored as array (no double-parsing needed)
+    MESSAGES_JSON=$(echo "$ROOM_STATE" | jq ".[\"$ROOM_ID\"].messages // []")
     
     debug "Messages JSON: $MESSAGES_JSON"
     
-    # Parse message IDs (stored as JSON array in room.messages field)
+    # Parse message IDs (stored as array in room.messages field)
     declare -a MESSAGE_IDS
     MESSAGE_COUNT=$(echo "$MESSAGES_JSON" | jq 'length // 0')
     
@@ -348,7 +347,7 @@ test_init() {
                 
                 if [ -f "$REACTOR_COOKIE" ] && [ -s "$REACTOR_COOKIE" ]; then
                     # Add reaction using authenticated session
-                    REACTION_RESPONSE=$(curl -s -L -b "$REACTOR_COOKIE" -X POST \
+                    REACTION_RESPONSE=$(curl -s -L -b "$REACTOR_COOKIE" -X PATCH \
                         -H "Content-Type: application/json" \
                         -d "{\"emoji\": \"$EMOJI\", \"action\": \"add\"}" \
                         "$BASE_URL/api/v1/rooms/$ROOM_ID/messages/$MSG_ID/react")
@@ -401,26 +400,26 @@ test_init() {
     if [[ "$HAS_CARDS" == "true" ]]; then
         debug "🔍 Validating card data integrity..."
         
-        # Extract all cards and check their properties
+        # Extract all cards (object/dict with card_id as keys) and check their properties
         CARDS_JSON=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards")
-        CARD_IDS=$(echo "$CARDS_JSON" | jq -r 'keys[]' 2>/dev/null || echo "")
+        TOTAL_CARDS=$(echo "$CARDS_JSON" | jq 'length' 2>/dev/null || echo "0")
         
-        TOTAL_CARDS=0
         COMPLETE_CARDS=0
         
-        if [[ -n "$CARD_IDS" ]]; then
-            for card_id in $CARD_IDS; do
-                TOTAL_CARDS=$((TOTAL_CARDS + 1))
-                
-                # Check if card has all 4 required properties with valid values
-                CARD_DATA=$(echo "$CARDS_JSON" | jq -r ".\"$card_id\"")
+        if [[ "$TOTAL_CARDS" -gt 0 ]]; then
+            # Iterate through object keys (card IDs)
+            for CARD_ID in $(echo "$CARDS_JSON" | jq -r 'keys[]'); do
+                # Check if card has all 4 required properties with valid values (flipped, value, player_id, peeked)
+                # Note: 'id' is the key, not a property in the value
+                CARD_DATA=$(echo "$CARDS_JSON" | jq -r ".\"$CARD_ID\"")
                 
                 FLIPPED=$(echo "$CARD_DATA" | jq -r '.flipped // empty')
                 VALUE=$(echo "$CARD_DATA" | jq -r '.value // empty') 
                 PLAYER_ID=$(echo "$CARD_DATA" | jq -r '.player_id // empty')
                 PEEKED=$(echo "$CARD_DATA" | jq -r '.peeked // empty')
                 
-                # Count non-empty properties
+                # Count non-empty properties (4 total: flipped, value, player_id, peeked)
+                # Card ID is the key, not a property
                 PROPS=0
                 [[ -n "$FLIPPED" && "$FLIPPED" != "null" ]] && PROPS=$((PROPS + 1))
                 [[ -n "$VALUE" && "$VALUE" != "null" ]] && PROPS=$((PROPS + 1))
@@ -429,9 +428,9 @@ test_init() {
                 
                 if [[ "$PROPS" == "4" ]]; then
                     COMPLETE_CARDS=$((COMPLETE_CARDS + 1))
-                    debug "Card $card_id: complete (4/4 properties)"
+                    debug "Card $CARD_ID: complete (4/4 properties)"
                 else
-                    debug "Card $card_id: incomplete ($PROPS/4 properties)"
+                    debug "Card $CARD_ID: incomplete ($PROPS/4 properties)"
                     CARD_INTEGRITY="false"
                 fi
             done
