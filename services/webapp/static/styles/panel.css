@@ -3,7 +3,7 @@
 /* Panel Handle Styles */
 .panel-handle {
     position: absolute;
-    bottom: 15vw;
+    top: 1vw;
     background: var(--dbrown);
     border: 2px solid var(--beige);
     border-radius: 0.5vw;
@@ -22,12 +22,6 @@
     left: calc(100% - 1px);
     border-radius: 0 0.5vw 0.5vw 0;
     border-left: 0;
-    flex-direction: row;  /* Icon left, text right */
-}
-
-.panel[data-side="left"] .panel-handle .handle-text {
-    margin-left: 0.5vw;
-    padding-right: 0.5vw;
 }
 
 /* Right Panel Handle Flavor */
@@ -35,12 +29,6 @@
     right: calc(100% - 1px);
     border-radius: 0.5vw 0 0 0.5vw;
     border-right: 0;
-    flex-direction: row-reverse;  /* Icon right, text left */
-}
-
-.panel[data-side="right"] .panel-handle .handle-text {
-    margin-right: 0.5vw;
-    padding-left: 0.5vw;
 }
 
 .panel-handle {
@@ -59,13 +47,6 @@
     flex-shrink: 0;
 }
 
-.panel-handle .handle-text {
-    color: var(--beige);
-    font-size: 1.2vw;
-    font-weight: bold;
-    white-space: nowrap;
-}
-
 .panel-handle .handle-icon svg {
     width: 2vw;
     height: 2vw;
@@ -75,16 +56,16 @@
 /* Panel Styles */
 .panel {
     position: fixed;
-    bottom: 0;
+    top: 0;
     width: 80%;
     max-width: 60vw;
     height: auto;
     background: var(--dbrown);
     border-left: 2px solid var(--beige);
     border-right: 2px solid var(--beige);
-    border-top: 2px solid var(--beige);
+    border-bottom: 2px solid var(--beige);
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    z-index: 90;
+    z-index: 200;
     transition: transform 0.3s ease;
     overflow: visible;  /* Allow handle to extend beyond panel bounds */
 }
@@ -93,14 +74,14 @@
     left: 0;
     transform: translateX(-100%);
     border-left: none;
-    border-radius: 0 1vw 0 0;
+    border-radius: 0 0 1vw 0;
 }
 
 .panel[data-side="right"] {
     right: 0;
     transform: translateX(100%);
     border-right: none;
-    border-radius: 1vw 0 0 0;
+    border-radius: 0 0 0 1vw;
 }
 
 .panel.open[data-side="left"] {
@@ -216,7 +197,7 @@
 /* Responsive adjustments */
 @media (max-width: 800px) {
     .panel-handle {
-        bottom: 20vh;
+        top: 4vw;
     }
     
     .panel-handle .handle-icon {
@@ -253,18 +234,6 @@
     .panel-user .user-status {
         width: 1.5vw;
         height: 1.5vw;
-    }
-    
-    .floating-new-round {
-        bottom: 4vw !important;
-        left: 4vw !important;
-        width: 8vw !important;
-        height: 8vw !important;
-    }
-    
-    .floating-new-round svg {
-        width: 5vw !important;
-        height: 5vw !important;
     }
 }
 

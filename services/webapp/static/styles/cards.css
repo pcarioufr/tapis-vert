@@ -73,7 +73,7 @@
         100% calc(100% - var(--card-c)), 
         100% 0%    
     );
-    font-size: 12vw;
+    font-size: var(--card-ff);
     color: var(--dblue);
 
 }
@@ -89,7 +89,7 @@
     backface-visibility: hidden;
 
     background: var(--bblue) ; /* This is overriden by [peeked] section */
-    font-size: 3vw;
+    font-size: var(--card-fb);
     color: var(--beige);
 
     border-color: var(--beige);

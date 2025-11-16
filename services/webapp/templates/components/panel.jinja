@@ -7,7 +7,6 @@
     <div class="panel">
         <div class="panel-handle">
             <div class="handle-icon"> <!-- SVG icon goes here --> </div>
-            <div class="handle-text"> <!-- Handle text goes here --> </div>
         </div>
         <div class="panel-content">
             <!-- Panel content goes here -->
@@ -112,7 +111,7 @@ class Panel extends Element {
     }
     
     setText(text) {
-        this.select('.handle-text').innerText = text;
+        // No-op: handle text has been removed, keeping method for backward compatibility
     }
 }
 </script> 

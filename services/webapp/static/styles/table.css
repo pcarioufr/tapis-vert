@@ -7,10 +7,12 @@
     z-index: 100;
     padding: 5vw 0 5vw 0;
 
-    --card-w: 16vw; /* card width */
-    --card-h: 22vw; /* card height */
+    --card-w: 12vw; /* card width */
+    --card-h: 18vw; /* card height */
     --card-c: 8vw;  /* card corner (square)-size */
-    --card-rotation: 0deg; /* Initial rotation */
+    --card-ff: 8vw;  /* card front font size */
+    --card-bf: 3vw;  /* card back font size */
+    --card-rotation: -20deg; /* Initial rotation */
 
     display: flex;
     flex-direction: row;

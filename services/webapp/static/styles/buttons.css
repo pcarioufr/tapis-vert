@@ -147,7 +147,7 @@ button svg {
 
 /* Floating Button */
 .floating-button {
-    position: fixed;
+    position: absolute;
     width: 4vw;
     height: 4vw;
     background-color: var(--dbrown);
@@ -159,7 +159,7 @@ button svg {
     justify-content: center;
     box-shadow: 0 0.2vw 0.8vw rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
-    z-index: 10;
+    z-index: 50;
 }
 
 .floating-button:hover {
@@ -180,7 +180,7 @@ button svg {
     border-color: var(--green);
     width: 4vw;
     height: 4vw;
-    bottom: 2vw;
+    bottom: -2vw;
     right: 2vw;
 }
 
@@ -195,7 +195,7 @@ button svg {
     width: 3.5vw;
     height: 3.5vw;
     opacity: 0.7;
-    bottom: 2vw;
+    bottom: -2vw;
 }
 
 .floating-button.role-button svg {

@@ -665,8 +665,8 @@
     // ROOM PANEL (Right)  
     const roomPanel = new RoomPanel('right', 'group-2-line');
 
-    // NEW ROUND BUTTON (Bottom Right Corner)
-    const newRoundButton = new FloatingButton('refresh-line', document.body);
+    // NEW ROUND BUTTON (attached to table)
+    const newRoundButton = new FloatingButton('refresh-line', window.ROOM.eTable.e);
     newRoundButton.addClass('new-round');
     
     newRoundButton.callback = (async _ => {
@@ -676,20 +676,20 @@
     // Hide button initially, will be shown based on user role
     newRoundButton.e.style.display = 'none';
 
-    // ROLE SELECTION BUTTONS (Bottom Left Corner)
+    // ROLE SELECTION BUTTONS (attached to table)
     let roleButtons = {};
     {% if user.is_authenticated %}
     
     // Create individual role buttons (positioned via CSS)
-    roleButtons.master = new FloatingButton('crown-line', document.body);
+    roleButtons.master = new FloatingButton('crown-line', window.ROOM.eTable.e);
     roleButtons.master.addClass('role-button');
     roleButtons.master.e.setAttribute('data-role', 'master');
     
-    roleButtons.player = new FloatingButton('chess-line', document.body);
+    roleButtons.player = new FloatingButton('chess-line', window.ROOM.eTable.e);
     roleButtons.player.addClass('role-button');
     roleButtons.player.e.setAttribute('data-role', 'player');
     
-    roleButtons.watcher = new FloatingButton('glasses-fill', document.body);
+    roleButtons.watcher = new FloatingButton('glasses-fill', window.ROOM.eTable.e);
     roleButtons.watcher.addClass('role-button');
     roleButtons.watcher.e.setAttribute('data-role', 'watcher');
     
