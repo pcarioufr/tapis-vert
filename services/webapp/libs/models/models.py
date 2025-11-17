@@ -6,6 +6,8 @@ import nanoid
 from ddtrace import tracer
 
 from utils import get_logger
+from topics import topic as get_topic
+
 log = get_logger(__name__)
 
 # ID generators for models
@@ -120,7 +122,9 @@ class Room(ObjectMixin):
     def new_round(self):
         users = self.users().all()
 
-        round = new_id()
+        round_id = new_id()
+        round_topic = get_topic()
+        round = {"id": round_id, "topic": round_topic}
         self.round = round
 
         cards = {}

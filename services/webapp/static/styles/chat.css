@@ -110,9 +110,9 @@
     opacity: 0.85;
 }
 
-/* First message top margin to clear the fixed table */
+/* First message top margin to clear the table (dynamically calculated by JS) */
 .messages .message:first-child {
-    margin-top: 25vw;
+    margin-top: var(--table-height, 25vw); /* Fallback to 25vw if JS hasn't run yet */
 }
 
 /* Own Message (Right Aligned) */

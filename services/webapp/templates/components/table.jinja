@@ -11,6 +11,9 @@
                 <!-- SVG Crown-->
                 <!-- [ Pawns ] -->
             <!-- </div> -->
+            <div class="topic" id="table-topic">
+                <!-- Topic text will be set here -->
+            </div>
             <div class="playground" id="table-playground">
                 <!-- [ Cards ] -->
             </div>
@@ -26,6 +29,10 @@
             this.svg = new SVG("crown-line")
             // this.select(".area").append(this.svg.e)
 
+        }
+
+        set topic(text) {
+            this.select('.topic').innerText = text;
         }
 
         empty() { this.e.querySelectorAll('*').forEach( n => n.remove() ); }

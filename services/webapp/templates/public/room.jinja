@@ -469,6 +469,12 @@
 
             console.log(this.data)
 
+            // RENDER TOPIC ----
+            
+            if (this.data.round && this.data.round.topic) {
+                this.eTable.topic = this.data.round.topic;
+            }
+
             // RENDER USERS ----
 
             // remove users who are not in the room anymore            
@@ -555,7 +561,11 @@
                     );
                 });
             }
-
+            
+            // Update chat margin after rendering (table height may have changed)
+            if (typeof updateChatMargin === 'function') {
+                setTimeout(updateChatMargin, 50);
+            }
 
         }
 
@@ -742,6 +752,16 @@
         }
         {% endif %}
     }
+    
+    // Function to update chat margin based on table height
+    function updateChatMargin() {
+        const table = document.getElementById('table');
+        if (table) {
+            const tableHeight = table.offsetHeight;
+            // Set CSS custom property for chat to use
+            document.documentElement.style.setProperty('--table-height', `${tableHeight}px`);
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', async _ => {
 
@@ -756,6 +776,12 @@
         
         // Update role button state
         updateRoleButtonState();
+        
+        // Update chat margin after render
+        setTimeout(updateChatMargin, 100);
+        
+        // Update on window resize
+        window.addEventListener('resize', updateChatMargin);
 
     });
 

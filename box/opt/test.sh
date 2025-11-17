@@ -279,7 +279,7 @@ test_init() {
         rm -f "$SENDER_COOKIE"
         
         # Small delay between messages to ensure different timestamps
-        sleep 1
+        sleep 0.1
     done
 
     # Step 5b: Test emoji reactions
@@ -289,12 +289,13 @@ test_init() {
     ROOM_STATE=$(curl -s "$BASE_URL/api/v1/rooms/$ROOM_ID")
     debug "Room state response: $ROOM_STATE"
     
-    # Messages are now stored as array (no double-parsing needed)
-    MESSAGES_JSON=$(echo "$ROOM_STATE" | jq ".[\"$ROOM_ID\"].messages // []")
+    # Messages are stored as a dict/object with message IDs as keys
+    # Convert to array of message objects for processing
+    MESSAGES_JSON=$(echo "$ROOM_STATE" | jq ".[\"$ROOM_ID\"].messages // {} | to_entries | map(.value + {id: .key})")
     
     debug "Messages JSON: $MESSAGES_JSON"
     
-    # Parse message IDs (stored as array in room.messages field)
+    # Parse message IDs (now converted to array)
     declare -a MESSAGE_IDS
     MESSAGE_COUNT=$(echo "$MESSAGES_JSON" | jq 'length // 0')
     
@@ -367,7 +368,7 @@ test_init() {
                 rm -f "$REACTOR_COOKIE"
                 
                 # Small delay between reactions
-                sleep 0.5
+                sleep 0.1
             fi
         done
         
@@ -385,13 +386,22 @@ test_init() {
     ADMIN_ROOM_STATE=$(echo "$ADMIN_ALL_ROOMS" | jq "{\"$ROOM_ID\": .[\"$ROOM_ID\"]}")
 
     debug "🔍 Raw admin room state:"
-    debug "$ADMIN_ROOM_STATE" | jq .
+    debug "$(echo "$ADMIN_ROOM_STATE" | jq . 2>/dev/null || echo "$ADMIN_ROOM_STATE")"
 
-    # Parse and validate the state using admin data (more reliable)
+    # Parse and validate the state using admin data (more reliable for user info)
     NUM_USERS=$(echo "$ADMIN_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].users | length" 2>/dev/null || echo "0")
-    HAS_ROUND=$(echo "$ADMIN_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].round != null" 2>/dev/null || echo "false")
-    # Check if cards are distributed using public API (admin API might not include full card details)
+    
+    # Check cards/messages/round using public API (admin API doesn't include full game state)
     PUBLIC_ROOM_STATE=$(curl -s -L "$BASE_URL/api/v1/rooms/$ROOM_ID")
+    
+    # Round is now an object with {id, topic} properties
+    ROUND_VALUE=$(echo "$PUBLIC_ROOM_STATE" | jq ".[\"$ROOM_ID\"].round" 2>/dev/null || echo "null")
+    info "🔍 Round value: $ROUND_VALUE"
+    ROUND_TYPE=$(echo "$ROUND_VALUE" | jq -r 'type' 2>/dev/null || echo 'unknown')
+    info "🔍 Round type: $ROUND_TYPE"
+    HAS_ROUND=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].round | if type == \"object\" and .id != null then \"true\" else \"false\" end" 2>/dev/null || echo "false")
+    info "🔍 HAS_ROUND result: $HAS_ROUND"
+    
     HAS_CARDS=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards | if type == \"object\" and length > 0 then \"true\" else \"false\" end" 2>/dev/null || echo "false")
     
     # Validate card data integrity (check if all cards have complete properties)
@@ -460,12 +470,13 @@ test_init() {
     # Verify messages are stored correctly
     debug "📨 Verifying message storage..."
     
-    # Get messages from public API (they are stored as a JSON string, need to parse)
-    ROOM_MESSAGES_STRING=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages" 2>/dev/null || echo "null")
+    # Get messages from public API (stored as dict/object with message IDs as keys)
+    # Convert to array for validation
+    ROOM_MESSAGES_STRING=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages // {} | to_entries | map(.value + {id: .key})" 2>/dev/null || echo "[]")
     
-    if [[ "$ROOM_MESSAGES_STRING" != "null" && "$ROOM_MESSAGES_STRING" != "" ]]; then
-        # Parse the JSON string into actual JSON
-        ROOM_MESSAGES=$(echo "$ROOM_MESSAGES_STRING" | jq '.' 2>/dev/null || echo "[]")
+    if [[ "$ROOM_MESSAGES_STRING" != "null" && "$ROOM_MESSAGES_STRING" != "" && "$ROOM_MESSAGES_STRING" != "[]" ]]; then
+        # Already parsed as array
+        ROOM_MESSAGES="$ROOM_MESSAGES_STRING"
         
         # Parse message count
         MESSAGE_COUNT=$(echo "$ROOM_MESSAGES" | jq 'length' 2>/dev/null || echo "0")
@@ -636,7 +647,7 @@ test_init() {
         error "❌ Integration test FAILED ($ASSERTIONS_PASSED/$TOTAL_ASSERTIONS assertions passed)"
         
         debug "🔍 Admin room state debug:"
-        debug "$ADMIN_ROOM_STATE" | jq .
+        debug "$(echo "$ADMIN_ROOM_STATE" | jq . 2>/dev/null || echo "$ADMIN_ROOM_STATE")"
         
         info "Test room preserved for debugging!"
         info "Use 'box test delete' to clean Redis when you're done debugging"

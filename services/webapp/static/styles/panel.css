@@ -235,6 +235,18 @@
         width: 1.5vw;
         height: 1.5vw;
     }
+    
+    .floating-new-round {
+        top: 40vw !important;
+        left: 4vw !important;
+        width: 8vw !important;
+        height: 8vw !important;
+    }
+    
+    .floating-new-round svg {
+        width: 5vw !important;
+        height: 5vw !important;
+    }
 }
 
 /* Specialized Panel Widths */

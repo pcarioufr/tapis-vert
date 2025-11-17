@@ -15,7 +15,8 @@
     --card-rotation: -20deg; /* Initial rotation */
 
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    align-items: center;
 
     background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
@@ -47,16 +48,24 @@
 }
 
 
+.table .topic {
+    width: 60vw;
+    margin-bottom: 2vw;
+    padding: 1.5vw 2vw;
+    border-radius: 1vw;
+    text-align: center;
+    font-size: 1.8vw;
+    font-weight: bold;
+    color: var(--beige);
+}
+
 .table .playground {
-    position: relative;
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
     gap: 3vw;
-    margin: auto;
     width: 60vw;
-
 }
 
 
