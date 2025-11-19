@@ -257,8 +257,8 @@ class RedisMixin:
             field: field to update (for dictionary fields, use nested syntax: field:subkey, field:subkey:subsubkey, etc.)
             value: updated value to set
             add: whether to add a new field or update an existing one
-                False: update existing SUBFIELD - raise error if does not exist
-                True:  add new SUBFIELD - raise error if already exists
+                False: update existing SUBFIELD only - raise error if does not exist
+                True:  create or update SUBFIELD (upsert) - always succeeds
 
         Returns:
             True/False, whether the object was patched or not
@@ -272,13 +272,11 @@ class RedisMixin:
         with redis_client.pipeline() as pipe:
             pipe.multi()
 
-            if redis_client.hexists(key, field):
-                if add:
-                    raise ConflictError(f"'{cls.__name__}' already has attribute '{field}'")
-            else:
-                if not add:
-                    raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
+            # Check field existence only for strict updates (add=False)
+            if not add and not redis_client.hexists(key, field):
+                raise ConflictError(f"'{cls.__name__}' object has no attribute '{field}'")
 
+            # For add=True (upsert), always proceed regardless of existence
             pipe.hset(key, field, value)
             pipe.hincrby(key, "_version", 1)
             pipe.hset(key, "_edited", now())
