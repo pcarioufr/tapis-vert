@@ -221,6 +221,82 @@ test_init() {
     # Clean up master cookie
     rm -f "$MASTER_COOKIE"
 
+    # Step 4b: Test card scoring
+    debug "Step 4b: Testing card scoring..."
+    
+    # Get room state to find a card ID
+    ROOM_STATE_FOR_SCORING=$(curl -s -L "$BASE_URL/api/v1/rooms/$ROOM_ID")
+    FIRST_CARD_ID=$(echo "$ROOM_STATE_FOR_SCORING" | jq -r ".[\"$ROOM_ID\"].cards | keys[0]" 2>/dev/null || echo "")
+    
+    if [[ -n "$FIRST_CARD_ID" && "$FIRST_CARD_ID" != "null" ]]; then
+        debug "Testing scoring with card: $FIRST_CARD_ID"
+        
+        # Test 1: Master assigns score to card (should succeed)
+        MASTER_CODE=${CODE_IDS[0]}  # Alice is master
+        MASTER_SCORE_COOKIE="/tmp/master_score_cookie.txt"
+        
+        curl -s -L -c "$MASTER_SCORE_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$MASTER_CODE" >/dev/null 2>&1
+        
+        if [ -f "$MASTER_SCORE_COOKIE" ] && [ -s "$MASTER_SCORE_COOKIE" ]; then
+            MASTER_SCORE_RESPONSE=$(curl -s -L -b "$MASTER_SCORE_COOKIE" -X PATCH \
+                -H "Content-Type: application/json" \
+                -d '{"scored": 7}' \
+                "$BASE_URL/api/v1/rooms/$ROOM_ID/cards/$FIRST_CARD_ID/score")
+            
+            info "Master score response: $MASTER_SCORE_RESPONSE"
+            
+            if [[ "$MASTER_SCORE_RESPONSE" == *"success"* ]]; then
+                info "✓ Master successfully scored card"
+                MASTER_SCORE_SUCCESS="true"
+            else
+                warning "✗ Master failed to score card"
+                warning "Response was: $MASTER_SCORE_RESPONSE"
+                MASTER_SCORE_SUCCESS="false"
+            fi
+        else
+            error "Failed to authenticate master for scoring"
+            MASTER_SCORE_SUCCESS="false"
+        fi
+        
+        rm -f "$MASTER_SCORE_COOKIE"
+        
+        # Small delay between tests
+        sleep 0.1
+        
+        # Test 2: Player tries to assign score to card (should fail)
+        PLAYER_CODE=${CODE_IDS[1]}  # Bob is player
+        PLAYER_SCORE_COOKIE="/tmp/player_score_cookie.txt"
+        
+        curl -s -L -c "$PLAYER_SCORE_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$PLAYER_CODE" >/dev/null 2>&1
+        
+        if [ -f "$PLAYER_SCORE_COOKIE" ] && [ -s "$PLAYER_SCORE_COOKIE" ]; then
+            PLAYER_SCORE_RESPONSE=$(curl -s -L -b "$PLAYER_SCORE_COOKIE" -X PATCH \
+                -H "Content-Type: application/json" \
+                -d '{"scored": 5}' \
+                "$BASE_URL/api/v1/rooms/$ROOM_ID/cards/$FIRST_CARD_ID/score")
+            
+            debug "Player score response: $PLAYER_SCORE_RESPONSE"
+            
+            # Player should get 403 error (not authorized)
+            if [[ "$PLAYER_SCORE_RESPONSE" == *"only masters can score cards"* ]]; then
+                info "✓ Player correctly denied permission to score"
+                PLAYER_SCORE_DENIED="true"
+            else
+                warning "✗ Player was not denied permission (unexpected)"
+                PLAYER_SCORE_DENIED="false"
+            fi
+        else
+            error "Failed to authenticate player for scoring test"
+            PLAYER_SCORE_DENIED="false"
+        fi
+        
+        rm -f "$PLAYER_SCORE_COOKIE"
+    else
+        warning "No cards found for scoring tests"
+        MASTER_SCORE_SUCCESS="false"
+        PLAYER_SCORE_DENIED="false"
+    fi
+
     # Step 5: Test messaging system
     debug "Step 5: Testing messaging system..."
 
@@ -510,7 +586,7 @@ test_init() {
 
     # Run independent assertions
     ASSERTIONS_PASSED=0
-    TOTAL_ASSERTIONS=9  # Added 4 assertions: message count + message content + card data integrity + reactions
+    TOTAL_ASSERTIONS=11  # Added 6 assertions: message count + message content + card data integrity + reactions + card scoring
 
     # Assertion 1: Room exists and accessible
     if [[ "$ROOM_ID" != "null" && -n "$ROOM_ID" ]]; then
@@ -620,6 +696,29 @@ test_init() {
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
         error "Emoji reactions: failed ($TOTAL_REACTIONS reactions on $MESSAGES_WITH_REACTIONS messages, expected 10+ on 5+ messages)"
+    fi
+
+    # Assertion 10: Master can score cards
+    # Verify the score was actually set in the room state
+    CARD_SCORE=""
+    if [[ -n "$FIRST_CARD_ID" && "$FIRST_CARD_ID" != "null" ]]; then
+        CARD_SCORE=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards[\"$FIRST_CARD_ID\"].scored" 2>/dev/null || echo "null")
+        debug "Card score in state: $CARD_SCORE"
+    fi
+    
+    if [[ "$MASTER_SCORE_SUCCESS" == "true" && "$CARD_SCORE" == "7" ]]; then
+        success "Master card scoring: ok (score=7 confirmed)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    else
+        error "Master card scoring: failed (success=$MASTER_SCORE_SUCCESS, score=$CARD_SCORE)"
+    fi
+
+    # Assertion 11: Player cannot score cards (denied)
+    if [[ "$PLAYER_SCORE_DENIED" == "true" ]]; then
+        success "Player scoring denial: ok (permission correctly denied)"
+        ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    else
+        error "Player scoring denial: failed (player was not denied permission)"
     fi
 
     # Overall test result

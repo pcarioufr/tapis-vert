@@ -149,7 +149,8 @@ class Room(ObjectMixin):
                     "flipped": "True", 
                     "player_id": player.id, 
                     "peeked": {u_id: "False" for u_id in users.keys()},
-                    "value": values[i] 
+                    "value": values[i],
+                    "scored": None
                 }
 
             i = i+1

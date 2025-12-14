@@ -165,6 +165,61 @@ def message_react(room_id=None, message_id=None):
     return flask.jsonify({"success": True}), 200
 
 
+@public_api.route("/v1/rooms/<room_id>/cards/<card_id>/score", methods=['PATCH'])
+@flask_login.login_required
+def card_score(room_id=None, card_id=None):
+    """Set score for a card (masters only)"""
+    
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify({"error": "room does not exist"}), 404
+    
+    user_id = flask_login.current_user.id
+    
+    # Check user is member of room and get their relation
+    users = room.users().all()
+    if user_id not in users:
+        return flask.jsonify({"error": "user not in room"}), 403
+    
+    relation = users[user_id]
+    
+    # Check user is master
+    if relation.role != "master":
+        return flask.jsonify({"error": "only masters can score cards"}), 403
+    
+    # Get score from request
+    scored = flask.request.json.get("scored")
+    
+    # Validate scored value (1-10 or None to clear)
+    if scored is not None:
+        if not isinstance(scored, int) or scored < 1 or scored > 10:
+            return flask.jsonify({"error": "scored must be an integer between 1 and 10, or null"}), 400
+    
+    # Verify card exists
+    if not room.cards or card_id not in room.cards:
+        return flask.jsonify({"error": "card not found"}), 404
+    
+    # Update card score using atomic patch operation
+    score_key = f"cards:{card_id}:scored"
+    
+    if scored is None:
+        # Delete the score (set back to null)
+        try:
+            Room.delete_field(room_id, score_key)
+        except:
+            pass  # Field might not exist yet, that's ok
+    else:
+        # Set score (create or update)
+        # Use add=True to allow both creating new fields and updating existing ones
+        Room.patch(room_id, score_key, scored, add=True)
+    
+    # Publish WebSocket event for real-time updates
+    utils.publish(room_id, f"cards:{card_id}:scored", str(scored) if scored is not None else "None")
+    
+    log.info(f"Card scored: card={card_id}, scored={scored}, user={user_id}, room={room_id}")
+    return flask.jsonify({"success": True}), 200
+
+
 @public_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
 @flask_login.login_required
 def room_patch(room_id=None):

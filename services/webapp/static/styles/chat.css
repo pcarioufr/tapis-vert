@@ -23,7 +23,7 @@
     bottom: 2vw;
     left: 50%;
     transform: translateX(-50%);
-    width: min(600px, 80vw);
+    width: min(80vw, 50vw);
     background: var(--beige);
     border: 0.2vw solid var(--dbrown);
     border-radius: 3vw;
@@ -41,7 +41,7 @@
     border: none;
     border-radius: 2vw;
     padding: 1vw 1.5vw;
-    font-size: 14px;
+    font-size: 1.2vw;
     font-family: inherit;
     outline: none;
     resize: none;
@@ -64,8 +64,8 @@
 .floating-message-input .send-button {
     width: 3vw;
     height: 3vw;
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 3vw;
+    min-height: 3vw;
     background: var(--green);
     border: none;
     border-radius: 50%;
@@ -90,8 +90,8 @@
 .floating-message-input .send-button svg {
     width: 1.2vw;
     height: 1.2vw;
-    min-width: 16px;
-    min-height: 16px;
+    min-width: 1.2vw;
+    min-height: 1.2vw;
     fill: var(--black);
 }
 
@@ -254,80 +254,9 @@
     min-width: 1ch;
 }
 
-/* Responsive Design */
-
+/* iOS-specific fix to prevent auto-zoom on input focus */
 @media (max-width: 800px) {
-    .chat-container {
-        padding: 3vw 1vw;
-        height: calc(100vh - 12vw); /* More space for mobile input */
-    }
-    
-    .messages {
-        margin-bottom: 12vw;
-    }
-    
-    .message.own-message {
-        flex-direction: row-reverse;
-    }
-    
-    .message.other-message {
-        margin-right: 10%; /* Smaller margins on mobile */
-        flex-direction: row
-    }
-    
-    .floating-message-input {
-        bottom: 2vw;
-        width: min(500px, 90vw);
-        padding: 1.2vw;
-        gap: 1.5vw;
-    }
-    
     .floating-message-input .message-input {
-        padding: 1.2vw 1.8vw;
         font-size: 16px; /* 16px prevents zoom on iOS */
-    }
-    
-    .floating-message-input .send-button {
-        width: 4vw;
-        height: 4vw;
-        min-width: 50px;
-        min-height: 50px;
-    }
-    
-    .floating-message-input .send-button svg {
-        width: 1.5vw;
-        height: 1.5vw;
-        min-width: 20px;
-        min-height: 20px;
-    }
-    
-    .message-bubble {
-        padding: 1.2vw 1.8vw;
-    }
-    
-    .message-bubble .author {
-        font-size: 1em;
-    }
-    
-    .message-bubble .timestamp {
-        font-size: 0.8em;
-    }
-    
-    /* Mobile-specific reaction styles */
-    .reactions-container {
-        gap: 0.8vw;
-    }
-    
-    .message.own-message .reactions-container {
-        align-self: flex-start;
-    }
-    
-    .message.other-message .reactions-container {
-        align-self: flex-end;
-    }
-    
-    .reaction-bubble {
-        padding: 0.4vw 0.8vw;
-        border-width: 0.2vw;
     }
 }
