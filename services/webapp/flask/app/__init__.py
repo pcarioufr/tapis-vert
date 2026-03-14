@@ -46,4 +46,8 @@ def init_app():
         from .api import ping
         from .routines import render_template
 
-        return app 
+        @app.errorhandler(404)
+        def page_not_found(e):
+            return render_template("public/404.jinja"), 404
+
+        return app

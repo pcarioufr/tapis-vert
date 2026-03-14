@@ -1,0 +1,16 @@
+{% extends 'layout.jinja' %}
+
+{% block head %}
+    <title>Tapis Vert::404</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/pages.css') }}" />
+{% endblock %}
+
+{% block body %}
+
+    <div class="static-page not-found">
+        <h1>404</h1>
+        <p>This page doesn't exist.</p>
+        <a href="/">Back to home</a>
+    </div>
+
+{% endblock %}

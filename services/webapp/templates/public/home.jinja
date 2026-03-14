@@ -1,0 +1,62 @@
+{% extends 'layout.jinja' %}
+
+{% block head %}
+    <title>Tapis Vert</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/pages.css') }}" />
+{% endblock %}
+
+{% block body %}
+
+    <div class="static-page home">
+        <h1>Tapis Vert</h1>
+        <p>A card game on a green carpet.</p>
+        <p class="sub">Join a room via an invite link to start playing.</p>
+
+        {% if not user.is_authenticated %}
+        <div class="home-login"></div>
+        {% else %}
+        <p class="sub">Logged in as <strong>{{user.name}}</strong></p>
+        <div class="home-rooms"></div>
+        {% endif %}
+    </div>
+
+    {% if not user.is_authenticated %}
+    <script type="module">
+    const container = document.querySelector('.home-login');
+
+    const codeInput = new TextInput(container);
+    codeInput.title = "password";
+    codeInput.password = true;
+    codeInput.autocomplete = "current-password";
+
+    const loginButton = new Button();
+    codeInput.e.after(loginButton.e);
+    loginButton.name = "log in";
+    loginButton.icon = "login-circle";
+    loginButton.color = "green";
+
+    loginButton.callback = (async _ => {
+        const resp = await call('POST', '/api/auth/login', { code_id: codeInput.value });
+        const data = await resp.json();
+        if (data.success) {
+            window.location.reload();
+        }
+    });
+    </script>
+    {% else %}
+    <script type="module">
+    const rooms = {{ rooms | tojson }};
+    const container = document.querySelector('.home-rooms');
+
+    rooms.forEach(room => {
+        const btn = new Button(container);
+        btn.name = room.name;
+        btn.color = "green";
+        btn.callback = (_ => {
+            window.location.href = `/r/${room.id}`;
+        });
+    });
+    </script>
+    {% endif %}
+
+{% endblock %}
