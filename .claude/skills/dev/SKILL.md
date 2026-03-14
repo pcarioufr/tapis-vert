@@ -6,6 +6,12 @@ user-invocable: false
 
 # Tapis Vert Development Context
 
+## Git & PR Workflow
+
+- PRs are **squash-merged only** (enforced in repo settings). Each merged PR = one commit on `main`.
+- Default squash commit message uses the **PR title**, so keep PR titles concise and descriptive.
+- Commit history within a feature branch doesn't matter — it gets squashed on merge.
+
 ## Application Architecture
 
 Single Flask app with blueprint separation, FastAPI WebSocket service, Redis data store.
