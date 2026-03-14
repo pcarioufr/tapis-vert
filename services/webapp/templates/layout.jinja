@@ -80,13 +80,102 @@
         }
     </script>
 
-    <header> </header> 
-    <div class="page"> 
-    
+    <!-- Account Panel Content Template -->
+    <template id="t-account-panel-content">
+        <span class="panel-title">Account</span>
+
+        <div class="account-cookies">
+            <div class="cookie-switch-container"></div>
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="account-authenticated">
+            <p>Logged in as: <strong>{{user.name}}</strong></p>
+            <div class="logout-container"></div>
+        </div>
+        {% else %}
+        <div class="account-login">
+            <div class="login-container"></div>
+        </div>
+        {% endif %}
+    </template>
+
+    <script type="module">
+    class AccountPanel extends Panel {
+
+        constructor(side, icon) {
+            super(side, icon);
+            this.setText('{{user.name if user.is_authenticated else "Account"}}');
+            this.e.classList.add('account-panel');
+            this.setContentFromTemplate('t-account-panel-content');
+            this.initializeComponents();
+        }
+
+        initializeComponents() {
+            const cookies = new Cookies();
+            const cookieSwitch = new Switch(this.select('.cookie-switch-container'));
+
+            cookies.get("ok_cookie") == "yes" ?
+                cookieSwitch.checked = true :
+                cookieSwitch.checked = false;
+
+            cookieSwitch.onCallback = (_ => cookies.set("ok_cookie", "yes"));
+            cookieSwitch.onText = "I Accept Cookies";
+            cookieSwitch.offCallback = (_ => cookies.delete("ok_cookie"));
+            cookieSwitch.offText = "I Reject Cookies";
+
+            {% if user.is_authenticated %}
+            const logoutButton = new Button();
+            this.select('.logout-container').append(logoutButton.e);
+            logoutButton.name = "log out";
+            logoutButton.icon = "logout-circle";
+            logoutButton.color = "red";
+
+            logoutButton.callback = (async _ => {
+                try {
+                    const resp = await call('POST', '/api/auth/logout', { user_id: "{{user.id}}" });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Logout failed');
+                    }
+                } catch (error) {
+                    console.error('Logout failed:', error);
+                }
+            });
+            {% else %}
+            const codeInput = new TextInput();
+            this.select('.login-container').append(codeInput.e);
+            codeInput.title = "password";
+            codeInput.password = true;
+
+            const loginButton = new Button();
+            codeInput.e.after(loginButton.e);
+            loginButton.name = "log in";
+            loginButton.icon = "login-circle";
+            loginButton.color = "green";
+
+            loginButton.callback = (async _ => {
+                const resp = await call('POST', '/api/auth/login', { code_id: codeInput.value });
+                const data = await resp.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+            {% endif %}
+        }
+    }
+    window.__accountPanel = new AccountPanel('left', 'account-circle-line');
+    </script>
+
+    <header> </header>
+    <div class="page">
+
     {% block body %}{% endblock %}
 
     <div id=toasts> </div>
-    </div> 
+    </div>
 
 </body>
 

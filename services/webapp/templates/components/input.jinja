@@ -90,7 +90,7 @@
                 this.select("input").setAttribute("type", "password") ;
                 
                 let svg = new SVG("eye-off-line") ;
-                this.e.append(svg.e) ;
+                this.select(".text-input").append(svg.e) ;
 
                 svg.onclick = ( _ => {
                     const e = this.select("input") ;

@@ -12,10 +12,11 @@ Browser debugging requires `agent-browser` — see README.md for install instruc
 
 ## When to Use
 
-Use the `agent-browser` tool to navigate the live app when:
+Use the `agent-browser` tool to navigate the live app **only when the user explicitly asks** (e.g. "test it", "check in browser", "take a screenshot"). Do NOT automatically run browser tests after deploying — let the user verify changes themselves.
+
+Appropriate triggers:
+- The user explicitly asks you to test, check, or screenshot the app
 - The user reports a visual bug and you need to see it yourself
-- You need to verify a fix renders correctly in the browser
-- You need to inspect DOM state, component rendering, or WebSocket behavior
 - The user asks you to "look at" or "check" something in the app
 
 ## Live App URL

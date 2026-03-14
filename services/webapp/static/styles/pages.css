@@ -1,0 +1,83 @@
+.static-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    gap: var(--m);
+}
+
+.static-page h1 {
+    font-family: salsifont-bold;
+    font-size: 4vw;
+    color: var(--beige);
+}
+
+.static-page p {
+    font-size: 1.8vw;
+    color: var(--beige);
+}
+
+.static-page p.sub {
+    font-size: 1.4vw;
+    color: var(--lblue);
+}
+
+.static-page a {
+    font-size: 1.4vw;
+    color: var(--green);
+    text-decoration: none;
+    margin-top: var(--l);
+}
+
+.static-page a:hover {
+    text-decoration: underline;
+}
+
+/* Home login */
+
+.home-login {
+    margin-top: var(--xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s);
+    width: 250px;
+}
+
+/* Home rooms */
+
+.home-rooms {
+    margin-top: var(--l);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s);
+}
+
+/* 404 pages */
+
+.not-found h1 {
+    font-size: 6vw;
+    color: var(--orange);
+}
+
+/* Mobile */
+@media (hover:none), (max-width: 800px) {
+    .static-page h1 {
+        font-size: 10vw;
+    }
+    .static-page p {
+        font-size: 4vw;
+    }
+    .static-page p.sub {
+        font-size: 3.5vw;
+    }
+    .static-page a {
+        font-size: 3.5vw;
+    }
+    .not-found h1 {
+        font-size: 14vw;
+    }
+}

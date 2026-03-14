@@ -748,27 +748,6 @@
 {% block body %}
 
 
-    <!-- Account Panel Content Template -->
-    <template id="t-account-panel-content">
-        <span class="panel-title">Account</span>
-        
-        <div class="account-cookies">
-            <div class="cookie-switch-container"></div>
-        </div>
-        
-        {% if user.is_authenticated %}
-        <div class="account-authenticated">
-            <p>Logged in as: <strong>{{user.name}}</strong></p>
-            <div class="logout-container"></div>
-        </div>
-        {% else %}
-        <div class="account-login">
-            <div class="login-container"></div>
-        </div>
-        {% endif %}
-    </template>
-
-
     <!-- Room Panel Content Template -->
 
     <!-- Panel User Template -->
@@ -854,78 +833,6 @@
     </script>
 
     <script type="module">
-
-    // USER ACCOUNT PANEL (Left)
-    class AccountPanel extends Panel {
-        
-        constructor(side, icon) {
-            super(side, icon);
-            this.setText('{{user.name if user.is_authenticated else "Account"}}');
-            this.e.classList.add('account-panel');
-            this.setContentFromTemplate('t-account-panel-content');
-            this.initializeComponents();
-        }
-        
-        initializeComponents() {
-            // Cookie Switch Setup
-            const cookies = new Cookies();
-            const cookieSwitch = new Switch(this.select('.cookie-switch-container'));
-            
-            cookies.get("ok_cookie") == "yes" ? 
-                cookieSwitch.checked = true : 
-                cookieSwitch.checked = false;
-            
-            cookieSwitch.onCallback = (_ => cookies.set("ok_cookie", "yes"));
-            cookieSwitch.onText = "I Accept Cookies";
-            cookieSwitch.offCallback = (_ => cookies.delete("ok_cookie"));
-            cookieSwitch.offText = "I Reject Cookies";
-
-            {% if user.is_authenticated %}
-            // Logout button for authenticated users
-            const logoutButton = new Button();
-            this.select('.logout-container').append(logoutButton.e);
-            logoutButton.name = "log out";
-            logoutButton.icon = "logout-circle";
-            logoutButton.color = "red";
-            
-            logoutButton.callback = (async _ => {
-                try {
-                    const resp = await call('POST', '/api/auth/logout', { user_id: "{{user.id}}" });
-                    const data = await resp.json();
-                    
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        throw new Error(data.message || 'Logout failed');
-                    }
-                } catch (error) {
-                    console.error('Logout failed:', error);
-                }
-            });
-            {% else %}
-            // Login components for unauthenticated users
-            const codeInput = new TextInput();
-            this.select('.login-container').append(codeInput.e);
-            
-            codeInput.title = "password";
-            codeInput.password = true;
-            codeInput.autocomplete = "current-password";
-            
-            const loginButton = new Button();
-            codeInput.e.after(loginButton.e);
-            loginButton.name = "log in";
-            loginButton.icon = "login-circle";
-            loginButton.color = "green";
-            
-            loginButton.callback = (async _ => {
-                const resp = await call('POST', '/api/auth/login', { code_id: codeInput.value });
-                const data = await resp.json();
-                // Handle login response
-            });
-            {% endif %}
-        }
-    }
-    const accountPanel = new AccountPanel('left', 'account-circle-line');
 
     // ROOM PANEL (Right)  
     class RoomPanel extends Panel {

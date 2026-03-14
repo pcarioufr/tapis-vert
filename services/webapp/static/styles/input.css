@@ -62,10 +62,15 @@ div.field[text] input:focus {
     background: rgba(255, 255, 255, 0.5);
 }
 
-div.field[text] > svg { /* toggle for password input */
+div.text-input {
+    position: relative;
+}
+
+div.text-input > svg { /* toggle for password input */
     position: absolute;
     left: 1vw;
-    top: 4.5vw;
+    top: 50%;
+    transform: translateY(-50%);
     height: 2.5vw;
     width: 2.5vw;
 }
