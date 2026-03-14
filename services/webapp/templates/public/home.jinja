@@ -10,7 +10,7 @@
     <div class="static-page home">
         <h1>Tapis Vert</h1>
         <p>A card game on a green carpet.</p>
-        <p class="sub">Join a room via an invite link to start playing.</p>
+        <p class="sub">Join a room via an invite link to start playing, or log in with your personal code:</p>
 
         {% if not user.is_authenticated %}
         <div class="home-login"></div>
@@ -27,7 +27,6 @@
     const codeInput = new TextInput(container);
     codeInput.title = "password";
     codeInput.password = true;
-    codeInput.autocomplete = "current-password";
 
     const loginButton = new Button();
     codeInput.e.after(loginButton.e);
