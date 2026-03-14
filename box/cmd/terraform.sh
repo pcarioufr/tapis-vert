@@ -1,8 +1,35 @@
 #!/bin/bash
 
-for f in /opt/box/libs/* ; do source $f; done
-
-
+usage() {
+    echo "----------------- box terraform -----------------"
+    echo "Terraform wrapper with automatic variable export and config sync."
+    echo ""
+    echo "Usage: box terraform [-h] <command> [args]"
+    echo ""
+    echo "Options:"
+    echo "    -h              show this help"
+    echo ""
+    echo "Commands:"
+    echo "    login           authenticate with Terraform Cloud"
+    echo "    init            initialize terraform (accepts extra args)"
+    echo "    plan            preview infrastructure changes"
+    echo "    apply           apply changes (auto-updates config/.env with new IPs)"
+    echo "    output [name]   show outputs as JSON (via jq)"
+    echo "    <any>           passed through to terraform as-is"
+    echo ""
+    echo "After a successful 'apply', PUBLIC_IP_V4 and PUBLIC_IP_V6 are"
+    echo "automatically written back to config/.env."
+    echo ""
+    echo "Examples:"
+    echo "    box terraform login                    # Authenticate"
+    echo "    box terraform init                     # Initialize"
+    echo "    box terraform plan                     # Preview changes"
+    echo "    box terraform apply                    # Apply and sync config"
+    echo "    box terraform output public_ip_v4      # Get specific output"
+    echo ""
+    echo "Required config: OS_USERNAME, OS_PASSWORD, OS_TENANT_ID,"
+    echo "                 OS_TENANT_NAME, SSH_PUBLIC_KEY"
+}
 
 # Update config with terraform outputs
 update_config_with_outputs() {
@@ -17,7 +44,7 @@ update_config_with_outputs() {
         update_env_var() {
             local var_name="$1"
             local var_value="$2"
-            local config_file="/data/config/.env"
+            local config_file="${BOX_REPO_ROOT}/config/.env"
             
             debug "Updating env var ${var_name}=${var_value} in ${config_file}"
             
@@ -61,7 +88,12 @@ debug "Exported Terraform variables"
 debug "terraform $@"
 
 CMD=${1}
-TF_OPTS="-chdir=/data/terraform"
+TF_OPTS="-chdir=${BOX_REPO_ROOT}/terraform"
+
+if [ "$CMD" == "-h" ] || [ "$CMD" == "--help" ] ; then
+    usage
+    exit 0
+fi
 
 if [ "$CMD" == "login" ] ; then
     terraform login
@@ -89,7 +121,7 @@ if [ "$CMD" == "apply" ] && [ $TERRAFORM_EXIT_CODE -eq 0 ]; then
     # TODO: Auto-sync DNS when ready
     # if [ -n "$INFOMANIAK_TOKEN" ]; then
     #     notice "Auto-syncing DNS records with new IP addresses..."
-    #     /opt/box/dns.sh update
+    #     "$(dirname "$0")/dns.sh" update
     # else
     #     notice "INFOMANIAK_TOKEN not configured, skipping DNS sync"
     # fi

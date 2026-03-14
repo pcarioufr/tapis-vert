@@ -112,7 +112,7 @@ The SSH keypair is used for:
 
 > **Note**: Make sure to configure `SSH_HOST` in [`config/.env`](../../config/.env) with your server's address.
 
-### SSH Access and Tunneling
+### SSH Access
 
 ```bash
 # Open SSH shell to the remote server
@@ -120,10 +120,6 @@ box ssh
 
 # Run a specific command remotely
 box ssh "docker ps"
-
-# Create SSH tunnel (e.g., for accessing services)
-box ssh -L 8000:localhost:8000
-box ssh -L 0.0.0.0:8000:localhost:8000
 ```
 
 ### Configure Application Services
@@ -150,24 +146,31 @@ This will:
 - Purge the destination folder before deployment to ensure a clean state
 - Source files remain untouched with their template variables
 
-> **Note**: Deployment always processes templates and deploys all services. Individual file updates should be done by editing source files and running a full deployment.
+#### Partial Deployment
+```bash
+# Deploy a single file or directory (path relative to services/)
+box deploy -p nginx/nginx.conf       # Single file
+box deploy -p webapp                  # Entire directory
+```
 
 #### Restarting Services After Deployment
 
-The deployment commands only push code to the server - the application continues running in its previous state. To apply the changes, you need to restart the services manually:
+Deployment only pushes code — services keep running in their previous state. Apply changes by restarting:
 
 ```bash
-# SSH into the server
-box ssh
+# Restart all services
+box ssh "cd services && docker compose down && docker compose up -d"
 
-# Navigate to the services directory and restart
-cd services/
-docker compose down
-docker compose up -d
+# Or restart only what changed
+box ssh "cd services && docker compose restart flask"
+box ssh "cd services && docker compose restart nginx"
+```
 
-# Or restart specific services
-docker compose restart webapp
-docker compose restart nginx
+#### Docker Build (when Dockerfile or dependencies change)
+
+Builds happen on the remote server only, after code is deployed:
+```bash
+box ssh "cd services && docker compose build flask"
 ```
 
 ## DNS Management
@@ -212,15 +215,11 @@ The deployment system processes template variables in ALL files:
 # Check application status
 box ssh "cd services && docker compose ps"
 
-# View public app logs
-box ssh "cd services && docker compose logs flask-public"
-
-# View admin app logs  
-box ssh "cd services && docker compose logs flask-admin"
-
-# View other service logs
-box ssh "cd services && docker compose logs redis"
+# View service logs
+box ssh "cd services && docker compose logs flask"
 box ssh "cd services && docker compose logs nginx"
+box ssh "cd services && docker compose logs redis"
+box ssh "cd services && docker compose logs websocket"
 ```
 
 ### Resource Monitoring
@@ -283,12 +282,13 @@ tapis-vert/
 ├── services/           # Application services
 │   ├── compose.yml
 │   ├── webapp/
-│   │   ├── flask-public/     # User-facing app
-│   │   ├── flask-admin/      # Admin-only app (localhost)
-│   │   ├── libs/             # Shared libraries
-│   │   └── websocket/        # WebSocket service
-│   ├── redis/
-│   └── nginx/
+│   │   ├── flask/          # Unified Flask app (public + admin blueprints)
+│   │   ├── websocket/      # FastAPI WebSocket service
+│   │   ├── libs/           # Shared libraries (auth, models, redis-orm)
+│   │   ├── static/         # Frontend assets (fonts, JS, CSS)
+│   │   └── templates/      # Jinja2 templates
+│   ├── nginx/
+│   └── datadog/
 ├── box/               # Deployment environment
 │   ├── box.sh
 │   ├── compose.yml
@@ -316,29 +316,18 @@ tapis-vert/
 
 ## Admin Access
 
-The admin interface is completely separate from the public application and only accessible via localhost for security.
+Admin routes are blocked by Nginx and only accessible via SSH tunnel.
 
-### Quick Admin Access
 ```bash
-# Create admin tunnel 
-box admin tunnel
+# Admin interface (user/room management)
+box -p 8000 tunnel -r 8002       # Then visit http://localhost:8000/admin/list
 
-# Then visit in browser:
-# http://localhost:8000/admin/list
+# RedisInsight (Redis GUI)
+box -p 8001 tunnel -r 8003       # Then visit http://localhost:8001
 ```
 
-### Admin Commands
-```bash
-# Show admin URLs
-box admin list
-
-# Test admin API connectivity  
-box admin api
-
-# Manual tunnel (alternative)
-box ssh -L 8000:localhost:8001
-```
+See `box tunnel -h` for details.
 
 ---
 
-*For application development details, see the other documentation in this dev-ops section. For administrative tasks, see the [admin documentation](../admin/).* 
+*For application development details, see the other documentation in this dev-ops section.* 

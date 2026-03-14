@@ -11,9 +11,8 @@ Welcome to the Tapis Vert documentation! This directory contains all documentati
 
 ## 📂 **Documentation by Audience**
 
-### 👥 **For Players** - [user/](user/)
-Documentation for people who want to play Tapis Vert:
-- **[How to Play Guide](user/README.md)** - Quick start, tips, and getting started
+### 👥 **For Players**
+- **[Game Rules](game-rules.md)** - How to play, quick start, tips
 
 ### 💻 **For Developers & DevOps** - [dev-ops/](dev-ops/) 
 Technical documentation for developers and DevOps engineers:
@@ -24,21 +23,13 @@ Technical documentation for developers and DevOps engineers:
 - **[Infrastructure & Deployment](dev-ops/infrastructure.md)** - Complete DevOps setup and operations guide
 - **[Redis ORM Package](../services/webapp/libs/redis-orm/README.md)** - External Redis ORM package with comprehensive documentation, testing, and publishing guides
 
-### 🛠️ **For Administrators** - [admin/](admin/)
-Administrative tools and procedures for managing the application:
-- **[Admin Documentation](admin/README.md)** - Complete admin guide covering:
-  - User and room management APIs
-  - Admin web interface documentation
-  - Redis debugging and maintenance tools
-  - Common administrative tasks and best practices
-
 ---
 
 ## 🚀 **Quick Start by Role**
 
-- **🎮 Want to play?** → Start with [user/README.md](user/README.md)
-- **💻 Want to develop/deploy?** → Start with [dev-ops/README.md](dev-ops/README.md) 
-- **🛠️ Need to admin?** → Start with [admin/README.md](admin/README.md)
+- **🎮 Want to play?** → Start with [game-rules.md](game-rules.md)
+- **💻 Want to develop/deploy?** → Start with [dev-ops/README.md](dev-ops/README.md)
+- **🛠️ Need to admin?** → Admin API and access are documented in `.claude/skills/ops/SKILL.md`
 - **❓ Want to understand the game?** → Read [game-rules.md](game-rules.md)
 
 ---

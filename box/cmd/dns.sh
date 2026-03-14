@@ -1,14 +1,24 @@
 #!/bin/bash
 
-for f in /opt/box/libs/* ; do source $f; done
-
 usage() {
-    echo "----------------- box dns -----------------" 
-    echo "Manage DNS zones via Infomaniak API" 
-    echo "box dns [-h] [command]"
-    echo "    -h              : this helper"
-    echo "    get             : get current DNS zone records"
-    echo "    update          : update subdomain A/AAAA records with config values"
+    echo "----------------- box dns -----------------"
+    echo "Manage DNS records via the Infomaniak API."
+    echo ""
+    echo "Usage: box dns [-h] <command>"
+    echo ""
+    echo "Options:"
+    echo "    -h              show this help"
+    echo ""
+    echo "Commands:"
+    echo "    get             fetch current DNS zone records (JSON)"
+    echo "    update          update A/AAAA records with IPs from config/.env"
+    echo ""
+    echo "Examples:"
+    echo "    box dns get                          # Show current records"
+    echo "    box dns update                       # Sync IPs after terraform apply"
+    echo ""
+    echo "Required config: INFOMANIAK_TOKEN, DOMAIN, SUBDOMAIN"
+    echo "For update: PUBLIC_IP_V4 and/or PUBLIC_IP_V6"
 }
 
 # API Configuration

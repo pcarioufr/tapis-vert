@@ -15,7 +15,7 @@ Tapis Vert brings the beloved **Top 10** party game to the web with real-time mu
 2. Visit the link in your browser - you'll get a visitor ID automatically
 3. Wait for the master to start a new round and receive your secret card
 4. Give creative answers that match your card number!
-5. See **[How to Play Guide](docs/user/README.md)** for complete instructions
+5. See **[Game Rules](docs/game-rules.md)** for complete instructions
 
 ### 💻 **Want to Deploy Your Own?**
 ```bash
@@ -27,13 +27,22 @@ box ssh "cd services && docker compose up -d"
 ```
 See **[Infrastructure Guide](docs/dev-ops/infrastructure.md)** for complete setup.
 
+### 🧰 **Prerequisites**
+
+The **Box** (`box/box.sh`) is the project's dev/ops/test CLI toolbox — it handles deployment, infrastructure, SSH access, testing, and more. It is designed for macOS but could be adapted to Linux.
+
+Requires [Homebrew](https://brew.sh/), then run setup to install dependencies (Docker Desktop, Node.js, Terraform, etc.):
+```bash
+cd box/ && ./box.sh --setup
+```
+
 ## 📖 **Documentation**
 
 | Audience | Documentation | Purpose |
 |----------|---------------|---------|
-| 🎮 **Players** | **[How to Play](docs/user/)** | Game rules, tips, getting started |
+| 🎮 **Players** | **[Game Rules](docs/game-rules.md)** | How to play, tips, getting started |
 | 💻 **Developers/DevOps** | **[Technical Docs](docs/dev-ops/)** | APIs, architecture, deployment |
-| 🛠️ **Administrators** | **[Admin Guide](docs/admin/)** | User/room management, debugging |
+| 🛠️ **Administrators** | **[Ops Skill](.claude/skills/ops/SKILL.md)** | Admin API, tunnels, debugging |
 | ❓ **Everyone** | **[Game Rules](docs/game-rules.md)** | Complete Top 10 mechanics |
 
 **📂 [Complete Documentation Index](docs/)** - Full overview of all documentation
@@ -81,8 +90,7 @@ curl -X GET "https://tapisvert.pcariou.fr/api/auth/me"
 https://tapisvert.pcariou.fr/r/abcd-1234?user=pierre
 
 # Admin functions (SSH tunnel required)
-# box -p 8000 admin tunnel, then visit http://localhost:8000/admin/list
-# See docs/admin/ for complete admin documentation
+# box -p 8000 tunnel -r 8002, then visit http://localhost:8000/admin/list
 ```
 
 See **[API Reference](docs/dev-ops/api-reference.md)** for complete documentation.

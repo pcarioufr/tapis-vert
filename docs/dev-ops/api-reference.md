@@ -193,6 +193,71 @@ PATCH /api/v1/rooms/room123/user/user456?role=player
 }
 ```
 
+### Score a Card
+
+#### `PATCH /api/v1/rooms/{room_id}/cards/{card_id}/score`
+Set or clear the score for a card. Masters only.
+
+**Authentication:** Required (master role)
+
+**Parameters:**
+- `room_id` (path): Room identifier
+- `card_id` (path): Card to score
+
+**Request Body:**
+```json
+{
+  "scored": 7
+}
+```
+Set `scored` to an integer 1-10, or `null` to clear.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+- `400`: Invalid score (not 1-10 or null)
+- `403`: `"only masters can score cards"`
+- `404`: Room or card not found
+
+### React to a Message
+
+#### `PATCH /api/v1/rooms/{room_id}/messages/{message_id}/react`
+Add or remove an emoji reaction on a message.
+
+**Authentication:** Required
+
+**Parameters:**
+- `room_id` (path): Room identifier
+- `message_id` (path): Message to react to
+
+**Request Body:**
+```json
+{
+  "emoji": "👍",
+  "action": "add"
+}
+```
+`action` must be `"add"` or `"remove"`.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Error Responses:**
+- `400`: Invalid emoji (empty or >10 Unicode code points) or invalid action
+- `403`: User not in room
+- `404`: Room or message not found
+
+See [emoji-reactions.md](emoji-reactions.md) for full architecture details.
+
 ---
 
 ## Authentication Endpoints

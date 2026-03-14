@@ -51,7 +51,7 @@ Tapis Vert uses a **microservices architecture** with three main components:
   - Jinja2 templating with unified template system
   - Authentication library (`libs/auth/`) shared across blueprints
   - RESTful API endpoints with auth routes at `/api/auth/*`
-- **Security**: Admin access via SSH tunnel only (`box -p 8000 admin tunnel`)
+- **Security**: Admin access via SSH tunnel only (`box tunnel 8002:8002`)
 
 #### **FastAPI Application (WebSocket Layer)**
 - **Framework**: FastAPI with WebSocket support
@@ -94,14 +94,11 @@ Tapis Vert uses a **microservices architecture** with three main components:
 
 ### Redis Database Structure
 
-The application uses **multiple Redis databases** for data separation:
+The application uses **two Redis databases** for data separation:
 
 ```python
-REDIS_ROUNDS_DB = 0       # Game round data
-REDIS_USERS_DB = 1        # User information
-REDIS_ROOMS_DB = 2        # Room data and state
-REDIS_USERS_ONLINE_DB = 3 # Online presence tracking
-REDIS_PUBSUB_DB = 4       # Real-time messaging
+REDIS_DATA_DB = 1         # All application data (rooms, users, game state)
+REDIS_PUBSUB_DB = 9       # Real-time pub/sub messaging
 ```
 
 ### Data Models
@@ -208,12 +205,14 @@ Roles {
 The application is **containerized** for deployment:
 
 ```yaml
-# Docker Compose structure
+# Docker Compose services
 services:
-  webapp:      # Flask + FastAPI applications
-  redis:       # Redis database
-  nginx:       # Reverse proxy and static files
-  datadog:     # Monitoring and logging
+  flask:          # Unified Flask app (public + admin blueprints)
+  websocket:      # FastAPI WebSocket service
+  redis:          # Redis database
+  redisinsight:   # Redis GUI (localhost only)
+  nginx:          # Reverse proxy, SSL, admin route blocking
+  datadog:        # Monitoring agent (APM, logs, RUM)
 ```
 
 ### Environment Configuration
@@ -281,23 +280,24 @@ def new_round(self):
 ```
 services/webapp/
 ├── flask/           # Flask HTTP application
-│   ├── app/         # Application modules
-│   ├── static/      # Frontend assets
-│   └── templates/   # Jinja2 templates
+│   └── app/         # Application modules
+│       ├── public/  # Public blueprint (web + api)
+│       └── admin/   # Admin blueprint (web + api)
 ├── websocket/       # FastAPI WebSocket application
+├── static/          # Frontend assets (fonts, JS libs, CSS)
+├── templates/       # Jinja2 templates (layout, components, pages)
 ├── libs/            # Shared libraries
-│   ├── redis-orm/   # External Redis ORM package (see `services/webapp/libs/redis-orm/`)
-│   ├── models/      # Data models and ORM
+│   ├── redis-orm/   # External Redis ORM package
+│   ├── models/      # Data models (Room, User, Code)
+│   ├── auth/        # Authentication library
 │   └── utils/       # Utility functions
 ```
 
 ### Module Structure
 
 #### **Flask Blueprints**
-- `room`: Room-related web pages and API
-- `auth`: Authentication system
-- `admin`: Administrative tools
-- `test`: Development and testing utilities
+- `public`: User-facing game pages, REST API, and auth endpoints (`/`, `/api`, `/api/auth`)
+- `admin`: Dashboard, Redis debugging, user/room CRUD API (`/admin`, `/admin/api`)
 
 #### **WebSocket Management**
 - `managers.py`: WebSocket connection management

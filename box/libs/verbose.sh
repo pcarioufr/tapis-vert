@@ -8,8 +8,7 @@ stacktrace() {
     
     # Just get the immediate caller (filename:line)
     read LINE SUB FILE < <(caller 1)
-    FILEa=(${FILE//// })
-    filename="${FILEa[-1]}"
+    filename="$(basename "$FILE")"
     echo "${filename%.sh}:${LINE} |"
 }
 

@@ -1,268 +1,211 @@
-# Frontend User Guide
+# Frontend Development Guide
 
-This guide explains how to use the Tapis Vert application's user interface and features.
+Technical guide for working on the Tapis Vert frontend. For game rules, see [docs/game-rules.md](../game-rules.md).
 
-## Getting Started
+## Architecture Overview
 
-### Accessing a Room
+The frontend is a **vanilla JavaScript component system** with no build step, no external framework. Components are defined as ES6 classes in Jinja templates and wired together through a central event bus.
 
-1. **Direct URL**: Visit a room using the format `/r/{room_id}`
-2. **QR Code**: Scan a QR code shared by another player
-3. **Magic Link**: If you have a magic link code, append `?code_id={your_code}` to automatically authenticate
+```
+User Action → Component → API call (debounced)
+                              ↓
+WebSocket ← Redis pub/sub ← Server
+    ↓
+Event Bus → Room (model) → RoomView → Component setters → CSS attributes
+```
 
-### First Visit
+## Key Files
 
-When you first visit a room:
-- You'll be assigned a temporary visitor ID
-- You can view the game but have limited interaction
-- Consider authenticating for full features
+| File | Responsibility |
+|---|---|
+| `static/libs/events.js` | Event bus: `fire()`, `listen()` with wildcard pattern matching |
+| `static/libs/websocket.js` | `EventWebSocket`: auto-reconnect, `key::value` protocol, fires events |
+| `static/libs/http.js` | `call()` — async fetch wrapper for REST API |
+| `static/libs/misc.js` | `debounce()`, `throttle()`, `wait()`, ID generators, date formatting |
+| `static/libs/cookies.js` | Cookie get/set/delete |
+| `templates/public/room.jinja` | Main game page: Room model, RoomView, all component classes |
+| `templates/components/` | Reusable template fragments (chat, buttons, panels, etc.) |
 
-## User Interface Overview
+## Component System
 
-### Main Game Area
+### Base: Element class
 
-The central area displays:
-- **Game Table**: Where cards are displayed and interactions happen
-- **Player Cards**: Your cards and other players' cards
-- **Real-time Cursors**: See other players' mouse movements
+All UI components extend `Element`, a thin DOM wrapper:
 
-### Side Panel Controls
+```javascript
+class Element {
+  constructor(element, eParent = null) {
+    this.e = element;  // raw DOM element
+    if (eParent) eParent.appendChild(this.e);
+  }
+  tag(name)    // set attribute (used as CSS selector)
+  untag(name)  // remove attribute
+  is(name)     // check attribute
+  toggle(name) // toggle attribute
+  select(query) // querySelector
+  remove()     // remove from DOM
+}
+```
 
-The interface features two side panels that slide horizontally from the screen edges, each with always-visible handle tabs:
+### Creating components
 
-#### Left Panel - Account Management
-- **Handle**: Account icon tab on the left edge, always visible
-- **Cookie Preferences**: Accept/reject cookies with a toggle switch
-- **Authentication**: Login with magic codes or logout button
-- **Account Info**: Display current user name and status
-- **Panel Width**: 20% of screen width when open
+Components are defined in Jinja templates with a `<template>` tag and a JS class:
 
-#### Right Panel - Room Management  
-- **Handle**: Group icon tab on the right edge, always visible
-- **Room Sharing**: Generate QR codes to invite others
-- **Player List**: See all users organized by role (masters, players, watchers)
-- **Panel Width**: 25% of screen width when open
+```html
+<template id="t-card">
+  <div class="card">
+    <div class="face front"></div>
+    <div class="face back"></div>
+  </div>
+</template>
 
-#### Panel Behavior
-- **Always-Visible Handles**: Icon tabs stick out from screen edges with text labels
-- **Horizontal Sliding**: Panels slide in from left/right edges when handle is clicked
-- **Maximum Width**: Panels open to maximum 80% screen width (with specific widths per panel)
-- **Auto-Close**: Click anywhere outside the panel to close it
-- **Handle Movement**: Handles are attached to panels and move with them
-- **Content Height**: Panel content height adjusts to content, anchored at bottom
+<script>
+class Card extends Element {
+  constructor(card_id) {
+    super(build("t-card"));  // build() clones the template
+    // wire event listeners, set initial state
+  }
+  // Property setters update the DOM
+  set value(text) { this.select('.face.front').innerText = text; }
+  set flipped(bool) { bool ? this.tag('flipped') : this.untag('flipped'); }
+}
+</script>
+```
 
-#### Floating Controls
-- **New Round Button**: Fixed position button in lower-left corner (masters/players only)
-- **Role Selection Buttons**: Three buttons in lower-right corner for choosing user role (authenticated users only)
-  - Crown icon: Master role
-  - Chess piece icon: Player role  
-  - Glasses icon: Watcher role
-- **Independent**: All floating controls positioned outside of panels for quick access
+### Styling convention
 
-## User Roles
+State is expressed via HTML attributes, selected with CSS:
 
-### Visitor (Unauthenticated)
-- **Access**: Can view room and see other players
-- **Limitations**: Cannot interact with cards, limited chat access
-- **UI Indicators**: Shown as visitor in player list
+```css
+.card[flipped] .face.front { transform: rotateY(0deg); }
+.card[peeked-lower] .face.back { /* corner lift animation */ }
+```
 
-### Player (Authenticated)
-- **Access**: Full game participation
-- **Abilities**: 
-  - Receive cards when rounds start
-  - Flip and peek at cards
-  - Send chat messages
-  - See detailed game state
-- **UI Indicators**: Listed in "players" section
+## State Management
 
-### Watcher (Authenticated)
-- **Access**: Observe games without participating
-- **Abilities**: 
-  - View all game actions
-  - Chat with other players
-  - No cards assigned
-- **UI Indicators**: Listed in "watchers" section
+### Room (model) + RoomView (view)
 
-### Master (Authenticated)
-- **Access**: Full game control
-- **Abilities**: 
-  - All player abilities
-  - Start new rounds
-  - Manage user roles
-  - Room administration
-- **UI Indicators**: Listed in "masters" section with crown icon
+```javascript
+class Room {
+  data = {};           // single source of truth, mirrors backend
+  view = null;         // RoomView instance
+  websocket = new EventWebSocket(...);
 
-## Game Features
+  async refresh() {
+    this.data = await call("GET", `/api/v1/rooms/${this.id}`);
+    this.view?.render();
+  }
 
-### Card Interactions
+  connect() {
+    // Subscribe to WebSocket events
+    listen("Room", "user:joined", async (_, user_id) => {
+      await this.refresh();
+      this.view?.onUserJoined(user_id);
+    });
+    listen("Room", "cards:*:flipped", (_, state, eventName) => {
+      const card_id = eventName.split(':')[1];
+      this.data.cards[card_id].flipped = state;
+      this.view?.onCardFlipped(card_id, state);
+    });
+    // ... more listeners
+  }
+}
 
-#### Viewing Cards
-- Cards appear face-down by default
-- Your cards show your name on the back
-- Other players' cards show their names
+class RoomView {
+  eTable = new Table();
+  eChat = new ChatContainer();
+  eUsers = {};    // { user_id: UIObject }
+  eCards = {};    // { card_id: Card }
 
-#### Peeking at Cards
-- **Single Click**: Peek at your card (corner reveal)
-- **Private View**: Only you can see the peek
-- **Visual Feedback**: Corner of card lifts to show value
-- **Click Again**: Hide the peek
+  render() { /* full re-render from room.data */ }
 
-#### Flipping Cards
-- **Double Click**: Flip card to reveal to everyone
-- **Public View**: All players can see the card value
-- **Permanent**: Card stays flipped until new round
-- **Auto-hide Peek**: Peeking is disabled when card is flipped
+  // Callbacks invoked by Room after data updates
+  onUserJoined(user_id) { /* add user to panel */ }
+  onCardFlipped(card_id, flipped) { this.eCards[card_id].flipped = flipped; }
+}
+```
 
-#### Card States
-Cards have visual indicators:
-- **Face Down**: Default state, shows player name
-- **Peeked (You)**: Corner lifted showing value to you only
-- **Peeked (Others)**: Subtle visual indicator that someone else is peeking
-- **Flipped**: Fully revealed showing value to everyone
+**Data flow**: WebSocket event → Room listener → update `this.data` → call `this.view.onX()` → component setter → DOM attribute → CSS transition.
 
-### Live Communication
+## Event Bus
 
-#### Real-time Updates
-- **Instant Sync**: All actions appear immediately for all players
-- **Visual Feedback**: Smooth animations for card state changes
-- **Connection Status**: Automatic reconnection with user notifications
+Central pub/sub in `events.js`:
 
-#### Chat System
+```javascript
+fire("websocket", "cards:abc:flipped", "True");
 
-The chat interface is split into two distinct areas, positioned below the game table in a vertical layout:
+listen("Room", "cards:*:flipped", (throwerId, data, eventName) => {
+  // Wildcard matching: cards:abc:flipped, cards:xyz:flipped, etc.
+});
+```
 
-**Game Area (Top Section):**
-- **Card Proposals**: Each player can write their proposal for their own card
-- **Game-Specific**: Focused on game mechanics and card-related communication
-- **Individual Input**: Personal space for game strategy and card reasoning
+- Supports `*` wildcards for pattern matching
+- Event history buffer (max 100) allows late subscribers to replay
+- All WebSocket messages are automatically `fire()`'d
 
-**Room Area (Bottom Section):**
-- **General Chat**: Traditional chat interface for room-wide communication
-- **Message Alignment**: Your messages appear on the right (green bubbles), others on the left (white bubbles)
-- **Floating Input**: Text input and send button fixed at bottom of chat area
-- **Live Display**: Messages appear instantly for all users with proper alignment
-- **Author Attribution**: Each message shows sender's name and relative timestamp ("2 minutes ago")
-- **Timestamp Display**: Messages show how long ago they were sent (minutes, hours, or days), automatically refreshed every minute
-- **Responsive Design**: Messages adapt width on mobile devices
-- **Persistent**: Messages remain visible until new round
+## WebSocket Protocol
 
-#### Cursor Tracking
-- **Live Cursors**: See other players' mouse movements on the game table
-- **Color Coded**: Each player has a unique cursor color
-- **Name Labels**: Cursors show player names
-- **Smooth Movement**: Real-time position updates
+Messages use `key::value` format:
 
-### Room Management
+```
+# Client → Server
+cursor:move::75.5:25.3
 
-#### Inviting Players
-1. Click the group icon handle on the right edge to open the room panel
-2. Generate QR code for the current room in the room panel
-3. Share the QR code or URL with others
-4. New players can scan or visit the link to join
+# Server → Client
+user:joined::user123
+cards:abc:flipped::True
+message:new::{"id":"x","author":"456","content":"hi"}
+```
 
-#### Starting New Rounds
-**Masters and Players only:**
-1. Click the floating "New Round" button in the lower-left corner
-2. Cards are automatically shuffled and redistributed
-3. Previous messages are cleared
-4. All players get notified
+`EventWebSocket` in `websocket.js`:
+- Extends native WebSocket
+- Auto-reconnect with 5s delay
+- Parses `key::value`, attempts JSON parse on value
+- Fires all received messages to event bus
+- `async send(key, value)` waits for open connection
 
-**Note**: The New Round button is only visible to authenticated users with master or player roles.
+## REST API Calls
 
-#### Managing Users
-**All authenticated users can:**
-- View all connected users organized by role in the right panel (room management)
-- See online/offline status indicators next to user names
-- Change their own role using the floating role selection buttons in the bottom-right corner
+Use the `call()` helper from `http.js`:
 
-**How to change roles:**
-1. Use the floating role buttons in the bottom-right corner of the screen
-2. Click the desired role button: crown (master), chess piece (player), or glasses (watcher)
-3. The selected button will be highlighted and your role will change immediately
-4. Your user entry in the room panel will move to the appropriate role section
+```javascript
+// PATCH with query params
+await call("PATCH", `/api/v1/rooms/${roomId}`, { "cards:abc:flipped": "True" });
 
-**Role Button Behavior:**
-- Only one role can be selected at a time (radio button behavior)
-- The currently selected role is visually highlighted
-- Only visible to authenticated users
+// POST with JSON body
+await call("POST", `/api/v1/rooms/${roomId}/message`, null, null, { content: "Hello" });
+```
 
-**Note**: The current implementation allows users to self-select their role rather than masters managing other users' roles.
+Interactions are debounced (300ms for card peek/flip, 100ms for cursors).
 
-## User Experience Features
+## Component Catalog
 
-### Responsive Design
-- **Mobile Friendly**: Touch interactions for mobile devices
-- **Adaptive Layout**: Interface adjusts to screen size
-- **Touch Gestures**: Tap and double-tap work like click and double-click
+| Component | Template | Description |
+|---|---|---|
+| `Card` | `t-card` | Card with peek (click) and flip (double-click) |
+| `Deck` | `t-deck` | User's card slot with score badge |
+| `Table` | `t-table` | Card grid container |
+| `ChatContainer` | `t-chat-container` | Chat area with messages and input |
+| `Message` | `t-message` | Chat bubble with reactions |
+| `EmojiPicker` | `t-emoji-picker` | Reaction emoji selector |
+| `Panel` | `t-panel` | Sliding side panel (left/right) |
+| `UserRoomPanel` | `t-user-room-panel` | User entry in room panel |
+| `Button` | `t-button` | Styled button |
+| `FloatingButton` | `t-floating-button` | Fixed-position action button |
+| `ScoreSelector` | `t-score-selector` | Master scoring grid (1-10) |
 
-### Visual Feedback
-- **Animations**: Smooth transitions for card flips and peeks
-- **Status Indicators**: Clear visual cues for all states
-- **Color Coding**: Consistent color scheme throughout the interface
-- **Icons**: Intuitive icons for all actions and states
+## Adding a New Component
 
-### Notifications
-- **Toast Messages**: Non-intrusive notifications for events
-- **Connection Status**: Alerts when connection is lost/restored
-- **Game Events**: Notifications for joins, leaves, role changes
-- **Auto-dismiss**: Notifications disappear automatically
-
-### Accessibility
-- **Keyboard Navigation**: Interface supports keyboard interaction
-- **Clear Indicators**: High contrast visual indicators
-- **Descriptive Labels**: Screen reader friendly elements
-
-## Technical Features
-
-### Performance
-- **Real-time Updates**: WebSocket connections for instant synchronization
-- **Efficient Rendering**: Optimized for smooth 60fps interactions
-- **Connection Recovery**: Automatic reconnection with state restoration
-
-### Browser Support
-- **Modern Browsers**: Works on all current browsers
-- **Mobile Browsers**: Full support for mobile web browsers
-- **WebSocket Support**: Requires WebSocket-enabled browser
-
-### Data Persistence
-- **Session Management**: Login state persists across page reloads
-- **Room State**: Game state is maintained on the server
-- **Visitor IDs**: Temporary IDs persist during session
-
-## Troubleshooting
-
-### Connection Issues
-- **Red Toast**: Indicates connection lost, will auto-reconnect
-- **Page Refresh**: Can resolve persistent connection issues
-- **Browser Console**: Check for error messages
-
-### Card Interaction Problems
-- **Not Responding**: Ensure you're authenticated and have player role
-- **State Sync Issues**: Wait a moment, updates may be processing
-- **Multiple Clicks**: Actions are debounced, avoid rapid clicking
-
-### Authentication Issues
-- **Invalid Code**: Magic link codes can expire
-- **Session Lost**: May need to re-authenticate
-- **Role Changes**: Masters can update your role if needed
-
-## Best Practices
-
-### For Players
-- **Authenticate Early**: Login for full feature access
-- **Clear Communication**: Use chat to coordinate with other players
-- **Respect Others**: Be mindful that others can see your actions
-
-### For Masters
-- **Observe Role Changes**: Users can self-select roles via the room panel
-- **Start Rounds**: Use the floating "New Round" button when ready
-- **Room Sharing**: Generate QR codes in the room panel for easy invitation
-
-### For All Users
-- **Stay Connected**: Keep browser tab active for best performance
-- **Use Modern Browser**: Ensure WebSocket support for real-time features
-- **Mobile Friendly**: Interface works well on mobile devices
-
----
-
-*The Tapis Vert interface is designed for intuitive, real-time multiplayer gaming with rich visual feedback and seamless communication.* 
+1. Add a `<template id="t-mycomponent">` in the appropriate Jinja file
+2. Create a class extending `Element`:
+   ```javascript
+   class MyComponent extends Element {
+     constructor() {
+       super(build("t-mycomponent"));
+     }
+   }
+   ```
+3. Use property setters to update DOM state
+4. Wire event listeners in `Room.connect()` if it reacts to WebSocket events
+5. Add CSS styles using attribute selectors for state
+6. Add render/callback methods in `RoomView` if the Room model needs to update it

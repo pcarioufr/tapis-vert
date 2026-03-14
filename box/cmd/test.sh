@@ -5,24 +5,26 @@
 
 set -e
 
-# Source box libraries (same pattern as other box scripts)
-for f in /opt/box/libs/* ; do source $f; done
-
 # Function to show usage
 usage() {
+    echo "----------------- box test -----------------"
+    echo "Integration test suite and database management."
+    echo ""
     echo "Usage: box test [-h] <command>"
     echo ""
     echo "Options:"
-    echo "    -h           : Show this help"
+    echo "    -h              show this help"
     echo ""
-    echo "Available commands:"
-    echo "    init         : Run full integration test (room + users + round + messaging)"
-    echo "    delete       : Wipe Redis database (clean slate)"
+    echo "Commands:"
+    echo "    init            run full integration test"
+    echo "                    creates room, 5 users, round, 13 messages,"
+    echo "                    emoji reactions, and validates 11 assertions"
+    echo "    delete          flush Redis database (wipe all data)"
     echo ""
     echo "Examples:"
-    echo "    box test init       # Run integration test"
-    echo "    box test delete     # Clean Redis database"
-    echo "    box -d test init    # Run with debug output"
+    echo "    box test init                        # Run integration test"
+    echo "    box test delete                      # Clean Redis database"
+    echo "    box -d test init                     # Run with debug output"
 }
 
 # Process options first (like ssh.sh pattern)
@@ -50,7 +52,7 @@ ADMIN_URL="http://localhost:8001"          # Will be accessed via SSH tunnel
 # Function to set up SSH tunnel
 setup_tunnel() {
     debug "🔗 Opening SSH tunnel to admin service..."
-    ssh -f -N -L 8001:localhost:8002 "${SSH_HOST}" 
+    ssh -f -N -i "${SSH_KEY}" -L 8001:localhost:8002 "${SSH_HOST}"
     debug "Admin service tunnel established"
 }
 

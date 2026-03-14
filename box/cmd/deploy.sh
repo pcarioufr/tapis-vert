@@ -1,13 +1,11 @@
 #!/bin/bash
 
-for f in /opt/box/libs/* ; do source $f; done
+SERVICES_DIR="${BOX_REPO_ROOT}/services"
 
 
 
 # Prepare deployment files (copy source + process templates)
 prepare_deployment() {
-    DEPLOY_TMP=".tmp/deploy"
-    
     debug "Preparing deployment files in ${DEPLOY_TMP}..."
     
     # Create/clean temp deployment directory
@@ -16,7 +14,7 @@ prepare_deployment() {
     
     if [ -n "${PARTIAL_PATH}" ]; then
         # Partial deployment - copy only specified path
-        SOURCE_PATH="/data/services/${PARTIAL_PATH}"
+        SOURCE_PATH="${SERVICES_DIR}/${PARTIAL_PATH}"
         
         if [ ! -e "${SOURCE_PATH}" ]; then
             error "Path not found: ${PARTIAL_PATH}"
@@ -39,7 +37,7 @@ prepare_deployment() {
         fi
     else
         # Full deployment - copy all source files
-        cp -r /data/services/* "${DEPLOY_TMP}/"
+        cp -r "${SERVICES_DIR}/"* "${DEPLOY_TMP}/"
         debug "Copied all source files to deployment temp directory"
     fi
     
@@ -121,7 +119,7 @@ apply_template_replacements() {
                 count=$(grep -o "${template_var}" "${file}" 2>/dev/null | wc -l)
                 
                 # Apply replacement
-                sed -i "s|${template_var}|${actual_value}|g" "${file}" 2>/dev/null || true
+                sed -i '' "s|${template_var}|${actual_value}|g" "${file}" 2>/dev/null || true
                 
                 # Log the replacement
                 relative_file="${file#${DEPLOY_TMP}/}"
@@ -134,24 +132,34 @@ apply_template_replacements() {
 }
 
 usage() {
-    echo "----------------- box deploy -----------------" 
-    echo "Deploy application to server with template processing." 
-    echo "box deploy [-h] [-n] [-p path]"
-    echo "    -h (opt)      : this helper"
-    echo "    -n (opt)      : dry run - process templates but don't deploy"
-    echo "    -p path (opt) : deploy only specified file or directory (no trailing slash)"
+    echo "----------------- box deploy -----------------"
+    echo "Deploy application to server with template processing."
+    echo ""
+    echo "Copies services/ to the remote server, replacing {{domain}} and"
+    echo "{{host}} template variables and generating .env along the way."
+    echo ""
+    echo "Usage: box deploy [-h] [-n] [-p path]"
+    echo ""
+    echo "Options:"
+    echo "    -h              show this help"
+    echo "    -n              dry run (process templates, list files, don't upload)"
+    echo "    -p path         deploy only a specific file or directory"
+    echo "                    path is relative to services/ (no trailing slash)"
     echo ""
     echo "Examples:"
     echo "    box deploy                           # Deploy everything"
-    echo "    box deploy -p nginx/nginx.conf      # Deploy single file"
+    echo "    box deploy -p nginx/nginx.conf       # Deploy single file"
     echo "    box deploy -p webapp                 # Deploy webapp directory"
     echo "    box deploy -p webapp/libs/utils      # Deploy nested directory"
     echo "    box deploy -n -p nginx               # Dry run for nginx directory"
+    echo ""
+    echo "After deploying, restart the affected services:"
+    echo "    box ssh \"cd services && docker compose restart flask\""
 }
 
-# Deployment paths (always deploy everything)
+# Deployment paths
 DST="/home/ubuntu/services"
-DEPLOY_TMP="/home/me/.tmp/deploy"
+DEPLOY_TMP="${TMPDIR:-/tmp}/box-deploy-$$"
 
 while getopts "hnp:" option; do
 case ${option} in
@@ -185,21 +193,22 @@ fi
 debug "using SSH_HOST=$SSH_HOST"
 SSH_PORT="-p 22"
 SCP_PORT="-P 22"
+SSH_ID="-i ${SSH_KEY}"
 
 if [ -z "${PARTIAL_PATH}" ]; then
     # Full deployment - purge entire remote folder
     notice "Purging remote ${DST} folder on ${SSH_HOST}"
-    ssh ${SSH_HOST} ${SSH_PORT} "mkdir -p ${DST} > /dev/null 2>&1"
-    ssh ${SSH_HOST} ${SSH_PORT} "sudo rm -rf ${DST}/* > /dev/null 2>&1"
+    ssh ${SSH_ID} ${SSH_HOST} ${SSH_PORT} "mkdir -p ${DST} > /dev/null 2>&1"
+    ssh ${SSH_ID} ${SSH_HOST} ${SSH_PORT} "sudo rm -rf ${DST}/* > /dev/null 2>&1"
 else
     # Partial deployment - ensure target directory exists, no purging
     REMOTE_TARGET_DIR="${DST}/$(dirname "${PARTIAL_PATH}")"
     if [ "$(dirname "${PARTIAL_PATH}")" != "." ]; then
         debug "Ensuring remote directory exists: ${REMOTE_TARGET_DIR}"
-        ssh ${SSH_HOST} ${SSH_PORT} "mkdir -p ${REMOTE_TARGET_DIR} > /dev/null 2>&1"
+        ssh ${SSH_ID} ${SSH_HOST} ${SSH_PORT} "mkdir -p ${REMOTE_TARGET_DIR} > /dev/null 2>&1"
     else
         debug "Ensuring remote directory exists: ${DST}"
-        ssh ${SSH_HOST} ${SSH_PORT} "mkdir -p ${DST} > /dev/null 2>&1"
+        ssh ${SSH_ID} ${SSH_HOST} ${SSH_PORT} "mkdir -p ${DST} > /dev/null 2>&1"
     fi
     notice "Partial deployment - overwriting only: ${PARTIAL_PATH}"
 fi
@@ -207,7 +216,7 @@ fi
 # Deploy processed files (including hidden files like .env)
 info "Uploading ${DEPLOY_TMP}/* (including hidden files) -> ${SSH_HOST}:${DST}"
 shopt -s dotglob  # Include hidden files in glob patterns
-cmd=$(scp -pr ${SCP_PORT} ${DEPLOY_TMP}/* ${SSH_HOST}:${DST} 2>&1)
+cmd=$(scp -pr ${SCP_PORT} ${SSH_ID} ${DEPLOY_TMP}/* ${SSH_HOST}:${DST} 2>&1)
 shopt -u dotglob  # Reset to default
 
 if [ $? -eq 0 ]; then
