@@ -101,7 +101,7 @@ class UserCodes(RelationMixin):
     L_CLASS = User
     R_CLASS = Code
 
-    NAME    = "user_code_ownership"
+    NAME    = "code-auth"
     RELATION_TYPE = "one_to_many"
 
 
