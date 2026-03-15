@@ -535,23 +535,23 @@ class RelationMixin(RedisMixin):
     @classmethod
     def _L_prefix(cls) -> str:
         """Returns the lowercased class name for the left-side class."""
-        return f"{cls.L_CLASS.__name__.lower()}:"
+        return f"{cls.L_CLASS.__name__.lower()}_"
 
     @classmethod
     def _R_prefix(cls) -> str:
         """Returns the lowercased class name for the right-side class."""
-        return f"{cls.R_CLASS.__name__.lower()}:"
+        return f"{cls.R_CLASS.__name__.lower()}_"
 
     @classmethod
     def _key(cls, left_id: str, right_id: str) -> str:
         """Generate the Redis key for a relation between two objects."""
-        return f"{cls.NAME}::{cls._L_prefix()}{left_id}::{cls._R_prefix()}{right_id}"
+        return f"{cls.NAME}:{cls._L_prefix()}{left_id}:{cls._R_prefix()}{right_id}"
     
     @classmethod
     def _exist_parent(cls, right_id: str) -> bool:
         """Retrieve the relation for a given right-side object (used in one-to-many)."""
         redis_client = get_redis_client()
-        pattern = f"{cls.NAME}::*::{cls._R_prefix()}{right_id}"
+        pattern = f"{cls.NAME}:*:{cls._R_prefix()}{right_id}"
 
         for key in redis_client.scan_iter(pattern):
             raw = redis_client.hgetall(key)
@@ -562,12 +562,12 @@ class RelationMixin(RedisMixin):
     def __getattr__(self, name: str) -> Any:
         """Intercepts attribute access for left_id and right_id."""
         if name == "left_id":
-            parts = self.key.split("::")
-            left_id = parts[1].split(":")[1]
+            suffix = self.key[len(self.NAME) + 1:]  # strip "{NAME}:"
+            left_id = suffix.split(":")[0].split("_", 1)[1]
             return left_id
         elif name == "right_id":
-            parts = self.key.split("::")
-            right_id = parts[2].split(":")[1]        
+            suffix = self.key[len(self.NAME) + 1:]  # strip "{NAME}:"
+            right_id = suffix.split(":")[1].split("_", 1)[1]
             return right_id
         else:
             return super().__getattr__(name)
@@ -611,7 +611,7 @@ class RelationMixin(RedisMixin):
     @classmethod
     def search(cls, cursor: int = 0, count: int = 1000) -> Tuple[List["RelationMixin"], int]:
         """Search for relations of this type"""
-        pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}*"
+        pattern = f"{cls.NAME}:{cls._L_prefix()}*:{cls._R_prefix()}*"
         return super().search(pattern, cursor, count)
     
     @tracer.wrap("RelationMixin.left")
@@ -645,7 +645,7 @@ class RelationMixin(RedisMixin):
         redis_client = get_redis_client()
         lefts = {}
 
-        pattern = f"{cls.NAME}::{cls._L_prefix()}*::{cls._R_prefix()}{right_id}"
+        pattern = f"{cls.NAME}:{cls._L_prefix()}*:{cls._R_prefix()}{right_id}"
         for key in redis_client.scan_iter(pattern):
             raw = redis_client.hgetall(key)
             if not raw:
@@ -660,7 +660,7 @@ class RelationMixin(RedisMixin):
             meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
             relation = cls(key, data=data, meta=meta)
 
-            left_id = key.split("::")[1].split(":")[1]
+            left_id = key[len(cls.NAME) + 1:].split(":")[0].split("_", 1)[1]
             lefts[left_id] = relation
 
         return lefts
@@ -672,7 +672,7 @@ class RelationMixin(RedisMixin):
         redis_client = get_redis_client()
         rights = {}
 
-        pattern = f"{cls.NAME}::{cls._L_prefix()}{left_id}::{cls._R_prefix()}*"
+        pattern = f"{cls.NAME}:{cls._L_prefix()}{left_id}:{cls._R_prefix()}*"
         for key in redis_client.scan_iter(pattern):
             raw = redis_client.hgetall(key)
             if not raw:
@@ -687,7 +687,7 @@ class RelationMixin(RedisMixin):
             meta = {k: v for k, v in raw.items() if k in cls.META_FIELDS}
             relation = cls(key, data=data, meta=meta)
 
-            right_id = key.split("::")[2].split(":")[1]
+            right_id = key[len(cls.NAME) + 1:].split(":")[1].split("_", 1)[1]
             rights[right_id] = relation
 
         return rights

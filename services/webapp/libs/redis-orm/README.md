@@ -432,20 +432,28 @@ if current_version != self._version:
 Objects and relationships use predictable key patterns:
 
 ```
-# Objects
-object:{class_name}:{object_id}         # User object
+# Objects — colon separates type from ID
+{class_name}:{object_id}
   ├── field1: "value1"
-  ├── field2: "value2"  
+  ├── field2: "value2"
   ├── _version: "3"
   ├── _created: "2024-01-01T12:00:00Z"
   └── _edited: "2024-01-01T12:30:00Z"
 
-# Relationships  
-relation:{relation_name}:{left_id}:{right_id}  # UserPosts relation
+# Relationships — colon separates segments, underscore binds type to ID
+{relation_name}:{left_class}_{left_id}:{right_class}_{right_id}
   ├── role: "author"
   ├── created_at: "2024-01-01T12:00:00Z"
   ├── _version: "1"
   └── _created: "2024-01-01T12:00:00Z"
+```
+
+Example keys:
+```
+user:abc123                                    # User object
+post:def456                                    # Post object
+user_posts:user_abc123:post_def456             # UserPosts relation
+member:user_0d0c6c377d:room_77f6064ed9         # UsersRooms relation
 ```
 
 ## Known Issues & Future Development
