@@ -487,18 +487,26 @@
             if (this.eCards[card_id]) {
                 this.eCards[card_id].scored = scoreValue;
             }
+            // Update score on all messages from this card's player
+            const card = this.room.data.cards[card_id];
+            if (card) {
+                this.eChat.updateScoreForAuthor(card.player_id, scoreValue);
+            }
         }
         
         onMessageNew(message) {
             console.log('RoomView received new message:', message);
+            this.updateChatScoringContext();
             const authorName = this.room.getUserName(message.author);
+            const scored = this.getCardScores()[message.author] ?? null;
             this.eChat.addMessage(
                 message.author,
                 authorName,
                 message.content,
                 message.timestamp,
                 message.id || null,
-                message.reactions || {}
+                message.reactions || {},
+                scored
             );
         }
         
@@ -573,7 +581,7 @@
             entries(this.room.data.cards).forEach(([card_id, card]) => {
                 // Create card if doesn't exist
                 if (!this.eCards[card_id]) {
-                    this.createCard(card_id);
+                    this.createCard(card_id, card.player_id);
                 }
                 
                 // Update card UI
@@ -601,11 +609,33 @@
             });
         }
         
+        // Returns { player_id: parsed_score } for all cards
+        getCardScores() {
+            const scores = {};
+            entries(this.room.data.cards).forEach(([card_id, card]) => {
+                scores[card.player_id] = parseScore(card.scored);
+            });
+            return scores;
+        }
+
+        // Builds author_id -> card_id map and passes scoring context to chat
+        updateChatScoringContext() {
+            const cardMap = {};
+            entries(this.room.data.cards).forEach(([card_id, card]) => {
+                cardMap[card.player_id] = card_id;
+            });
+            this.eChat.setCardMap(cardMap);
+            this.eChat.setIsMaster(this.room.isCurrentUserMaster());
+        }
+
         // Renders all messages
         renderMessages() {
             console.log('RENDER MESSAGES');
             console.log(this.room.data.messages);
-            
+
+            // Update scoring context before rendering messages
+            this.updateChatScoringContext();
+
             // Messages are a dict with message_id as keys, sort by timestamp
             if (this.room.data.messages && typeof this.room.data.messages === 'object') {
                 const messagesArray = Object.entries(this.room.data.messages)
@@ -615,18 +645,22 @@
                         const tsB = parseInt(b.timestamp) || 0;
                         return tsA - tsB;
                     });
-                
+
+                const cardScores = this.getCardScores();
+
                 messagesArray.forEach((message) => {
                     console.log('render message', message);
-                    
+
                     const authorName = this.room.getUserName(message.author);
+                    const scored = cardScores[message.author] ?? null;
                     this.eChat.addMessage(
                         message.author,
                         authorName,
                         message.content,
                         parseInt(message.timestamp),
                         message.id,
-                        message.reactions || {}
+                        message.reactions || {},
+                        scored
                     );
                 });
             }
@@ -682,25 +716,26 @@
                     this.eUserDeck.card = card.eCard.e;
                     this.eUserDeck.cardId = card.cardId;
                     card.parentDeck = this.eUserDeck;
-                    this.eUserDeck.enableMasterScoring(card.eCard);
                 }
             };
         }
         
         // Creates a card UI object
-        createCard(card_id) {
+        createCard(card_id, player_id) {
             if (this.eCards[card_id]) {
                 console.error(`Card with id ${card_id} already exists`);
                 return;
             }
-            
+
             console.log(`Create card with id ${card_id}`);
-            
+
             const viewerIsMaster = this.room.isCurrentUserMaster();
-            
+            const isOwner = player_id === this.room.userId;
+            const isMaster = this.room.isCurrentUserMaster();
+
             this.eCards[card_id] = {
                 cardId: card_id,
-                eCard: new Card(card_id),
+                eCard: new Card(card_id, { isOwner, isMaster }),
                 parentDeck: null,
                 
                 remove() {

@@ -254,6 +254,52 @@
     min-width: 1ch;
 }
 
+/* Message actions wrapper (score selector + reactions, stacked vertically) */
+.message-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4vw;
+    margin: auto 0;
+}
+
+/* Message Score Selector (reuses .score-selector from cards.css, sized down) */
+.message-score-selector.score-selector {
+    position: static;
+    margin: 0;
+    padding: 0.3vw;
+    gap: 0.3vw;
+    transform: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    width: fit-content;
+}
+
+.message-score-selector .score-option {
+    width: 2.4vw;
+    height: 2.4vw;
+    font-size: 0.9vw;
+    border-width: 0.15vw;
+}
+
+/* Score badge in reactions row */
+.msg-score-badge {
+    background: transparent;
+    color: var(--beige);
+    border: 0.15vw solid var(--beige);
+    border-radius: 50%;
+    width: 2.2vw;
+    height: 2.2vw;
+    font-weight: bold;
+    font-size: 0.85vw;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: default;
+    pointer-events: none;
+}
+
 /* iOS-specific fix to prevent auto-zoom on input focus */
 @media (max-width: 800px) {
     .floating-message-input .message-input {

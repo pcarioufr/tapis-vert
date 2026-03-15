@@ -24,48 +24,49 @@
     <script>
     class Card extends Element {
 
-        constructor(card_id){
-
-            // debounce the PATCH request for lower-peeked
-            const dPeeked = debounce(value => 
-                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:peeked:{{user.id}}`]: value }), 
-                300
-            );
-
-            // debounce the PATCH request for flipped
-            const dFlipped = debounce(value => 
-                call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:flipped`]: value }),
-                300
-            );
+        constructor(card_id, { isOwner = false, isMaster = false } = {}){
 
             super( build("t-card") )
 
-            this.masterScoringCallback = null;
+            // Masters: click anywhere on card to open score selector
+            if (isMaster) {
+                this.e.addEventListener('click', () => {
+                    this.e.dispatchEvent(new CustomEvent('score-toggle', { bubbles: true }));
+                });
+            }
 
-            // Toggle the corner peek effect on click (only for non-masters)
-            this.select('.face.back').addEventListener('click', (e) => {
-                // If master scoring is enabled, open selector instead of peeking
-                if (this.masterScoringCallback) {
-                    e.stopPropagation();
-                    this.masterScoringCallback();
-                    return;
+            // Non-masters: peek and flip
+            if (!isMaster) {
+                const dPeeked = debounce(value =>
+                    call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:peeked:{{user.id}}`]: value }),
+                    300
+                );
+
+                // Toggle the corner peek effect on click
+                this.select('.face.back').addEventListener('click', (e) => {
+                    this.toggle('peeked-lower');
+                    dPeeked( this.is("peeked-lower") ? "True" : "False" ) ;
+                });
+
+                // Only the card owner can flip
+                if (isOwner) {
+                    const dFlipped = debounce(value =>
+                        call("PATCH", "/api/v1/rooms/{{room.id}}", { [`cards:${card_id}:flipped`]: value }),
+                        300
+                    );
+
+                    this.e.addEventListener('dblclick', _ => {
+
+                        this.untag('peeked-lower');
+                        this.untag('peeked-upper');
+                        dPeeked( "False" ) ;
+
+                        this.toggle('flipped');
+                        dFlipped( this.is("flipped") ? "True" : "False" ) ;
+
+                    });
                 }
-
-                this.toggle('peeked-lower');
-                dPeeked( this.is("peeked-lower") ? "True" : "False" ) ;
-            });
-
-            // Flips the card on double-click
-            this.e.addEventListener('dblclick', _ => {
-
-                this.untag('peeked-lower');  // no peek while flipping the card
-                this.untag('peeked-upper');  // no peek while flipping the card
-                dPeeked( "False" ) ;
-
-                this.toggle('flipped');
-                dFlipped( this.is("flipped") ? "True" : "False" ) ;
-
-            });
+            }
 
         }
 
@@ -84,11 +85,6 @@
         
         set flipped(bool) { bool ? this.tag("flipped") : this.untag("flipped") ; }
 
-        // Enable master scoring - replaces peek with score selector on left-click
-        enableMasterScoring(callback) {
-            this.masterScoringCallback = callback;
-        }
-
     }
     </script>
 
@@ -97,16 +93,16 @@
 
     <template id=t-score-selector>
         <div class="score-selector">
-            <button class="score-option" data-score="1">1️⃣</button>
-            <button class="score-option" data-score="2">2️⃣</button>
-            <button class="score-option" data-score="3">3️⃣</button>
-            <button class="score-option" data-score="4">4️⃣</button>
-            <button class="score-option" data-score="5">5️⃣</button>
-            <button class="score-option" data-score="6">6️⃣</button>
-            <button class="score-option" data-score="7">7️⃣</button>
-            <button class="score-option" data-score="8">8️⃣</button>
-            <button class="score-option" data-score="9">9️⃣</button>
-            <button class="score-option" data-score="10">🔟</button>
+            <button class="score-option" data-score="1">1</button>
+            <button class="score-option" data-score="2">2</button>
+            <button class="score-option" data-score="3">3</button>
+            <button class="score-option" data-score="4">4</button>
+            <button class="score-option" data-score="5">5</button>
+            <button class="score-option" data-score="6">6</button>
+            <button class="score-option" data-score="7">7</button>
+            <button class="score-option" data-score="8">8</button>
+            <button class="score-option" data-score="9">9</button>
+            <button class="score-option" data-score="10">10</button>
         </div>
     </template>
 
@@ -115,99 +111,49 @@
 
         constructor(cardId, container) {
             super(build("t-score-selector"));
-            
+
             this._cardId = cardId;
             this._currentScore = null;
             this.container = container;
             this.container.append(this.e);
             this.scoreButtons = {};
-            
-            // Create score buttons and store references
+
             this.e.querySelectorAll('.score-option').forEach(option => {
                 const score = parseInt(option.dataset.score);
                 this.scoreButtons[score] = option;
-                
+
                 option.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.selectScore(score);
+                    // Toggle: clicking the active score clears it
+                    const value = (score === this._currentScore) ? null : score;
+                    this.selectScore(value);
                     this.hide();
                 });
             });
         }
 
-        set cardId(id) {
-            this._cardId = id;
-        }
-
-        get cardId() {
-            return this._cardId;
-        }
+        set cardId(id)  { this._cardId = id }
+        get cardId()    { return this._cardId }
 
         set currentScore(value) {
-            this._currentScore = value;
-            
-            // Reset all buttons to their default state
+            this._currentScore = parseScore(value);
+
             Object.entries(this.scoreButtons).forEach(([score, button]) => {
-                button.textContent = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][score - 1];
-                button.classList.remove('cancel');
-                button.dataset.score = score;
-                button.style.background = '';
+                button.classList.toggle('active', parseInt(score) === this._currentScore);
             });
-            
-            // If there's a current score, replace that button with cancel (❌)
-            if (value !== null && value !== undefined && this.scoreButtons[value]) {
-                const button = this.scoreButtons[value];
-                button.textContent = '❌';
-                button.classList.add('cancel');
-                button.dataset.score = 'null';
-                button.style.background = 'var(--dbrown)';
-                
-                // Update click handler for cancel
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                this.scoreButtons[value] = newButton;
-                
-                newButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.selectScore(null);
-                    this.hide();
-                });
-            }
         }
 
         selectScore(value) {
-            if (!this._cardId) {
-                console.error('No cardId set for ScoreSelector');
-                return;
-            }
-            
-            // Send PATCH request to dedicated score endpoint
-            // call(method, route, params, headers, body)
             call("PATCH", `/api/v1/rooms/{{room.id}}/cards/${this._cardId}/score`, {}, {}, {
                 scored: value
-            })
-                .then(() => {
-                    console.log(`Score set to ${value} for card ${this._cardId}`);
-                })
-                .catch(err => {
-                    console.error('Failed to set score:', err);
-                });
+            });
         }
 
-        show() {
-            this.e.style.display = 'grid';
-        }
-
-        hide() {
-            this.e.style.display = 'none';
-        }
+        show() { this.e.style.display = 'grid' }
+        hide() { this.e.style.display = 'none' }
 
         toggle() {
-            if (this.e.style.display === 'grid') {
-                this.hide();
-            } else {
-                this.show();
-            }
+            this.e.style.display === 'grid' ? this.hide() : this.show();
         }
 
     }

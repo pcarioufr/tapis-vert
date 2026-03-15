@@ -307,29 +307,67 @@
     --lower-grad-end: 60%;
 }
 
-/* Score Badge (bottom-left of deck) */
-.deck .score-badge {
+/* Score Button (bottom-right of deck, master only) */
+.deck .score-button {
     position: absolute;
-    bottom: 0.5vw;
-    left: 0.5vw;
-    font-size: 2.5vw;
+    bottom: -1vw;
+    right: -2.75vw;
+    width: 3.5vw;
+    height: 3.5vw;
+    border-radius: 50%;
+    background: var(--bblue);
+    border: 0.2vw solid var(--beige);
+    color: var(--beige);
+    font-weight: bold;
+    font-size: 1.5vw;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     z-index: 10;
-    pointer-events: none;
-    display: none;
+    transition: transform 0.15s ease;
+    box-shadow: 0 0.2vw 0.6vw rgba(0, 0, 0, 0.4);
+}
+
+.deck .score-button:hover {
+    transform: scale(1.1);
 }
 
 
-/* Score Selector (pop-up emoji picker for masters) */
+/* Score display (non-master, read-only) */
+.deck .score-display {
+    position: absolute;
+    bottom: -1vw;
+    right: -2.75vw;
+    width: 3.5vw;
+    height: 3.5vw;
+    border-radius: 50%;
+    background: transparent;
+    border: 0.2vw solid var(--beige);
+    color: var(--beige);
+    font-weight: bold;
+    font-size: 1.5vw;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+}
+
+
+/* Score Selector (pop-up grid for masters) */
 .score-selector {
     position: absolute;
-    bottom: 100%;
-    left: 0;
-    margin-bottom: 0.5vw;
+    top: 100%;
+    right: -1vw;
+    transform: translateX(50%);
+    margin-top: 1.5vw;
     background: var(--beige);
-    border: 0.2vw solid var(--dbrown);
+    border: 0.2vw solid var(--beige);
     border-radius: 0.8vw;
-    padding: 0.8vw;
+    padding: 0.6vw;
     display: none;
     grid-template-columns: repeat(5, 1fr);
     gap: 0.5vw;
@@ -340,12 +378,14 @@
 .score-selector .score-option {
     width: 3vw;
     height: 3vw;
-    border: none;
-    background: transparent;
-    font-size: 2vw;
+    border-radius: 50%;
+    background: var(--dblue);
+    border: 0.2vw solid var(--beige);
+    color: var(--beige);
+    font-weight: bold;
+    font-size: 1.3vw;
     cursor: pointer;
-    border-radius: 0.4vw;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -353,14 +393,11 @@
 }
 
 .score-selector .score-option:hover {
-    background: var(--dbrown);
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
-.score-selector .score-option.cancel {
-    background: var(--red);
-}
-
-.score-selector .score-option.cancel:hover {
-    filter: brightness(0.9);
+.score-selector .score-option.active {
+    background: var(--beige);
+    color: var(--dblue);
+    border-color: var(--dblue);
 }

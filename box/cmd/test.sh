@@ -10,42 +10,125 @@ usage() {
     echo "----------------- box test -----------------"
     echo "Integration test suite and database management."
     echo ""
-    echo "Usage: box test [-h] <command>"
+    echo "Usage: box test [options] <command>"
     echo ""
     echo "Options:"
-    echo "    -h              show this help"
+    echo "    -h                  show this help"
+    echo "    --master  N         number of masters  (1-2,  default: 1)"
+    echo "    --player  N         number of players  (1-9,  default: 4)"
+    echo "    --watcher N         number of watchers (0-5,  default: 0)"
+    echo "    --name \"Room Name\"  room name (default: \"Integration Test Room\")"
     echo ""
     echo "Commands:"
     echo "    init            run full integration test"
-    echo "                    creates room, 5 users, round, 13 messages,"
-    echo "                    emoji reactions, and validates 11 assertions"
     echo "    delete          flush Redis database (wipe all data)"
     echo ""
     echo "Examples:"
-    echo "    box test init                        # Run integration test"
-    echo "    box test delete                      # Clean Redis database"
-    echo "    box -d test init                     # Run with debug output"
+    echo "    box test init                                          # 1 master, 4 players"
+    echo "    box test init --master 2 --player 3 --watcher 1        # custom composition"
+    echo "    box test init --name \"My Room\" --player 6              # custom room name"
+    echo "    box test delete                                        # clean Redis database"
+    echo "    box -d test init                                       # run with debug output"
 }
 
-# Process options first (like ssh.sh pattern)
-while getopts "h" option; do
-case ${option} in
-    h) usage && exit 0 ;;
-    *) usage && exit 1 ;;
+# Defaults
+N_MASTERS=1
+N_PLAYERS=4
+N_WATCHERS=0
+ROOM_NAME="Integration Test Room"
+
+# Parse options (long options via while/case/shift)
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage && exit 0
+            ;;
+        --master)
+            N_MASTERS="$2"
+            if [[ -z "$N_MASTERS" || "$N_MASTERS" -lt 1 || "$N_MASTERS" -gt 2 ]] 2>/dev/null; then
+                error "❌ --master must be between 1 and 2"
+                exit 1
+            fi
+            shift 2
+            ;;
+        --player)
+            N_PLAYERS="$2"
+            if [[ -z "$N_PLAYERS" || "$N_PLAYERS" -lt 1 || "$N_PLAYERS" -gt 9 ]] 2>/dev/null; then
+                error "❌ --player must be between 1 and 9"
+                exit 1
+            fi
+            shift 2
+            ;;
+        --watcher)
+            N_WATCHERS="$2"
+            if [[ -z "$N_WATCHERS" || "$N_WATCHERS" -lt 0 || "$N_WATCHERS" -gt 5 ]] 2>/dev/null; then
+                error "❌ --watcher must be between 0 and 5"
+                exit 1
+            fi
+            shift 2
+            ;;
+        --name)
+            ROOM_NAME="$2"
+            if [[ -z "$ROOM_NAME" ]]; then
+                error "❌ --name requires a value"
+                exit 1
+            fi
+            shift 2
+            ;;
+        -*)
+            error "❌ Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            # Positional argument (command)
+            if [ -z "${COMMAND:-}" ]; then
+                COMMAND="$1"
+                shift
+            else
+                error "❌ Unexpected argument: $1"
+                usage
+                exit 1
+            fi
+            ;;
     esac
 done
-shift $(($OPTIND-1))
 
-# Get the command after processing options
-COMMAND=${1:-}
-
-if [ -z "$COMMAND" ]; then
+if [ -z "${COMMAND:-}" ]; then
     error "❌ No command specified"
     usage
     exit 1
 fi
 
-# Test configuration  
+# Computed values
+TOTAL_USERS=$((N_MASTERS + N_PLAYERS + N_WATCHERS))
+N_ACTIVE=$((N_MASTERS + N_PLAYERS))  # Users who participate (send messages)
+
+# Name pool (16 names, enough for max 2+9+5=16)
+NAMES_POOL=(Alice Bob Charlie Diana Eve Frank Grace Henry Iris Jack Kate Leo Mia Noah Olivia Paul)
+
+# Build dynamic NAMES and ROLES arrays
+declare -a NAMES=()
+declare -a ROLES=()
+NAME_IDX=0
+
+for ((i=0; i<N_MASTERS; i++)); do
+    NAMES+=("${NAMES_POOL[$NAME_IDX]}")
+    ROLES+=("master")
+    NAME_IDX=$((NAME_IDX + 1))
+done
+for ((i=0; i<N_PLAYERS; i++)); do
+    NAMES+=("${NAMES_POOL[$NAME_IDX]}")
+    ROLES+=("player")
+    NAME_IDX=$((NAME_IDX + 1))
+done
+for ((i=0; i<N_WATCHERS; i++)); do
+    NAMES+=("${NAMES_POOL[$NAME_IDX]}")
+    ROLES+=("watcher")
+    NAME_IDX=$((NAME_IDX + 1))
+done
+
+# Test configuration
 BASE_URL="https://${SUBDOMAIN}.${DOMAIN}"  # Public HTTPS route (HTTP redirects to HTTPS)
 ADMIN_URL="http://localhost:8001"          # Will be accessed via SSH tunnel
 
@@ -87,21 +170,15 @@ check_services() {
 test_init() {
 
     notice "Starting Tapis Vert Integration Test..."
-
-    # Test Plan:
-    # 1. Create Room (via admin API)
-    # 2. Create 5 users with codes (via admin API)
-    # 3. Join users to room with roles (via public API + cookies) 
-    # 4. Start round (via public API + cookies)
-    # 5. Test messaging system (send messages from Alice, Bob, Charlie)
-    # 6. Verify game state and message storage
+    info "Composition: $N_MASTERS master(s), $N_PLAYERS player(s), $N_WATCHERS watcher(s) ($TOTAL_USERS total)"
 
     check_services
 
     # Step 1: Create Room via Admin API
     debug "Step 1: Creating room..."
 
-    ROOM_RESPONSE=$(curl -s -X POST "$ADMIN_URL/admin/api/rooms?name=Integration%20Test%20Room")
+    ROOM_NAME_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$ROOM_NAME'))")
+    ROOM_RESPONSE=$(curl -s -X POST "$ADMIN_URL/admin/api/rooms?name=$ROOM_NAME_ENCODED")
     debug "Room response: $ROOM_RESPONSE"
     ROOM_ID=$(echo "$ROOM_RESPONSE" | jq -r 'keys[0]')
 
@@ -110,80 +187,78 @@ test_init() {
         exit 1
     fi
 
-    info "New room: $ROOM_ID"
+    info "New room: $ROOM_ID ($ROOM_NAME)"
 
-    # Step 2: Create 5 users with codes via Admin API
-    debug "Step 2: Creating users..."
+    # Step 2: Create users with codes via Admin API
+    debug "Step 2: Creating $TOTAL_USERS users..."
 
     declare -a USER_IDS=()
     declare -a CODE_IDS=()
-    declare -a ROLES=("master" "player" "player" "player" "watcher")
-    declare -a NAMES=("Alice" "Bob" "Charlie" "Diana" "Eve")
 
-    for i in {0..4}; do
+    for i in $(seq 0 $((TOTAL_USERS - 1))); do
         # Create user (code is automatically created)
         USER_RESPONSE=$(curl -s -X POST "$ADMIN_URL/admin/api/users?name=${NAMES[$i]}")
         debug "User response for ${NAMES[$i]}: $USER_RESPONSE"
-        
+
         USER_ID=$(echo "$USER_RESPONSE" | jq -r 'keys[0]' 2>/dev/null)
-        
+
         if [[ "$USER_ID" == "null" || -z "$USER_ID" ]]; then
             error "Failed to create user ${NAMES[$i]}. Response: $USER_RESPONSE"
             exit 1
         fi
-        
+
         USER_IDS[$i]=$USER_ID
-        
+
         # Extract the auto-created code ID from user response
         CODE_ID=$(echo "$USER_RESPONSE" | jq -r ".[\"$USER_ID\"].codes | keys[0]" 2>/dev/null)
-        
+
         if [[ "$CODE_ID" == "null" || -z "$CODE_ID" ]]; then
             error "Failed to extract code for user ${NAMES[$i]}. Response: $USER_RESPONSE"
             exit 1
         fi
-        
+
         CODE_IDS[$i]=$CODE_ID
-        
+
         info "New user ${NAMES[$i]}: $USER_ID (code: $CODE_ID, role: ${ROLES[$i]})"
     done
 
     # Step 3: Join users to room via Public API (with cookie authentication)
     debug "Step 3: Assigning roles to users..."
 
-    for i in {0..4}; do
+    for i in $(seq 0 $((TOTAL_USERS - 1))); do
         CODE_ID=${CODE_IDS[$i]}
         ROLE=${ROLES[$i]}
         NAME=${NAMES[$i]}
-        
+
         debug "Authenticating $NAME and joining as $ROLE..."
-        
+
         # Step 3a: Get authentication cookie by visiting room page directly
         COOKIE_JAR="/tmp/cookies_${i}.txt"
-        
+
         # Visit the room page with code_id - this should authenticate and potentially auto-join
         ROOM_VISIT_RESPONSE=$(curl -s -L -c "$COOKIE_JAR" "$BASE_URL/r/$ROOM_ID?code_id=$CODE_ID" 2>/dev/null)
         debug "Room visit response for $NAME: $ROOM_VISIT_RESPONSE"
-        
+
         # Check if we got a cookie
         if [ -f "$COOKIE_JAR" ] && [ -s "$COOKIE_JAR" ]; then
             debug "Got session cookie for $NAME"
-            
+
             # Step 1: Join room (will get default "watcher" role)
             JOIN_RESPONSE=$(curl -s -L -b "$COOKIE_JAR" -X POST \
                 "$BASE_URL/api/v1/rooms/$ROOM_ID/join" 2>/dev/null)
             debug "Join response: $JOIN_RESPONSE"
-            
+
             if [[ "$JOIN_RESPONSE" == *"401 Unauthorized"* || "$JOIN_RESPONSE" == *"html"* ]]; then
                 error "Failed to join $NAME to room, skipping..."
                 rm -f "$COOKIE_JAR"
                 continue
             fi
-            
+
             # Step 2: Set correct role using PATCH endpoint
             ROLE_RESPONSE=$(curl -s -L -b "$COOKIE_JAR" -X PATCH \
                 "$BASE_URL/api/v1/rooms/$ROOM_ID/user/${USER_IDS[$i]}?role=$ROLE" 2>/dev/null)
             debug "Role update response: $ROLE_RESPONSE"
-            
+
             if [[ "$ROLE_RESPONSE" == *"401 Unauthorized"* || "$ROLE_RESPONSE" == *"html"* ]]; then
                 error "Failed to set role for $NAME, but continuing..."
             else
@@ -192,7 +267,7 @@ test_init() {
         else
             error "Failed to get session cookie for $NAME"
         fi
-        
+
         # Clean up cookie file
         rm -f "$COOKIE_JAR"
     done
@@ -209,11 +284,11 @@ test_init() {
 
     if [ -f "$MASTER_COOKIE" ] && [ -s "$MASTER_COOKIE" ]; then
         debug "Master user authenticated"
-        
+
         # Start the round using authenticated session
         ROUND_RESPONSE=$(curl -s -L -b "$MASTER_COOKIE" -X POST \
             "$BASE_URL/api/v1/rooms/$ROOM_ID/round")
-        
+
         info "New round started"
         debug "Round response: $ROUND_RESPONSE"
     else
@@ -225,28 +300,28 @@ test_init() {
 
     # Step 4b: Test card scoring
     debug "Step 4b: Testing card scoring..."
-    
+
     # Get room state to find a card ID
     ROOM_STATE_FOR_SCORING=$(curl -s -L "$BASE_URL/api/v1/rooms/$ROOM_ID")
     FIRST_CARD_ID=$(echo "$ROOM_STATE_FOR_SCORING" | jq -r ".[\"$ROOM_ID\"].cards | keys[0]" 2>/dev/null || echo "")
-    
+
     if [[ -n "$FIRST_CARD_ID" && "$FIRST_CARD_ID" != "null" ]]; then
         debug "Testing scoring with card: $FIRST_CARD_ID"
-        
+
         # Test 1: Master assigns score to card (should succeed)
-        MASTER_CODE=${CODE_IDS[0]}  # Alice is master
+        MASTER_CODE=${CODE_IDS[0]}  # First user is master
         MASTER_SCORE_COOKIE="/tmp/master_score_cookie.txt"
-        
+
         curl -s -L -c "$MASTER_SCORE_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$MASTER_CODE" >/dev/null 2>&1
-        
+
         if [ -f "$MASTER_SCORE_COOKIE" ] && [ -s "$MASTER_SCORE_COOKIE" ]; then
             MASTER_SCORE_RESPONSE=$(curl -s -L -b "$MASTER_SCORE_COOKIE" -X PATCH \
                 -H "Content-Type: application/json" \
                 -d '{"scored": 7}' \
                 "$BASE_URL/api/v1/rooms/$ROOM_ID/cards/$FIRST_CARD_ID/score")
-            
+
             info "Master score response: $MASTER_SCORE_RESPONSE"
-            
+
             if [[ "$MASTER_SCORE_RESPONSE" == *"success"* ]]; then
                 info "✓ Master successfully scored card"
                 MASTER_SCORE_SUCCESS="true"
@@ -259,40 +334,54 @@ test_init() {
             error "Failed to authenticate master for scoring"
             MASTER_SCORE_SUCCESS="false"
         fi
-        
+
         rm -f "$MASTER_SCORE_COOKIE"
-        
+
         # Small delay between tests
         sleep 0.1
-        
+
         # Test 2: Player tries to assign score to card (should fail)
-        PLAYER_CODE=${CODE_IDS[1]}  # Bob is player
-        PLAYER_SCORE_COOKIE="/tmp/player_score_cookie.txt"
-        
-        curl -s -L -c "$PLAYER_SCORE_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$PLAYER_CODE" >/dev/null 2>&1
-        
-        if [ -f "$PLAYER_SCORE_COOKIE" ] && [ -s "$PLAYER_SCORE_COOKIE" ]; then
-            PLAYER_SCORE_RESPONSE=$(curl -s -L -b "$PLAYER_SCORE_COOKIE" -X PATCH \
-                -H "Content-Type: application/json" \
-                -d '{"scored": 5}' \
-                "$BASE_URL/api/v1/rooms/$ROOM_ID/cards/$FIRST_CARD_ID/score")
-            
-            debug "Player score response: $PLAYER_SCORE_RESPONSE"
-            
-            # Player should get 403 error (not authorized)
-            if [[ "$PLAYER_SCORE_RESPONSE" == *"only masters can score cards"* ]]; then
-                info "✓ Player correctly denied permission to score"
-                PLAYER_SCORE_DENIED="true"
+        # Find first player index
+        PLAYER_INDEX=-1
+        for i in $(seq 0 $((TOTAL_USERS - 1))); do
+            if [[ "${ROLES[$i]}" == "player" ]]; then
+                PLAYER_INDEX=$i
+                break
+            fi
+        done
+
+        if [[ "$PLAYER_INDEX" -ge 0 ]]; then
+            PLAYER_CODE=${CODE_IDS[$PLAYER_INDEX]}
+            PLAYER_SCORE_COOKIE="/tmp/player_score_cookie.txt"
+
+            curl -s -L -c "$PLAYER_SCORE_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$PLAYER_CODE" >/dev/null 2>&1
+
+            if [ -f "$PLAYER_SCORE_COOKIE" ] && [ -s "$PLAYER_SCORE_COOKIE" ]; then
+                PLAYER_SCORE_RESPONSE=$(curl -s -L -b "$PLAYER_SCORE_COOKIE" -X PATCH \
+                    -H "Content-Type: application/json" \
+                    -d '{"scored": 5}' \
+                    "$BASE_URL/api/v1/rooms/$ROOM_ID/cards/$FIRST_CARD_ID/score")
+
+                debug "Player score response: $PLAYER_SCORE_RESPONSE"
+
+                # Player should get 403 error (not authorized)
+                if [[ "$PLAYER_SCORE_RESPONSE" == *"only masters can score cards"* ]]; then
+                    info "✓ Player correctly denied permission to score"
+                    PLAYER_SCORE_DENIED="true"
+                else
+                    warning "✗ Player was not denied permission (unexpected)"
+                    PLAYER_SCORE_DENIED="false"
+                fi
             else
-                warning "✗ Player was not denied permission (unexpected)"
+                error "Failed to authenticate player for scoring test"
                 PLAYER_SCORE_DENIED="false"
             fi
+
+            rm -f "$PLAYER_SCORE_COOKIE"
         else
-            error "Failed to authenticate player for scoring test"
+            warning "No players to test scoring denial"
             PLAYER_SCORE_DENIED="false"
         fi
-        
-        rm -f "$PLAYER_SCORE_COOKIE"
     else
         warning "No cards found for scoring tests"
         MASTER_SCORE_SUCCESS="false"
@@ -304,8 +393,8 @@ test_init() {
 
     # Test messages to send - A fun conversation!
     declare -a TEST_MESSAGES=(
-        "Hello" 
-        "Salut, comment ça va" 
+        "Hello"
+        "Salut, comment ça va"
         "Yay!!!!!!!"
         "Hey everyone! Ready to play?"
         "I'm so ready! This is going to be fun 😊"
@@ -318,32 +407,39 @@ test_init() {
         "May the best player win 🏆"
         "Let's goooo!"
     )
-    declare -a MESSAGE_SENDERS=(0 1 2 3 0 1 2 3 0 1 2 3 0)  # Alice, Bob, Charlie, Diana taking turns
-    declare -a SENDER_NAMES=("Alice" "Bob" "Charlie" "Diana" "Alice" "Bob" "Charlie" "Diana" "Alice" "Bob" "Charlie" "Diana" "Alice")
+
+    # Build sender arrays: cycle through active users (masters + players, not watchers)
+    declare -a MESSAGE_SENDERS=()
+    declare -a SENDER_NAMES=()
+    for i in {0..12}; do
+        SENDER_INDEX=$((i % N_ACTIVE))
+        MESSAGE_SENDERS[$i]=$SENDER_INDEX
+        SENDER_NAMES[$i]=${NAMES[$SENDER_INDEX]}
+    done
 
     for i in {0..12}; do
         SENDER_INDEX=${MESSAGE_SENDERS[$i]}
         MESSAGE=${TEST_MESSAGES[$i]}
         SENDER_NAME=${SENDER_NAMES[$i]}
         SENDER_CODE=${CODE_IDS[$SENDER_INDEX]}
-        
+
         debug "Sending message from $SENDER_NAME: '$MESSAGE'..."
-        
+
         # Authenticate sender and send message
         SENDER_COOKIE="/tmp/sender_${i}_cookie.txt"
-        
+
         # Get authentication cookie
         curl -s -L -c "$SENDER_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$SENDER_CODE" >/dev/null 2>&1
-        
+
         if [ -f "$SENDER_COOKIE" ] && [ -s "$SENDER_COOKIE" ]; then
             # Send message using authenticated session
             MESSAGE_RESPONSE=$(curl -s -L -b "$SENDER_COOKIE" -X POST \
                 -H "Content-Type: application/json" \
                 -d "{\"content\": \"$MESSAGE\"}" \
                 "$BASE_URL/api/v1/rooms/$ROOM_ID/message")
-            
+
             debug "Message response from $SENDER_NAME: $MESSAGE_RESPONSE"
-            
+
             if [[ "$MESSAGE_RESPONSE" == *"401 Unauthorized"* || "$MESSAGE_RESPONSE" == *"html"* ]]; then
                 error "Failed to send message from $SENDER_NAME"
             else
@@ -352,87 +448,90 @@ test_init() {
         else
             error "Failed to authenticate $SENDER_NAME for messaging"
         fi
-        
+
         # Clean up sender cookie
         rm -f "$SENDER_COOKIE"
-        
+
         # Small delay between messages to ensure different timestamps
         sleep 0.1
     done
 
     # Step 5b: Test emoji reactions
     debug "Step 5b: Testing emoji reactions..."
-    
+
     # Get room state to retrieve message IDs
     ROOM_STATE=$(curl -s "$BASE_URL/api/v1/rooms/$ROOM_ID")
     debug "Room state response: $ROOM_STATE"
-    
+
     # Messages are stored as a dict/object with message IDs as keys
     # Convert to array of message objects for processing
     MESSAGES_JSON=$(echo "$ROOM_STATE" | jq ".[\"$ROOM_ID\"].messages // {} | to_entries | map(.value + {id: .key})")
-    
+
     debug "Messages JSON: $MESSAGES_JSON"
-    
+
     # Parse message IDs (now converted to array)
     declare -a MESSAGE_IDS
     MESSAGE_COUNT=$(echo "$MESSAGES_JSON" | jq 'length // 0')
-    
+
     if [ "$MESSAGE_COUNT" -gt 0 ]; then
         info "Found $MESSAGE_COUNT messages, adding reactions..."
-        
+
         # Extract message IDs into array
         for ((i=0; i<$MESSAGE_COUNT; i++)); do
             MSG_ID=$(echo "$MESSAGES_JSON" | jq -r ".[$i].id // \"null\"")
             MESSAGE_IDS[$i]=$MSG_ID
             debug "Message $i ID: $MSG_ID"
         done
-        
+
         # Check if we got valid message IDs
         if [[ "${MESSAGE_IDS[0]}" == "null" || -z "${MESSAGE_IDS[0]}" ]]; then
             error "Failed to extract message IDs - messages might not have ID field"
             warning "Skipping reaction tests..."
         else
-        
-        # Define reactions to add: [message_index, user_index, emoji]
-        # Each user reacts to at least one message, total of 5 messages get reactions
+
+        # Define reactions: [message_index:user_index:emoji]
+        # User indices are modulo-wrapped to stay within active user bounds
         declare -a REACTIONS=(
-            "0:0:👍"     # Alice reacts with 👍 to first message
-            "0:1:❤️"     # Bob reacts with ❤️ to first message
-            "3:2:😂"     # Charlie reacts with 😂 to fourth message
-            "3:3:🤩"     # Diana reacts with 🤩 to fourth message
-            "5:0:👎"     # Alice reacts with 👎 to sixth message
-            "7:1:😬"     # Bob reacts with 😬 to eighth message
-            "7:2:😂"     # Charlie reacts with 😂 to eighth message
-            "9:3:❤️"     # Diana reacts with ❤️ to tenth message
-            "11:0:🤩"    # Alice reacts with 🤩 to twelfth message
-            "11:1:👍"    # Bob reacts with 👍 to twelfth message
+            "0:0:👍"
+            "0:1:❤️"
+            "3:2:😂"
+            "3:3:🤩"
+            "5:0:👎"
+            "7:1:😬"
+            "7:2:😂"
+            "9:3:❤️"
+            "11:0:🤩"
+            "11:1:👍"
         )
-        
+
         for reaction in "${REACTIONS[@]}"; do
-            IFS=':' read -r MSG_INDEX USER_INDEX EMOJI <<< "$reaction"
-            
+            IFS=':' read -r MSG_INDEX RAW_USER_INDEX EMOJI <<< "$reaction"
+
+            # Wrap user index to stay within active users
+            USER_INDEX=$((RAW_USER_INDEX % N_ACTIVE))
+
             if [ $MSG_INDEX -lt $MESSAGE_COUNT ]; then
                 MSG_ID=${MESSAGE_IDS[$MSG_INDEX]}
-                USER_NAME=${USER_NAMES[$USER_INDEX]}
+                USER_NAME=${NAMES[$USER_INDEX]}
                 USER_CODE=${CODE_IDS[$USER_INDEX]}
-                
+
                 debug "Adding reaction $EMOJI from $USER_NAME to message $MSG_ID..."
-                
+
                 # Authenticate user and add reaction
                 REACTOR_COOKIE="/tmp/reactor_${USER_INDEX}_cookie.txt"
-                
+
                 # Get authentication cookie
                 curl -s -L -c "$REACTOR_COOKIE" "$BASE_URL/r/$ROOM_ID?code_id=$USER_CODE" >/dev/null 2>&1
-                
+
                 if [ -f "$REACTOR_COOKIE" ] && [ -s "$REACTOR_COOKIE" ]; then
                     # Add reaction using authenticated session
                     REACTION_RESPONSE=$(curl -s -L -b "$REACTOR_COOKIE" -X PATCH \
                         -H "Content-Type: application/json" \
                         -d "{\"emoji\": \"$EMOJI\", \"action\": \"add\"}" \
                         "$BASE_URL/api/v1/rooms/$ROOM_ID/messages/$MSG_ID/react")
-                    
+
                     debug "Reaction response: $REACTION_RESPONSE"
-                    
+
                     if [[ "$REACTION_RESPONSE" == *"success"* ]]; then
                         info "$USER_NAME reacted with $EMOJI to message #$MSG_INDEX"
                     else
@@ -441,15 +540,15 @@ test_init() {
                 else
                     error "Failed to authenticate $USER_NAME for reaction"
                 fi
-                
+
                 # Clean up reactor cookie
                 rm -f "$REACTOR_COOKIE"
-                
+
                 # Small delay between reactions
                 sleep 0.1
             fi
         done
-        
+
         info "Emoji reactions test completed!"
         fi  # End of message ID validation check
     else
@@ -468,10 +567,10 @@ test_init() {
 
     # Parse and validate the state using admin data (more reliable for user info)
     NUM_USERS=$(echo "$ADMIN_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].users | length" 2>/dev/null || echo "0")
-    
+
     # Check cards/messages/round using public API (admin API doesn't include full game state)
     PUBLIC_ROOM_STATE=$(curl -s -L "$BASE_URL/api/v1/rooms/$ROOM_ID")
-    
+
     # Round is now an object with {id, topic} properties
     ROUND_VALUE=$(echo "$PUBLIC_ROOM_STATE" | jq ".[\"$ROOM_ID\"].round" 2>/dev/null || echo "null")
     info "🔍 Round value: $ROUND_VALUE"
@@ -479,41 +578,39 @@ test_init() {
     info "🔍 Round type: $ROUND_TYPE"
     HAS_ROUND=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].round | if type == \"object\" and .id != null then \"true\" else \"false\" end" 2>/dev/null || echo "false")
     info "🔍 HAS_ROUND result: $HAS_ROUND"
-    
+
     HAS_CARDS=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards | if type == \"object\" and length > 0 then \"true\" else \"false\" end" 2>/dev/null || echo "false")
-    
+
     # Validate card data integrity (check if all cards have complete properties)
     CARD_INTEGRITY="true"
     CARD_DETAILS=""
+    TOTAL_CARDS=0
     if [[ "$HAS_CARDS" == "true" ]]; then
         debug "🔍 Validating card data integrity..."
-        
+
         # Extract all cards (object/dict with card_id as keys) and check their properties
         CARDS_JSON=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards")
         TOTAL_CARDS=$(echo "$CARDS_JSON" | jq 'length' 2>/dev/null || echo "0")
-        
+
         COMPLETE_CARDS=0
-        
+
         if [[ "$TOTAL_CARDS" -gt 0 ]]; then
             # Iterate through object keys (card IDs)
             for CARD_ID in $(echo "$CARDS_JSON" | jq -r 'keys[]'); do
                 # Check if card has all 4 required properties with valid values (flipped, value, player_id, peeked)
-                # Note: 'id' is the key, not a property in the value
                 CARD_DATA=$(echo "$CARDS_JSON" | jq -r ".\"$CARD_ID\"")
-                
+
                 FLIPPED=$(echo "$CARD_DATA" | jq -r '.flipped // empty')
-                VALUE=$(echo "$CARD_DATA" | jq -r '.value // empty') 
+                VALUE=$(echo "$CARD_DATA" | jq -r '.value // empty')
                 PLAYER_ID=$(echo "$CARD_DATA" | jq -r '.player_id // empty')
                 PEEKED=$(echo "$CARD_DATA" | jq -r '.peeked // empty')
-                
-                # Count non-empty properties (4 total: flipped, value, player_id, peeked)
-                # Card ID is the key, not a property
+
                 PROPS=0
                 [[ -n "$FLIPPED" && "$FLIPPED" != "null" ]] && PROPS=$((PROPS + 1))
                 [[ -n "$VALUE" && "$VALUE" != "null" ]] && PROPS=$((PROPS + 1))
                 [[ -n "$PLAYER_ID" && "$PLAYER_ID" != "null" ]] && PROPS=$((PROPS + 1))
                 [[ -n "$PEEKED" && "$PEEKED" != "null" ]] && PROPS=$((PROPS + 1))
-                
+
                 if [[ "$PROPS" == "4" ]]; then
                     COMPLETE_CARDS=$((COMPLETE_CARDS + 1))
                     debug "Card $CARD_ID: complete (4/4 properties)"
@@ -523,21 +620,21 @@ test_init() {
                 fi
             done
         fi
-        
+
         CARD_DETAILS="$COMPLETE_CARDS/$TOTAL_CARDS"
         debug "Card integrity check: $COMPLETE_CARDS complete cards out of $TOTAL_CARDS total"
     fi
 
     # Verify user roles are correctly assigned
     declare -a ACTUAL_ROLES=()
-    for i in {0..4}; do
+    for i in $(seq 0 $((TOTAL_USERS - 1))); do
         USER_ID=${USER_IDS[$i]}
         EXPECTED_ROLE=${ROLES[$i]}
         NAME=${NAMES[$i]}
-        
+
         ACTUAL_ROLE=$(echo "$ADMIN_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].users.\"$USER_ID\".relation.role" 2>/dev/null || echo "null")
         ACTUAL_ROLES[$i]=$ACTUAL_ROLE
-        
+
         if [[ "$ACTUAL_ROLE" == "$EXPECTED_ROLE" ]]; then
             success "$NAME role: $ACTUAL_ROLE (ok)"
         else
@@ -547,31 +644,28 @@ test_init() {
 
     # Verify messages are stored correctly
     debug "📨 Verifying message storage..."
-    
+
     # Get messages from public API (stored as dict/object with message IDs as keys)
-    # Convert to array for validation
     ROOM_MESSAGES_STRING=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].messages // {} | to_entries | map(.value + {id: .key})" 2>/dev/null || echo "[]")
-    
+
     if [[ "$ROOM_MESSAGES_STRING" != "null" && "$ROOM_MESSAGES_STRING" != "" && "$ROOM_MESSAGES_STRING" != "[]" ]]; then
-        # Already parsed as array
         ROOM_MESSAGES="$ROOM_MESSAGES_STRING"
-        
-        # Parse message count
+
         MESSAGE_COUNT=$(echo "$ROOM_MESSAGES" | jq 'length' 2>/dev/null || echo "0")
-        
+
         debug "Found $MESSAGE_COUNT messages in room"
         debug "Raw messages JSON: $ROOM_MESSAGES"
-        
+
         # Verify specific message content
         declare -a FOUND_MESSAGES=()
         for i in {0..12}; do
             EXPECTED_MESSAGE=${TEST_MESSAGES[$i]}
             SENDER_INDEX=${MESSAGE_SENDERS[$i]}
             EXPECTED_AUTHOR=${USER_IDS[$SENDER_INDEX]}
-            
+
             # Check if message exists with correct content and author
             MESSAGE_FOUND=$(echo "$ROOM_MESSAGES" | jq -r "map(select(.content == \"$EXPECTED_MESSAGE\" and .author == \"$EXPECTED_AUTHOR\")) | length" 2>/dev/null || echo "0")
-            
+
             if [[ "$MESSAGE_FOUND" == "1" ]]; then
                 success "Message verification: '${EXPECTED_MESSAGE}' from ${SENDER_NAMES[$i]} (ok)"
                 FOUND_MESSAGES[$i]="true"
@@ -588,7 +682,7 @@ test_init() {
 
     # Run independent assertions
     ASSERTIONS_PASSED=0
-    TOTAL_ASSERTIONS=11  # Added 6 assertions: message count + message content + card data integrity + reactions + card scoring
+    TOTAL_ASSERTIONS=11
 
     # Assertion 1: Room exists and accessible
     if [[ "$ROOM_ID" != "null" && -n "$ROOM_ID" ]]; then
@@ -599,26 +693,26 @@ test_init() {
     fi
 
     # Assertion 2: All users joined room
-    if [[ "$NUM_USERS" == "5" ]]; then
-        success "Users in room: ok (5/5)"
+    if [[ "$NUM_USERS" == "$TOTAL_USERS" ]]; then
+        success "Users in room: ok ($NUM_USERS/$TOTAL_USERS)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
-        error "Users in room: failed ($NUM_USERS/5)"
+        error "Users in room: failed ($NUM_USERS/$TOTAL_USERS)"
     fi
 
     # Assertion 3: All user roles correctly assigned
     CORRECT_ROLES=0
-    for i in {0..4}; do
+    for i in $(seq 0 $((TOTAL_USERS - 1))); do
         if [[ "${ACTUAL_ROLES[$i]}" == "${ROLES[$i]}" ]]; then
             CORRECT_ROLES=$((CORRECT_ROLES + 1))
         fi
     done
-    
-    if [[ "$CORRECT_ROLES" == "5" ]]; then
-        success "User roles: ok (5/5)"
+
+    if [[ "$CORRECT_ROLES" == "$TOTAL_USERS" ]]; then
+        success "User roles: ok ($CORRECT_ROLES/$TOTAL_USERS)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
     else
-        error "User roles: failed ($CORRECT_ROLES/5)"
+        error "User roles: failed ($CORRECT_ROLES/$TOTAL_USERS)"
     fi
 
     # Assertion 4: Round created
@@ -629,15 +723,17 @@ test_init() {
         error "Round creation: failed"
     fi
 
-    # Assertion 5: Cards distributed
-    if [[ "$HAS_CARDS" == "true" ]]; then
-        success "Cards distribution: ok"
+    # Assertion 5: Cards distributed (one per player)
+    if [[ "$HAS_CARDS" == "true" && "$TOTAL_CARDS" == "$N_PLAYERS" ]]; then
+        success "Cards distribution: ok ($TOTAL_CARDS cards for $N_PLAYERS players)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
+    elif [[ "$HAS_CARDS" == "true" ]]; then
+        error "Cards distribution: wrong count ($TOTAL_CARDS cards for $N_PLAYERS players)"
     else
         error "Cards distribution: failed"
     fi
 
-    # Assertion 6: Card data integrity (NEW - detects corruption)
+    # Assertion 6: Card data integrity (detects corruption)
     if [[ "$HAS_CARDS" == "true" && "$CARD_INTEGRITY" == "true" ]]; then
         success "Card data integrity: ok ($CARD_DETAILS cards complete)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
@@ -663,7 +759,7 @@ test_init() {
             CORRECT_MESSAGES=$((CORRECT_MESSAGES + 1))
         fi
     done
-    
+
     if [[ "$CORRECT_MESSAGES" == "13" ]]; then
         success "Message content: ok (13/13)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
@@ -674,15 +770,13 @@ test_init() {
     # Assertion 9: Emoji reactions added
     MESSAGES_WITH_REACTIONS=0
     TOTAL_REACTIONS=0
-    
+
     if [[ "$ROOM_MESSAGES" != "null" && "$ROOM_MESSAGES" != "" && "$ROOM_MESSAGES" != "[]" ]]; then
         debug "Checking reactions in $MESSAGE_COUNT messages..."
-        # Count messages that have reactions
         for i in $(seq 0 $((MESSAGE_COUNT - 1))); do
             HAS_REACTIONS=$(echo "$ROOM_MESSAGES" | jq -r ".[$i].reactions | if type == \"object\" and length > 0 then \"true\" else \"false\" end" 2>/dev/null || echo "false")
             if [[ "$HAS_REACTIONS" == "true" ]]; then
                 MESSAGES_WITH_REACTIONS=$((MESSAGES_WITH_REACTIONS + 1))
-                # Count individual reactions
                 REACTION_COUNT=$(echo "$ROOM_MESSAGES" | jq -r ".[$i].reactions | to_entries | map(.value | length) | add" 2>/dev/null || echo "0")
                 TOTAL_REACTIONS=$((TOTAL_REACTIONS + REACTION_COUNT))
                 debug "Message $i has $REACTION_COUNT reactions"
@@ -692,7 +786,7 @@ test_init() {
     else
         debug "No messages available for reaction validation"
     fi
-    
+
     if [[ "$MESSAGES_WITH_REACTIONS" -ge 5 && "$TOTAL_REACTIONS" -ge 10 ]]; then
         success "Emoji reactions: ok ($TOTAL_REACTIONS reactions on $MESSAGES_WITH_REACTIONS messages)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
@@ -701,13 +795,12 @@ test_init() {
     fi
 
     # Assertion 10: Master can score cards
-    # Verify the score was actually set in the room state
     CARD_SCORE=""
     if [[ -n "$FIRST_CARD_ID" && "$FIRST_CARD_ID" != "null" ]]; then
         CARD_SCORE=$(echo "$PUBLIC_ROOM_STATE" | jq -r ".[\"$ROOM_ID\"].cards[\"$FIRST_CARD_ID\"].scored" 2>/dev/null || echo "null")
         debug "Card score in state: $CARD_SCORE"
     fi
-    
+
     if [[ "$MASTER_SCORE_SUCCESS" == "true" && "$CARD_SCORE" == "7" ]]; then
         success "Master card scoring: ok (score=7 confirmed)"
         ASSERTIONS_PASSED=$((ASSERTIONS_PASSED + 1))
@@ -726,12 +819,11 @@ test_init() {
     # Overall test result
     if [[ "$ASSERTIONS_PASSED" == "$TOTAL_ASSERTIONS" ]]; then
         success "🎉 Integration test PASSED ($ASSERTIONS_PASSED/$TOTAL_ASSERTIONS assertions)"
-                
-        # Optional: Clean up test data
+
         info "Test room ready for manual testing!"
 
         # Show URLs for each created user
-        for i in {0..4}; do
+        for i in $(seq 0 $((TOTAL_USERS - 1))); do
             USER_NAME=${NAMES[$i]}
             CODE_ID=${CODE_IDS[$i]}
             ROLE=${ROLES[$i]}
@@ -740,21 +832,17 @@ test_init() {
         done
 
         info "Use 'box test delete' to clean Redis when you're done testing"
-        # Uncomment the line below if you want auto-cleanup:
-        # curl -s -X DELETE "$ADMIN_URL/admin/api/rooms/$ROOM_ID" > /dev/null
-        
+
         exit 0
     else
         error "❌ Integration test FAILED ($ASSERTIONS_PASSED/$TOTAL_ASSERTIONS assertions passed)"
-        
+
         debug "🔍 Admin room state debug:"
         debug "$(echo "$ADMIN_ROOM_STATE" | jq . 2>/dev/null || echo "$ADMIN_ROOM_STATE")"
-        
+
         info "Test room preserved for debugging!"
         info "Use 'box test delete' to clean Redis when you're done debugging"
-        # Cleanup disabled to allow manual inspection
-        # curl -s -X DELETE "$ADMIN_URL/admin/api/rooms/$ROOM_ID" > /dev/null
-        
+
         exit 1
     fi
 }
@@ -769,7 +857,7 @@ test_delete() {
     check_services
 
     info "🧹 Wiping Redis database via admin API..."
-    
+
     # Use the proper flush endpoint
     FLUSH_RESPONSE=$(curl -s -X POST "$ADMIN_URL/admin/api/flush" 2>/dev/null)
     debug "Flush response: $FLUSH_RESPONSE"
@@ -778,17 +866,17 @@ test_delete() {
     FLUSH_STATUS=$(echo "$FLUSH_RESPONSE" | jq -r '.status' 2>/dev/null)
     KEYS_DELETED=$(echo "$FLUSH_RESPONSE" | jq -r '.keys_deleted' 2>/dev/null || echo "0")
     REMAINING_KEYS=$(echo "$FLUSH_RESPONSE" | jq -r '.remaining_keys' 2>/dev/null || echo "unknown")
-    
+
     if [[ "$FLUSH_STATUS" == "ok" ]]; then
         success "🎉 Redis database flushed successfully!"
         info "✅ Deleted $KEYS_DELETED keys from Redis"
-        
+
         if [[ "$REMAINING_KEYS" == "0" ]]; then
             success "✅ Verification: Redis database is completely clean"
         else
             warning "⚠️ $REMAINING_KEYS keys still remain in Redis"
         fi
-        
+
         exit 0
     else
         error "❌ Failed to flush Redis database"

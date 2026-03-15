@@ -96,3 +96,6 @@
     // Turn Redis strings into JS boolean - and vice versa
     function boolify(str)       { return str === "True" }
     function stringify(bool)    { return bool ? "True" : "False" }
+
+    // Parse a score value from Redis (string "1"-"10", "None", null) into an integer or null
+    function parseScore(value)  { return (value === null || value === undefined || value === "None") ? null : parseInt(value) }

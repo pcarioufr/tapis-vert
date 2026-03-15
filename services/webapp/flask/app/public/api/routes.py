@@ -252,10 +252,18 @@ def room_patch(room_id=None):
             if path[2] not in ["flipped", "peeked"]:
                 log.debug(f'invalid card property {path[2]}')
                 return flask.jsonify(), 400
+            if path[2] == "flipped":
+                if room.cards[path[1]].get("player_id") != user_id:
+                    log.debug(f'flip denied: card {path[1]} belongs to {room.cards[path[1]].get("player_id")}, not {user_id}')
+                    return flask.jsonify(), 403
             if path[2] == "peeked":
                 if path[3] != user_id:
                     log.debug(f'peeked card {path[3]} != user {user_id}')
                     return flask.jsonify(), 401
+                relation = room.users().all().get(user_id)
+                if relation and relation.role == "master":
+                    log.debug(f'peek denied: user {user_id} is a master')
+                    return flask.jsonify(), 403
 
         Room.patch(room_id, k, v)
 
