@@ -4,7 +4,7 @@
 
 Emoji reactions allow users to react to chat messages with emojis in real-time. The feature includes:
 - Add/remove reactions by clicking on emoji bubbles
-- Emoji picker with 8 preset emojis
+- 7 preset emoji reactions (👍 👎 ❤️ 😂 😢 😬 🤩)
 - Real-time updates via WebSocket
 - Backward compatibility with existing messages
 
@@ -120,21 +120,16 @@ Published when a reaction is added or removed.
 - Displays add reaction button on hover
 - Transforms raw reaction structure `{emoji: {user_id: "True"}}` to displayable format
 
-**EmojiPicker Component** (`templates/components/chat.jinja`)
-- Modal popup with 8 preset emojis
-- Positioned near message, stays on screen
-- Closes on selection or outside click
-
 **ChatContainer Component**
 - Manages message-to-reaction mapping
 - Handles API calls for toggling reactions
-- Reloads room data after WebSocket events to get updated reactions
+- Updates reaction UI via WebSocket events (no full reload needed)
 
 #### User Interactions
 
 1. **Add Reaction:**
-   - Hover over message → click smile button → select emoji
-   - OR click existing reaction bubble (if not already reacted)
+   - Click on a message to reveal emoji bubbles
+   - Click an empty emoji bubble to add a reaction
 
 2. **Remove Reaction:**
    - Click on highlighted reaction bubble (green)
@@ -142,6 +137,7 @@ Published when a reaction is added or removed.
 3. **View Reactions:**
    - Each reaction shows emoji + count
    - User's own reactions are highlighted in green
+   - Emoji bubbles auto-hide when mouse leaves the message
 
 #### CSS Styling
 
@@ -149,8 +145,8 @@ All reaction styles are in `static/styles/chat.css`:
 - `.reactions-container`: Flexbox layout for reaction bubbles
 - `.reaction-bubble`: Individual reaction with hover effects
 - `.reaction-bubble.reacted`: Green highlight for user's reactions
-- `.add-reaction-btn`: Hidden by default, shown on message hover
-- `.emoji-picker`: Popup with emoji options
+- `.reaction-bubble.empty`: Hidden by default, shown when message is clicked (`.reactions-open`)
+- `.msg-score-badge`: Score badge displayed as first item in reactions row
 - Responsive styles for mobile devices
 
 ## Usage
@@ -165,16 +161,12 @@ All reaction styles are in `static/styles/chat.css`:
 
 ### As a Developer
 
-#### Adding New Emojis to Picker
+#### Adding New Emojis
 
-Edit `templates/components/chat.jinja`:
-```html
-<template id="t-emoji-picker">
-    <div class="emoji-picker">
-        <button class="emoji-option" data-emoji="👍">👍</button>
-        <!-- Add more emojis here -->
-    </div>
-</template>
+Edit the `AVAILABLE_EMOJIS` array in the `Message` class (`templates/components/chat.jinja`):
+```javascript
+static AVAILABLE_EMOJIS = ["👍", "👎", "❤️", "😂", "😢", "😬", "🤩"];
+// Add more emojis to this array
 ```
 
 #### Testing Reactions

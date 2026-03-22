@@ -71,6 +71,7 @@ Retrieves detailed information about a specific room.
         "name": "Alice",
         "relation": {
           "role": "player",
+          "next": "master",
           "status": "online"
         }
       }
@@ -103,10 +104,16 @@ Join a room as an authenticated user.
 ### Start New Round
 
 #### `POST /api/v1/rooms/{room_id}/round`
-Start a new game round in the room. Cards are shuffled and redistributed.
+Start a new game round in the room. Promotes all users' `next` role to `role`, then shuffles and distributes cards to players.
+
+**Authentication:** Required (master or player role)
 
 **Parameters:**
 - `room_id` (path): Room identifier
+
+**Error Responses:**
+- `403`: User is a watcher (watchers cannot start rounds)
+- `404`: Room not found
 
 **Response:**
 ```json
@@ -124,7 +131,7 @@ Start a new game round in the room. Cards are shuffled and redistributed.
 #### `POST /api/v1/rooms/{room_id}/message`
 Send a chat message to the room.
 
-**Authentication:** Required
+**Authentication:** Required (master or player role)
 
 **Parameters:**
 - `room_id` (path): Room identifier
@@ -136,6 +143,10 @@ Send a chat message to the room.
 }
 ```
 
+**Error Responses:**
+- `403`: User is a watcher (watchers cannot send messages)
+- `404`: Room not found
+
 **Response:**
 ```json
 // Empty response with 200 status
@@ -144,7 +155,7 @@ Send a chat message to the room.
 ### Update Room/Card State
 
 #### `PATCH /api/v1/rooms/{room_id}`
-Update card states in the room.
+Patch card properties (flip, peek) in a room.
 
 **Authentication:** Required
 
@@ -152,23 +163,27 @@ Update card states in the room.
 - `room_id` (path): Room identifier
 
 **Query Parameters:**
-- `cards:{card_id}:flipped` - Set card flip state ("True"/"False")
-- `cards:{card_id}:peeked:{user_id}` - Set card peek state for user ("True"/"False")
+- `cards:{card_id}:flipped` - Set card flip state ("True"/"False"). Only the card owner can flip.
+- `cards:{card_id}:peeked:{user_id}` - Set card peek state for user ("True"/"False"). Masters cannot peek.
 
 **Example:**
 ```
 PATCH /api/v1/rooms/room123?cards:card456:flipped=True
 ```
 
+**Error Responses:**
+- `403`: Flip denied (not card owner) or peek denied (user is master)
+- `404`: Card not found
+
 **Response:**
 ```json
 // Empty response with 200 status
 ```
 
-### Update User Role
+### Update User Next Role
 
 #### `PATCH /api/v1/rooms/{room_id}/user/{user_id}`
-Change a user's role in the room.
+Set a user's role for the next round. The `next` value is promoted to `role` when a new round starts.
 
 **Authentication:** Required
 
@@ -177,18 +192,20 @@ Change a user's role in the room.
 - `user_id` (path): User to update
 
 **Query Parameters:**
-- `role` - New role ("master", "player", "watcher")
+- `next` - Role for next round ("master", "player", "watcher")
 
 **Example:**
 ```
-PATCH /api/v1/rooms/room123/user/user456?role=player
+PATCH /api/v1/rooms/room123/user/user456?next=player
 ```
+
+**Note:** Only the `next` field is accepted. Direct `role` changes are not allowed — roles are promoted automatically when a new round starts.
 
 **Response:**
 ```json
 {
   "room": {
-    // Updated room data with new user role
+    // Updated room data with new user next role
   }
 }
 ```
@@ -390,20 +407,20 @@ Any custom key-value pair. The server will prefix it with `user:{user_id}:` and 
 
 #### User Events
 - `user:online::{user_id}` - User comes online
-- `user:offline::{user_id}` - User goes offline  
+- `user:offline::{user_id}` - User goes offline
 - `user:joined::{user_id}` - User joins room
 - `user:left::{user_id}` - User leaves room
-- `user:player::{user_id}` - User becomes player
-- `user:watcher::{user_id}` - User becomes watcher
-- `user:master::{user_id}` - User becomes master
+- `user:next::{"user_id": "...", "next": "player|watcher|master"}` - User's next-round role changed
 
 #### Game Events
-- `round:new::{round_id}` - New round started
+- `round:new::{round_object}` - New round started (promotes next→role for all users)
 - `cards:{card_id}:flipped::{state}` - Card flip state changed
 - `cards:{card_id}:peeked:{user_id}::{state}` - Card peek state changed
+- `cards:{card_id}:scored::{score|"None"}` - Card scored by master
 
 #### Chat Events
 - `message:new::{message_object}` - New chat message
+- `message:reaction::{"message_id": "...", "emoji": "...", "action": "add|remove", "user_id": "..."}` - Emoji reaction changed
 
 #### Cursor Events
 - `user:{user_id}:cursor:move::{x}:{y}` - User cursor movement
@@ -453,8 +470,8 @@ The application implements debouncing for certain operations:
 ```json
 {
   "id": "string",
-  "name": "string", 
-  "round": "string",
+  "name": "string",
+  "round": {"id": "string", "topic": "string"},
   "cards": {
     "card_id": {
       "flipped": "True|False",
@@ -462,13 +479,19 @@ The application implements debouncing for certain operations:
       "peeked": {
         "user_id": "True|False"
       },
-      "value": "string"
+      "value": "string (1-10)",
+      "scored": "int (1-10) or null"
     }
   },
   "messages": {
-    "timestamp": {
+    "message_id": {
+      "id": "string",
       "content": "string",
-      "author": "user_id"
+      "author": "user_id",
+      "timestamp": "string (epoch ms)",
+      "reactions": {
+        "emoji": {"user_id": "True"}
+      }
     }
   },
   "users": {
@@ -476,12 +499,15 @@ The application implements debouncing for certain operations:
       "name": "string",
       "relation": {
         "role": "master|player|watcher",
+        "next": "master|player|watcher",
         "status": "online|offline"
       }
     }
   }
 }
 ```
+
+`role` is the user's current-round role (set at round start). `next` is the role they'll have when the next round begins.
 
 ### User Object
 ```json
@@ -491,7 +517,8 @@ The application implements debouncing for certain operations:
   "rooms": {
     "room_id": {
       "relation": {
-        "role": "master|player|watcher", 
+        "role": "master|player|watcher",
+        "next": "master|player|watcher",
         "status": "online|offline"
       }
     }
@@ -502,7 +529,12 @@ The application implements debouncing for certain operations:
 ### Message Object
 ```json
 {
+  "id": "string",
   "content": "string",
-  "author": "user_id"
+  "author": "user_id",
+  "timestamp": "string (epoch ms)",
+  "reactions": {
+    "emoji": {"user_id": "True"}
+  }
 }
 ``` 

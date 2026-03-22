@@ -126,10 +126,10 @@ User {
 Room {
     id: string,
     name: string,
-    round: string,
-    cards: dict,
-    messages: dict,
-    users: Relation[UsersRooms]
+    round: {id, topic},
+    cards: dict {card_id: {flipped, player_id, peeked, value, scored}},
+    messages: dict {msg_id: {id, content, author, timestamp, reactions}},
+    users: Relation[UsersRooms]  # role, next, status
 }
 
 # Authentication codes for magic links
@@ -185,11 +185,13 @@ Client Action → WebSocket → FastAPI → Redis Pub/Sub → All Connected Clie
 ```python
 Roles {
     "visitor":  # Unauthenticated, read-only access
-    "watcher":  # Authenticated observer
-    "player":   # Active game participant  
-    "master":   # Room administrator
+    "watcher":  # Authenticated observer (cannot chat, peek, flip, or score)
+    "player":   # Active game participant (can chat, peek own card, flip own card)
+    "master":   # Room administrator (can chat, score cards, start rounds)
 }
 ```
+
+**Two-phase role system**: Each user has `role` (current round) and `next` (pending). Clicking a role button sets `next`. When a new round starts, `next` is promoted to `role` for all users, then cards are dealt based on the new roles.
 
 ### Input Validation
 

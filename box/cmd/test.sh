@@ -256,7 +256,7 @@ test_init() {
 
             # Step 2: Set correct role using PATCH endpoint
             ROLE_RESPONSE=$(curl -s -L -b "$COOKIE_JAR" -X PATCH \
-                "$BASE_URL/api/v1/rooms/$ROOM_ID/user/${USER_IDS[$i]}?role=$ROLE" 2>/dev/null)
+                "$BASE_URL/api/v1/rooms/$ROOM_ID/user/${USER_IDS[$i]}?next=$ROLE" 2>/dev/null)
             debug "Role update response: $ROLE_RESPONSE"
 
             if [[ "$ROLE_RESPONSE" == *"401 Unauthorized"* || "$ROLE_RESPONSE" == *"html"* ]]; then

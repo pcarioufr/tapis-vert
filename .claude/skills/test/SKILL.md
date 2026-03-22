@@ -100,13 +100,13 @@ The app maintains a WebSocket connection at `/ws/<room_id>/<user_id>`.
 user:joined::<user_id>          # User entered room
 user:online::<user_id>          # User came online
 user:offline::<user_id>         # User went offline
-user:master::<user_id>          # Role changed to master
-user:player::<user_id>          # Role changed to player
+user:next::<json>               # Next-round role changed ({"user_id": "...", "next": "..."})
 cards:<id>:flipped::<bool>      # Card flipped/hidden
+cards:<id>:peeked:<uid>::<bool> # Card peek state changed
 cards:<id>:scored::<1-10>       # Card scored by master
 message:new::<json>             # New chat message
 message:reaction::<json>        # Emoji reaction added/removed
-round:new::<json>               # New round started
+round:new::<json>               # New round started (promotes next→role)
 ```
 
 ### Message Format
@@ -146,14 +146,15 @@ box -d test init   # With debug output
 **What `test init` does** (in order):
 1. Opens SSH tunnel to admin service (port 8001 → 8002)
 2. Checks service accessibility (public + admin)
-3. Creates 1 room, 5 users with auth codes
-4. Assigns roles: 1 master, 3 players, 1 watcher
-5. Starts a round (10 shuffled cards distributed to players)
-6. Sends 13 messages from different users
-7. Adds 10 emoji reactions across 5 messages
-8. Tests card scoring (master succeeds, player gets 403)
-9. Validates 11 assertions on final state
-10. Cleans up SSH tunnel on exit
+3. Creates 1 room and users with auth codes (default: 1 master, 4 players, 0 watchers)
+4. Assigns roles via `?next=` then starts a round (promotes next→role, deals cards)
+5. Sends 13 messages cycling through active users (masters + players)
+6. Adds 10 emoji reactions across messages
+7. Tests card scoring (master succeeds, player gets 403)
+8. Validates 11 assertions on final state
+9. Cleans up SSH tunnel on exit
+
+**Options:** `--master N` (1-2), `--player N` (1-9), `--watcher N` (0-5), `--name "Room Name"`
 
 **Script location**: `box/cmd/test.sh`
 Uses box libraries from `box/libs/` (sourced by `box.sh`). Hits `https://${SUBDOMAIN}.${DOMAIN}` (public) and `http://localhost:8001` (tunneled admin).

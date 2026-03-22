@@ -58,10 +58,13 @@ Optionally rotate the master role. New master starts a new round with a fresh th
 
 ## Card Interactions
 
-| Action | How | Who sees it |
-|---|---|---|
-| **Peek** | Single click your card | Only you |
-| **Flip/Reveal** | Double click your card | Everyone |
+| Action | How | Who can | Who sees it |
+|---|---|---|---|
+| **Peek** | Single click card back | Players and watchers (not masters) | Only you (corner lift) |
+| **Flip/Reveal** | Double click your card | Card owner only | Everyone |
+| **Score** | Click any card | Masters only | Everyone (score badge) |
+
+**Note:** Masters click cards to open the score selector (1-10 grid). They cannot peek or flip cards. Only the card's owner can flip it.
 
 ## Tips for Players
 

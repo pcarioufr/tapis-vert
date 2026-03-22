@@ -35,10 +35,20 @@
         // Card mapping: author_id -> card_id (set by RoomView)
         setCardMap(cardMap) { this._cardMap = cardMap; }
         setIsMaster(val) { this._isMaster = val; }
+        setIsWatcher(val) {
+            this._isWatcher = val;
+            const inputContainer = this.select(".floating-message-input");
+            if (val) {
+                inputContainer.style.display = 'none';
+            } else {
+                inputContainer.style.display = '';
+            }
+        }
 
         // Direct message handling
         addMessage(authorId, authorName, message, timestamp, messageId = null, reactions = {}, scored = null) {
-            console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
+            // Dedup: skip if message already exists
+            if (messageId && this.findMessage(messageId)) return;
 
             const isOwnMessage = (authorId === this.currentUserId);
             const msg = new Message(this.select(".messages"), isOwnMessage, messageId);

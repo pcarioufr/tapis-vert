@@ -122,6 +122,15 @@ class Room(ObjectMixin):
     def new_round(self):
         users = self.users().all()
 
+        # Promote next -> role for all users
+        for user_id, relation in users.items():
+            if relation.next:
+                self.users().set(user_id, role=relation.next)
+                relation.role = relation.next
+
+        # Re-read after promotion
+        users = self.users().all()
+
         round_id = new_id()
         round_topic = get_topic()
         round = {"id": round_id, "topic": round_topic}
@@ -132,11 +141,8 @@ class Room(ObjectMixin):
         random.shuffle(values)
 
         i = 0
+        card_ids = []
         for user_id, relation in users.items():
-
-            player = User.get_by_id(user_id)
-            
-            card_ids = []
             if relation.role == "player":
 
                 while True:
@@ -145,15 +151,15 @@ class Room(ObjectMixin):
                         break
                 card_ids.append(card_id)
 
-                cards[card_id] = { 
-                    "flipped": "True", 
-                    "player_id": player.id, 
+                cards[card_id] = {
+                    "flipped": "True",
+                    "player_id": user_id,
                     "peeked": {u_id: "False" for u_id in users.keys()},
                     "value": values[i],
                     "scored": None
                 }
 
-            i = i+1
+                i = i+1
 
         # Clear old messages when starting new round
         self.messages = {}
@@ -169,7 +175,7 @@ class UsersRooms(RelationMixin):
     status: { offline, online }
     '''
 
-    FIELDS = {"role", "status"}
+    FIELDS = {"role", "next", "status"}
 
     L_CLASS = User
     R_CLASS = Room

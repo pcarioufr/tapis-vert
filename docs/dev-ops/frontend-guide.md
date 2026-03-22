@@ -182,17 +182,16 @@ Interactions are debounced (300ms for card peek/flip, 100ms for cursors).
 
 | Component | Template | Description |
 |---|---|---|
-| `Card` | `t-card` | Card with peek (click) and flip (double-click) |
-| `Deck` | `t-deck` | User's card slot with score badge |
-| `Table` | `t-table` | Card grid container |
-| `ChatContainer` | `t-chat-container` | Chat area with messages and input |
-| `Message` | `t-message` | Chat bubble with reactions |
-| `EmojiPicker` | `t-emoji-picker` | Reaction emoji selector |
+| `Card` | `t-card` | Card with peek (click, non-masters only), flip (double-click, owner only), score toggle (click, masters only) |
+| `Deck` | `t-deck` | User's card slot with score badge/button and score selector |
+| `ScoreSelector` | `t-score-selector` | 5x2 grid scoring popup (1-10), reused in Deck and Message |
+| `Table` | `t-table` | Card grid container with topic display |
+| `ChatContainer` | `t-chat-container` | Chat area with messages, input (hidden for watchers), and scoring context |
+| `Message` | `t-message` | Chat bubble with emoji reactions and optional score selector (masters) |
 | `Panel` | `t-panel` | Sliding side panel (left/right) |
-| `UserRoomPanel` | `t-user-room-panel` | User entry in room panel |
+| `UserRoomPanel` | `t-panel-user` | User entry in room panel (shows role and pending next-role icon) |
 | `Button` | `t-button` | Styled button |
-| `FloatingButton` | `t-floating-button` | Fixed-position action button |
-| `ScoreSelector` | `t-score-selector` | Master scoring grid (1-10) |
+| `FloatingButton` | `t-floating-button` | Fixed-position action button (new round, role selection) |
 
 ## Adding a New Component
 
