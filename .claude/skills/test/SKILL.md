@@ -143,18 +143,24 @@ box test delete    # Flush Redis (wipe all data)
 box -d test init   # With debug output
 ```
 
+**Fixed composition:** 2 masters, 5 players, 5 watchers (12 users)
+
 **What `test init` does** (in order):
 1. Opens SSH tunnel to admin service (port 8001 → 8002)
 2. Checks service accessibility (public + admin)
-3. Creates 1 room and users with auth codes (default: 1 master, 4 players, 0 watchers)
-4. Assigns roles via `?next=` then starts a round (promotes next→role, deals cards)
-5. Sends 13 messages cycling through active users (masters + players)
-6. Adds 10 emoji reactions across messages
-7. Tests card scoring (master succeeds, player gets 403)
-8. Validates 11 assertions on final state
-9. Cleans up SSH tunnel on exit
-
-**Options:** `--master N` (1-2), `--player N` (1-9), `--watcher N` (0-5), `--name "Room Name"`
+3. Creates 1 room and 12 users with auth codes
+4. Assigns roles via `?next=` then starts round 1 (promotes next→role, deals cards)
+5. Verifies round 1 state: roles, cards (5), card integrity
+6. Tests permissions: master scores (ok), player scores (403), player flips other's card (403), master peeks (403), watcher messages (403), watcher starts round (403)
+7. Sends 13 messages cycling through masters + players
+8. Adds 12 emoji reactions including watcher reactions (watchers can react)
+9. Verifies messages and reactions
+10. Swaps 3 roles via `?next=`: watcher→player, player→master, master→watcher
+11. Verifies two-phase separation: `next` set but `role` unchanged
+12. Starts round 2 (promotes next→role)
+13. Verifies promoted roles and new card distribution
+14. Tests post-swap permissions: new watcher denied messaging/rounds, new player can message, new master can score
+15. Cleans up SSH tunnel on exit
 
 **Script location**: `box/cmd/test.sh`
 Uses box libraries from `box/libs/` (sourced by `box.sh`). Hits `https://${SUBDOMAIN}.${DOMAIN}` (public) and `http://localhost:8001` (tunneled admin).
