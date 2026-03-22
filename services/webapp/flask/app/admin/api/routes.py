@@ -154,3 +154,16 @@ def list_rooms():
         data.update(room.to_dict(True))
 
     return flask.jsonify(data), 200
+
+
+@admin_api.route("/rooms/<room_id>/round", methods=['POST'])
+def admin_round(room_id=None):
+    """Start a new round in a room (admin, no auth checks)"""
+
+    room = Room.get_by_id(room_id)
+    if room is None:
+        return flask.jsonify(), 404
+
+    round, cards = room.new_round()
+
+    return flask.jsonify({"round": round, "cards": len(cards) if cards else 0}), 200

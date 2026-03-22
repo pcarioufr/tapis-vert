@@ -215,11 +215,13 @@ test_init() {
     done
 
     # =========================================================================
-    # STEP 4: Start round 1 (promotes next→role)
+    # STEP 4: Start round 1 via admin API (promotes next→role)
     # =========================================================================
-    debug "Step 4: Starting round 1..."
+    debug "Step 4: Starting round 1 (via admin)..."
 
-    ROUND_RESPONSE=$(api_call 0 POST "/api/v1/rooms/$ROOM_ID/round")
+    # Use admin API for first round — all users join as watcher, so nobody
+    # has the role to start a round via the public API yet
+    ROUND_RESPONSE=$(curl -s -X POST "$ADMIN_URL/admin/api/rooms/$ROOM_ID/round")
     debug "Round 1 response: $ROUND_RESPONSE"
     info "Round 1 started"
 
