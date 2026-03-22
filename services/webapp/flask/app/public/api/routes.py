@@ -26,7 +26,7 @@ def room_get(room_id=None):
 
 
 @public_api.route("/v1/rooms/<room_id>/round", methods=['POST'])
-# @flask_login.login_required
+@flask_login.login_required
 def round_new(room_id=None):
     '''Start a new round in room'''
 
@@ -36,6 +36,14 @@ def round_new(room_id=None):
     room = Room.get_by_id(room_id)
     if room is None:
         return flask.jsonify(), 404
+
+    user_id = flask_login.current_user.id
+    users = room.users().all()
+    if user_id not in users:
+        return flask.jsonify({"error": "user not in room"}), 403
+    # Authorization is always based on current role, not next
+    if users[user_id].role == "watcher":
+        return flask.jsonify({"error": "watchers cannot start a new round"}), 403
 
     round, cards = room.new_round()
 
@@ -63,7 +71,7 @@ def room_join(room_id=None):
         log.debug(f'user {user_id} already member of room {room_id}')
     else:
         log.info(f'adding user {user_id} to room {room_id}')
-        room.users().add(user_id, role="watcher")
+        room.users().add(user_id, role="watcher", next="watcher")
         utils.publish(room_id, "user:joined", user_id)
 
     # ORM automatically unflattens all fields including messages
@@ -80,7 +88,14 @@ def room_message(room_id=None):
     timestamp = utils.now(False)
     content = flask.request.json.get("content")
     user_id = flask_login.current_user.id
-    
+
+    # Check user is member of room and not a watcher
+    users = room.users().all()
+    if user_id not in users:
+        return flask.jsonify({"error": "user not in room"}), 403
+    if users[user_id].role == "watcher":
+        return flask.jsonify({"error": "watchers cannot send messages"}), 403
+
     # Generate unique message ID
     message_id = new_id(8)
 
@@ -223,7 +238,7 @@ def card_score(room_id=None, card_id=None):
 @public_api.route("/v1/rooms/<room_id>", methods=['PATCH'])
 @flask_login.login_required
 def room_patch(room_id=None):
-    '''Join a room'''
+    '''Patch card properties (flip, peek) in a room'''
 
     if room_id is None:
         return flask.jsonify(), 400
@@ -252,10 +267,18 @@ def room_patch(room_id=None):
             if path[2] not in ["flipped", "peeked"]:
                 log.debug(f'invalid card property {path[2]}')
                 return flask.jsonify(), 400
+            if path[2] == "flipped":
+                if room.cards[path[1]].get("player_id") != user_id:
+                    log.debug(f'flip denied: card {path[1]} belongs to {room.cards[path[1]].get("player_id")}, not {user_id}')
+                    return flask.jsonify(), 403
             if path[2] == "peeked":
                 if path[3] != user_id:
                     log.debug(f'peeked card {path[3]} != user {user_id}')
                     return flask.jsonify(), 401
+                relation = room.users().all().get(user_id)
+                if relation and relation.role == "master":
+                    log.debug(f'peek denied: user {user_id} is a master')
+                    return flask.jsonify(), 403
 
         Room.patch(room_id, k, v)
 
@@ -291,12 +314,17 @@ def room_user(room_id=None, user_id=None):
     if flask_login.current_user.id not in users:
         return flask.jsonify(), 403
 
-    room.users().set(user_id, **flask.request.args)
+    # Whitelist allowed fields to prevent direct role bypass
+    allowed = {"next"}
+    args = {k: v for k, v in flask.request.args.items() if k in allowed}
 
-    if "role" in flask.request.args:
-        role = flask.request.args.get("role")
-        room, rel = user.rooms().get_by_id(room_id)
-        utils.publish(room_id, f"user:{rel.role}", user_id )
+    if not args:
+        return flask.jsonify({"error": "no valid fields provided"}), 400
+
+    room.users().set(user_id, **args)
+
+    if "next" in args:
+        utils.publish(room_id, "user:next", json.dumps({"user_id": user_id, "next": args["next"]}))
 
     # ORM automatically unflattens all fields including messages
     return flask.jsonify(room=room.to_dict()), 200

@@ -182,6 +182,16 @@
     font-weight: bold;
 }
 
+.panel-user .user-next-role {
+    display: flex;
+    align-items: center;
+    color: var(--dblue);
+    opacity: 0.5;
+    font-size: 1vw;
+    margin-left: auto;
+    margin-right: 0.5vw;
+}
+
 .panel-user .user-status {
     width: 0.8vw;
     height: 0.8vw;

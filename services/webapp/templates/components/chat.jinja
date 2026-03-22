@@ -32,16 +32,39 @@
             this.startTimestampRefresh();
         }
 
+        // Card mapping: author_id -> card_id (set by RoomView)
+        setCardMap(cardMap) { this._cardMap = cardMap; }
+        setIsMaster(val) { this._isMaster = val; }
+        setIsWatcher(val) {
+            this._isWatcher = val;
+            const inputContainer = this.select(".floating-message-input");
+            if (val) {
+                inputContainer.style.display = 'none';
+            } else {
+                inputContainer.style.display = '';
+            }
+        }
+
         // Direct message handling
-        addMessage(authorId, authorName, message, timestamp, messageId = null, reactions = {}) {
-            console.log(`Adding message ${authorName} (${authorId}): ${message} at ${timestamp}`);
+        addMessage(authorId, authorName, message, timestamp, messageId = null, reactions = {}, scored = null) {
+            // Dedup: skip if message already exists
+            if (messageId && this.findMessage(messageId)) return;
 
             const isOwnMessage = (authorId === this.currentUserId);
             const msg = new Message(this.select(".messages"), isOwnMessage, messageId);
             this.eMessages.push(msg);
+            msg.authorId = authorId;
             msg.author = authorName;
             msg.message = message;
             msg.timestamp = timestamp;
+
+            // Set scoring context
+            if (this._cardMap && this._cardMap[authorId]) {
+                msg.cardId = this._cardMap[authorId];
+            }
+            msg.isMaster = this._isMaster || false;
+            msg.scored = scored;
+
             msg.reactions = reactions;
 
             // Auto-scroll to bottom
@@ -52,6 +75,15 @@
         // Find message by ID
         findMessage(messageId) {
             return this.eMessages.find(m => m.messageId === messageId);
+        }
+
+        // Update score on all messages from a given author
+        updateScoreForAuthor(authorId, scoreValue) {
+            this.eMessages.forEach(msg => {
+                if (msg.authorId === authorId) {
+                    msg.scored = scoreValue;
+                }
+            });
         }
         
         // Toggle reaction on a message
@@ -171,8 +203,12 @@
                 </div>
                 <div class="content"></div>
             </div>
-            <div class="reactions-container">
-                <!-- Reaction bubbles go here -->
+            <div class="message-actions">
+                <div class="message-score-selector-container"></div>
+                <div class="reactions-container">
+                    <!-- Score badge inserted here as first child when scored -->
+                    <!-- Reaction bubbles go here -->
+                </div>
             </div>
         </div>
     </template>
@@ -188,30 +224,35 @@
 
         constructor(eParent, isOwnMessage = false, messageId = null) {
             super(build("t-message"));
-            
+
             this.messageId = messageId;
+            this.authorId = null;
             this._reactions = {};
+            this._cardId = null;
+            this._isMaster = false;
+            this._currentScore = null;
             this.isReactionsOpen = false;
-            
+            this.scoreSelector = null;
+
             // Set alignment class
             if (isOwnMessage) {
                 this.e.classList.add('own-message');
             } else {
                 this.e.classList.add('other-message');
             }
-            
+
             eParent.append(this.e);
-            
+
             // Add click handler to toggle reactions
             this.e.addEventListener('click', (e) => {
-                // Don't toggle if clicking on a reaction bubble
-                if (e.target.closest('.reaction-bubble')) {
+                // Don't toggle if clicking on a reaction bubble or score option
+                if (e.target.closest('.reaction-bubble') || e.target.closest('.score-option')) {
                     return;
                 }
                 this.toggleReactions();
                 e.stopPropagation();
             });
-            
+
             // Close reactions when mouse leaves message
             this.e.addEventListener('mouseleave', () => {
                 if (this.isReactionsOpen) {
@@ -219,20 +260,37 @@
                 }
             });
         }
+
+        set cardId(id) {
+            this._cardId = id;
+            if (this.scoreSelector) this.scoreSelector.cardId = id;
+        }
+
+        set isMaster(val) {
+            this._isMaster = val;
+            // Lazily create the score selector when we know this is a master with a card
+            if (val && this._cardId && !this.scoreSelector) {
+                this.scoreSelector = new ScoreSelector(this._cardId, this.select('.message-score-selector-container'));
+                this.scoreSelector.e.classList.add('message-score-selector');
+                this.scoreSelector.hide();
+            }
+        }
         
         toggleReactions() {
             this.isReactionsOpen = !this.isReactionsOpen;
-            
+
             if (this.isReactionsOpen) {
                 this.e.classList.add('reactions-open');
+                if (this.scoreSelector) this.scoreSelector.show();
             } else {
                 this.closeReactions();
             }
         }
-        
+
         closeReactions() {
             this.isReactionsOpen = false;
             this.e.classList.remove('reactions-open');
+            if (this.scoreSelector) this.scoreSelector.hide();
         }
 
         set message(message) { 
@@ -278,12 +336,20 @@
         renderReactions() {
             const container = this.select(".reactions-container");
             if (!container) return;
-            
+
             const currentUserId = "{{user.id if user.is_authenticated else ''}}";
-            
+
             // Clear all reaction bubbles
             container.innerHTML = '';
-            
+
+            // Insert score badge as first element if scored
+            if (this._currentScore !== null && this._currentScore !== undefined) {
+                const scoreBadge = document.createElement('div');
+                scoreBadge.className = 'reaction-bubble msg-score-badge';
+                scoreBadge.textContent = this._currentScore;
+                container.appendChild(scoreBadge);
+            }
+
             // Render filled reaction bubbles (existing reactions)
             // Reactions structure: {emoji: {user_id: "True"}}
             for (const [emoji, userDict] of Object.entries(this._reactions)) {
@@ -346,6 +412,12 @@
             return bubble;
         }
         
+        set scored(value) {
+            this._currentScore = parseScore(value);
+            if (this.scoreSelector) this.scoreSelector.currentScore = this._currentScore;
+            this.renderReactions();
+        }
+
         onReactionClick(emoji) {
             // Notify parent chat container
             const chatContainer = this.e.closest('.chat-container');

@@ -46,7 +46,7 @@
     <template id=t-deck>
         <div class="deck">
             <div class="c-card"> <!-- Card --> </div>
-            <div class="score-badge"></div>
+            <div class="score-badge-slot"></div>
             <div class="score-selector-container"></div>
         </div>
     </template>
@@ -61,77 +61,78 @@
             this._cardId = cardId;
             this.isMaster = isMaster;
             this.scoreSelector = null;
-            
-            // Create score selector for masters
+
+            const slot = this.select('.score-badge-slot');
+
             if (this.isMaster) {
+                this.scoreBadge = document.createElement('div');
+                this.scoreBadge.className = 'score-button';
+                slot.append(this.scoreBadge);
+
                 this.scoreSelector = new ScoreSelector(cardId, this.select('.score-selector-container'));
-                
-                // Close selector when clicking outside (anywhere in document)
+
+                this.scoreBadge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleScoreSelector();
+                });
+
+                this.e.addEventListener('score-toggle', (e) => {
+                    e.stopPropagation();
+                    this.toggleScoreSelector();
+                });
+
                 document.addEventListener('click', (e) => {
                     if (this.scoreSelector && !this.e.contains(e.target)) {
                         this.scoreSelector.hide();
                     }
-                }, true); // Use capture phase to intercept before other handlers
+                }, true);
+            } else {
+                this.scoreBadge = document.createElement('div');
+                this.scoreBadge.className = 'score-display';
+                this.scoreBadge.style.display = 'none';
+                slot.append(this.scoreBadge);
             }
         }
 
-        active(bool)  { 
+        active(bool)  {
             bool ?
                 this.table.append(this.e) :
                 this.e.remove() ;
         }
 
-        set pawn(element)  {
-            this.select(".pawn-slot").append(element)
-        }
-
         set card(element) {
             this.select(".c-card").append(element)
         }
-        
+
         set cardId(id) {
             this._cardId = id;
-            // Update score selector's cardId if it exists
-            if (this.scoreSelector) {
-                this.scoreSelector.cardId = id;
-            }
+            if (this.scoreSelector) this.scoreSelector.cardId = id;
         }
-        
+
         get cardId() {
             return this._cardId;
         }
-        
-        // Enable master scoring on the card
-        enableMasterScoring(cardElement) {
-            if (this.scoreSelector && cardElement) {
-                cardElement.enableMasterScoring(() => {
-                    // Close all other selectors before opening this one
-                    document.querySelectorAll('.score-selector').forEach(selector => {
-                        if (selector !== this.scoreSelector.e) {
-                            selector.style.display = 'none';
-                        }
-                    });
-                    this.scoreSelector.toggle();
-                });
+
+        set scored(value) {
+            const parsed = parseScore(value);
+            const hasScore = parsed !== null;
+            this.scoreBadge.innerText = hasScore ? parsed : '';
+
+            if (!this.isMaster) {
+                this.scoreBadge.style.display = hasScore ? 'flex' : 'none';
+            }
+
+            if (this.scoreSelector) {
+                this.scoreSelector.currentScore = parsed;
             }
         }
-        
-        set scored(value) {
-            const badge = this.select('.score-badge');
-            if (value === null || value === undefined) {
-                badge.style.display = 'none';
-                badge.innerText = '';
-            } else {
-                // Map number to keycap emoji
-                const scoreEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-                badge.innerText = scoreEmojis[value - 1] || value;
-                badge.style.display = 'block';
-            }
-            
-            // Update score selector's current score if it exists
-            if (this.scoreSelector) {
-                this.scoreSelector.currentScore = value;
-            }
+
+        toggleScoreSelector() {
+            // Close all other score selectors first
+            document.querySelectorAll('.score-selector').forEach(sel => {
+                if (sel !== this.scoreSelector.e) sel.style.display = 'none';
+            });
+            this.scoreSelector.toggle();
         }
 
     }

@@ -116,9 +116,10 @@ Card interactions debounced at 300ms, cursors at 100ms.
 
 ### Models
 ```python
-Room  — id, name, round, cards (dict), messages (dict), users (Relation)
+Room  — id, name, round {id, topic}, cards (dict), messages (dict), users (Relation)
 User  — id, name, codes (Relation), rooms (Relation)
 Code  — id, user (Relation)
+UsersRooms — role, next, status  # role=current round, next=pending for next round
 ```
 
 ### Key Operations
@@ -140,7 +141,7 @@ Messages are stored as flattened fields via `patch()` (not nested `save()`) to a
 - `POST /api/v1/rooms/<room_id>/round` — start new round
 - `POST /api/v1/rooms/<room_id>/message` — send chat message
 - `PATCH /api/v1/rooms/<room_id>` — update card state (query params)
-- `PATCH /api/v1/rooms/<room_id>/user/<user_id>` — change role
+- `PATCH /api/v1/rooms/<room_id>/user/<user_id>` — set next-round role (`?next=`)
 - `PATCH /api/v1/rooms/<room_id>/cards/<card_id>/score` — score card (master only)
 - `PATCH /api/v1/rooms/<room_id>/messages/<msg_id>/react` — emoji reaction
 
